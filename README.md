@@ -1,6 +1,8 @@
 # universal-mcp-toolkit
 [![CI](https://github.com/Markgatcha/universal-mcp-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Markgatcha/universal-mcp-toolkit/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg?logo=pnpm)](https://pnpm.io/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg?logo=pnpm)](https://pnpm.io/) [![npm](https://img.shields.io/npm/v/universal-mcp-toolkit?label=npm)](https://www.npmjs.com/package/universal-mcp-toolkit)
+[![npm downloads](https://img.shields.io/npm/dm/universal-mcp-toolkit)](https://www.npmjs.com/package/universal-mcp-toolkit)
+
 
 
 The canonical open-source monorepo for production-ready Model Context Protocol servers.
