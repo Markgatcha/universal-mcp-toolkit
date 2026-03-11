@@ -17,7 +17,20 @@ import {
 import { Octokit, RequestError } from "octokit";
 import { z } from "zod";
 
-const TOOL_NAMES = ["get_pull_request", "list_workflow_runs", "search_repositories"] as const;
+const TOOL_NAMES = [
+  "comment_on_issue",
+  "create_issue",
+  "create_or_update_file",
+  "create_pull_request",
+  "get_file_contents",
+  "get_pull_request",
+  "list_commits",
+  "list_issues",
+  "list_releases",
+  "list_workflow_runs",
+  "merge_pull_request",
+  "search_repositories",
+] as const;
 const RESOURCE_NAMES = ["repository"] as const;
 const PROMPT_NAMES = ["triage_pull_request"] as const;
 const REPOSITORY_RESOURCE_TEMPLATE = "github://repos/{owner}/{repo}";
@@ -41,11 +54,19 @@ const WORKFLOW_RUN_STATUS_VALUES = [
   "waiting",
 ] as const;
 const TRIAGE_FOCUS_VALUES = ["merge-readiness", "risk-review", "test-gaps", "release-notes"] as const;
+const ISSUE_STATE_VALUES = ["open", "closed", "all"] as const;
+const MERGE_METHOD_VALUES = ["merge", "squash", "rebase"] as const;
+const CREATE_OR_UPDATE_FILE_OPERATION_VALUES = ["created", "updated"] as const;
+const GITHUB_FILE_CONTENT_TYPE = "file";
+const GITHUB_CONTENTS_BASE64_ENCODING = "base64";
 
 const sortOrderSchema = z.enum(SORT_ORDER_VALUES);
 const repositorySearchSortSchema = z.enum(REPOSITORY_SEARCH_SORT_VALUES);
 const workflowRunStatusSchema = z.enum(WORKFLOW_RUN_STATUS_VALUES);
 const triageFocusSchema = z.enum(TRIAGE_FOCUS_VALUES);
+const issueStateSchema = z.enum(ISSUE_STATE_VALUES);
+const mergeMethodSchema = z.enum(MERGE_METHOD_VALUES);
+const createOrUpdateFileOperationSchema = z.enum(CREATE_OR_UPDATE_FILE_OPERATION_VALUES);
 
 const ownerSummarySchema = z.object({
   login: z.string().min(1),
@@ -95,6 +116,41 @@ const workflowRunSummarySchema = z.object({
   actor: ownerSummarySchema.nullable(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
+});
+
+const issueSummarySchema = z.object({
+  number: z.number().int().positive(),
+  title: z.string().min(1),
+  state: z.string().min(1),
+  author: ownerSummarySchema.nullable(),
+  labels: z.array(labelSummarySchema),
+  comments: z.number().int().nonnegative(),
+  htmlUrl: z.string().url(),
+  apiUrl: z.string().url(),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+});
+
+const commitSummarySchema = z.object({
+  sha: z.string().min(1),
+  message: z.string().min(1),
+  author: ownerSummarySchema.nullable(),
+  authorName: z.string().nullable(),
+  date: z.string().nullable(),
+  htmlUrl: z.string().url(),
+  apiUrl: z.string().url(),
+});
+
+const releaseSummarySchema = z.object({
+  id: z.number().int().positive(),
+  tagName: z.string().min(1),
+  name: z.string().nullable(),
+  body: z.string().nullable(),
+  isDraft: z.boolean(),
+  isPrerelease: z.boolean(),
+  publishedAt: z.string().nullable(),
+  htmlUrl: z.string().url(),
+  apiUrl: z.string().url(),
 });
 
 const searchRepositoriesInputShape = {
@@ -172,6 +228,181 @@ const listWorkflowRunsOutputShape = {
   runs: z.array(workflowRunSummarySchema),
 };
 
+const listIssuesInputShape = {
+  owner: z.string().trim().min(1).optional(),
+  repo: z.string().trim().min(1).optional(),
+  labels: z.array(z.string().trim().min(1)).default([]),
+  assignee: z.string().trim().min(1).optional(),
+  state: issueStateSchema.default("open"),
+  page: z.coerce.number().int().positive().default(1),
+  perPage: z.coerce.number().int().positive().max(100).default(10),
+};
+
+const listIssuesOutputShape = {
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  stateFilter: issueStateSchema,
+  assigneeFilter: z.string().nullable(),
+  labelFilter: z.array(z.string().min(1)),
+  page: z.number().int().positive(),
+  perPage: z.number().int().positive(),
+  issueCount: z.number().int().nonnegative(),
+  issues: z.array(issueSummarySchema),
+};
+
+const createIssueInputShape = {
+  owner: z.string().trim().min(1).optional(),
+  repo: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1),
+  body: z.string(),
+  labels: z.array(z.string().trim().min(1)).default([]),
+};
+
+const createIssueOutputShape = {
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  issueNumber: z.number().int().positive(),
+  title: z.string().min(1),
+  state: z.string().min(1),
+  body: z.string().nullable(),
+  author: ownerSummarySchema.nullable(),
+  labels: z.array(labelSummarySchema),
+  comments: z.number().int().nonnegative(),
+  htmlUrl: z.string().url(),
+  apiUrl: z.string().url(),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+};
+
+const commentOnIssueInputShape = {
+  owner: z.string().trim().min(1).optional(),
+  repo: z.string().trim().min(1).optional(),
+  issueNumber: z.coerce.number().int().positive(),
+  body: z.string().min(1),
+};
+
+const commentOnIssueOutputShape = {
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  issueNumber: z.number().int().positive(),
+  commentId: z.number().int().positive(),
+  body: z.string(),
+  author: ownerSummarySchema.nullable(),
+  htmlUrl: z.string().url(),
+  apiUrl: z.string().url(),
+  issueApiUrl: z.string().url(),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+};
+
+const listCommitsInputShape = {
+  owner: z.string().trim().min(1).optional(),
+  repo: z.string().trim().min(1).optional(),
+  sha: z.string().trim().min(1).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  perPage: z.coerce.number().int().positive().max(100).default(10),
+};
+
+const listCommitsOutputShape = {
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  ref: z.string().nullable(),
+  page: z.number().int().positive(),
+  perPage: z.number().int().positive(),
+  commits: z.array(commitSummarySchema),
+};
+
+const createPullRequestInputShape = {
+  owner: z.string().trim().min(1).optional(),
+  repo: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1),
+  body: z.string(),
+  head: z.string().trim().min(1),
+  base: z.string().trim().min(1),
+  draft: z.boolean().default(false),
+};
+
+const createPullRequestOutputShape = getPullRequestOutputShape;
+
+const mergePullRequestInputShape = {
+  owner: z.string().trim().min(1).optional(),
+  repo: z.string().trim().min(1).optional(),
+  pullNumber: z.coerce.number().int().positive(),
+  mergeMethod: mergeMethodSchema.default("merge"),
+};
+
+const mergePullRequestOutputShape = {
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  pullNumber: z.number().int().positive(),
+  title: z.string().min(1),
+  mergeMethod: mergeMethodSchema,
+  merged: z.boolean(),
+  message: z.string().min(1),
+  sha: z.string().min(1),
+};
+
+const getFileContentsInputShape = {
+  owner: z.string().trim().min(1).optional(),
+  repo: z.string().trim().min(1).optional(),
+  path: z.string().trim().min(1),
+  ref: z.string().trim().min(1).optional(),
+};
+
+const getFileContentsOutputShape = {
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  path: z.string().min(1),
+  ref: z.string().min(1).nullable(),
+  sha: z.string().min(1),
+  size: z.number().int().nonnegative(),
+  encoding: z.string().min(1),
+  content: z.string(),
+  htmlUrl: z.string().url().nullable(),
+  downloadUrl: z.string().url().nullable(),
+  apiUrl: z.string().url(),
+  gitUrl: z.string().url().nullable(),
+};
+
+const createOrUpdateFileInputShape = {
+  owner: z.string().trim().min(1).optional(),
+  repo: z.string().trim().min(1).optional(),
+  path: z.string().trim().min(1),
+  message: z.string().trim().min(1),
+  content: z.string(),
+  sha: z.string().trim().min(1).optional(),
+  branch: z.string().trim().min(1).optional(),
+};
+
+const createOrUpdateFileOutputShape = {
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  path: z.string().min(1),
+  operation: createOrUpdateFileOperationSchema,
+  commitSha: z.string().min(1),
+  commitApiUrl: z.string().url(),
+  commitHtmlUrl: z.string().url().nullable(),
+  contentSha: z.string().min(1),
+  contentApiUrl: z.string().url(),
+  contentHtmlUrl: z.string().url().nullable(),
+  downloadUrl: z.string().url().nullable(),
+};
+
+const listReleasesInputShape = {
+  owner: z.string().trim().min(1).optional(),
+  repo: z.string().trim().min(1).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  perPage: z.coerce.number().int().positive().max(100).default(10),
+};
+
+const listReleasesOutputShape = {
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  page: z.number().int().positive(),
+  perPage: z.number().int().positive(),
+  releases: z.array(releaseSummarySchema),
+};
+
 const triagePullRequestArgsShape = {
   owner: z.string().trim().min(1).optional(),
   repo: z.string().trim().min(1).optional(),
@@ -196,17 +427,38 @@ const gitHubConfigSchema = z.object({
 
 export type SearchRepositoriesInput = InferShape<typeof searchRepositoriesInputShape>;
 export type SearchRepositoriesOutput = InferShape<typeof searchRepositoriesOutputShape>;
+export type ListIssuesInput = InferShape<typeof listIssuesInputShape>;
+export type ListIssuesOutput = InferShape<typeof listIssuesOutputShape>;
+export type CreateIssueInput = InferShape<typeof createIssueInputShape>;
+export type CreateIssueOutput = InferShape<typeof createIssueOutputShape>;
+export type CommentOnIssueInput = InferShape<typeof commentOnIssueInputShape>;
+export type CommentOnIssueOutput = InferShape<typeof commentOnIssueOutputShape>;
 export type GetPullRequestInput = InferShape<typeof getPullRequestInputShape>;
 export type GetPullRequestOutput = InferShape<typeof getPullRequestOutputShape>;
+export type ListCommitsInput = InferShape<typeof listCommitsInputShape>;
+export type ListCommitsOutput = InferShape<typeof listCommitsOutputShape>;
+export type CreatePullRequestInput = InferShape<typeof createPullRequestInputShape>;
+export type CreatePullRequestOutput = InferShape<typeof createPullRequestOutputShape>;
+export type MergePullRequestInput = InferShape<typeof mergePullRequestInputShape>;
+export type MergePullRequestOutput = InferShape<typeof mergePullRequestOutputShape>;
+export type GetFileContentsInput = InferShape<typeof getFileContentsInputShape>;
+export type GetFileContentsOutput = InferShape<typeof getFileContentsOutputShape>;
+export type CreateOrUpdateFileInput = InferShape<typeof createOrUpdateFileInputShape>;
+export type CreateOrUpdateFileOutput = InferShape<typeof createOrUpdateFileOutputShape>;
 export type ListWorkflowRunsInput = InferShape<typeof listWorkflowRunsInputShape>;
 export type ListWorkflowRunsOutput = InferShape<typeof listWorkflowRunsOutputShape>;
+export type ListReleasesInput = InferShape<typeof listReleasesInputShape>;
+export type ListReleasesOutput = InferShape<typeof listReleasesOutputShape>;
 export type TriagePullRequestArgs = InferShape<typeof triagePullRequestArgsShape>;
 export type GitHubServerConfig = z.infer<typeof gitHubConfigSchema>;
 
 type RepositorySearchSort = (typeof REPOSITORY_SEARCH_SORT_VALUES)[number];
 type SortOrder = (typeof SORT_ORDER_VALUES)[number];
 type WorkflowRunStatus = (typeof WORKFLOW_RUN_STATUS_VALUES)[number];
-type RequestParameterValue = boolean | number | string | undefined;
+type IssueState = (typeof ISSUE_STATE_VALUES)[number];
+type MergeMethod = (typeof MERGE_METHOD_VALUES)[number];
+type CreateOrUpdateFileOperation = (typeof CREATE_OR_UPDATE_FILE_OPERATION_VALUES)[number];
+type RequestParameterValue = boolean | number | readonly string[] | string | undefined;
 
 interface GitHubUser {
   login: string;
@@ -314,6 +566,105 @@ interface GitHubWorkflowRunRecord {
   updated_at: string;
 }
 
+interface GitHubIssueRecord {
+  number: number;
+  title: string;
+  state: string;
+  body: string | null;
+  html_url: string;
+  url: string;
+  user: GitHubUser | null;
+  labels: GitHubLabel[];
+  comments: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface GitHubIssueCommentRecord {
+  id: number;
+  body: string;
+  html_url: string;
+  url: string;
+  issue_url: string;
+  user: GitHubUser | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface GitHubCommitIdentity {
+  name: string | null;
+  date: string | null;
+}
+
+interface GitHubCommitDetails {
+  message: string;
+  author?: GitHubCommitIdentity | null;
+  committer?: GitHubCommitIdentity | null;
+}
+
+interface GitHubCommitRecord {
+  sha: string;
+  commit: GitHubCommitDetails;
+  author: GitHubUser | null;
+  html_url: string;
+  url: string;
+}
+
+interface GitHubPullRequestMergeRecord {
+  sha: string;
+  merged: boolean;
+  message: string;
+}
+
+type GitHubRepositoryContentType = "file" | "dir" | "symlink" | "submodule";
+
+interface GitHubRepositoryContentBaseRecord {
+  type: GitHubRepositoryContentType;
+  path: string;
+  sha: string;
+  size: number;
+  url: string;
+  html_url: string | null;
+  git_url: string | null;
+  download_url: string | null;
+}
+
+interface GitHubRepositoryFileContentRecord extends GitHubRepositoryContentBaseRecord {
+  type: "file";
+  encoding: string | null;
+  content: string | null;
+}
+
+interface GitHubRepositoryNonFileContentRecord extends GitHubRepositoryContentBaseRecord {
+  type: Exclude<GitHubRepositoryContentType, "file">;
+}
+
+interface GitHubFileWriteContentRecord {
+  path: string;
+  sha: string;
+  url: string;
+  html_url: string | null;
+  download_url: string | null;
+}
+
+interface GitHubFileCommitRecord {
+  sha: string;
+  url: string;
+  html_url: string | null;
+}
+
+interface GitHubReleaseRecord {
+  id: number;
+  tag_name: string;
+  name: string | null;
+  body: string | null;
+  draft: boolean;
+  prerelease: boolean;
+  published_at: string | null;
+  html_url: string;
+  url: string;
+}
+
 interface MinimalGitHubUser {
   login: string;
   html_url: string;
@@ -365,6 +716,120 @@ interface ListWorkflowRunsResponse {
   };
 }
 
+type ListIssuesParams = Record<string, RequestParameterValue> & {
+  owner: string;
+  repo: string;
+  assignee?: string;
+  labels?: string;
+  state?: IssueState;
+  page?: number;
+  per_page?: number;
+};
+
+interface ListIssuesResponse {
+  data: GitHubIssueRecord[];
+}
+
+type CreateIssueParams = Record<string, RequestParameterValue> & {
+  owner: string;
+  repo: string;
+  title: string;
+  body: string;
+  labels?: string[];
+};
+
+interface CreateIssueResponse {
+  data: GitHubIssueRecord;
+}
+
+type CreateIssueCommentParams = Record<string, RequestParameterValue> & {
+  owner: string;
+  repo: string;
+  issue_number: number;
+  body: string;
+};
+
+interface CreateIssueCommentResponse {
+  data: GitHubIssueCommentRecord;
+}
+
+type ListCommitsParams = Record<string, RequestParameterValue> & {
+  owner: string;
+  repo: string;
+  sha?: string;
+  page?: number;
+  per_page?: number;
+};
+
+interface ListCommitsResponse {
+  data: GitHubCommitRecord[];
+}
+
+type CreatePullRequestParams = Record<string, RequestParameterValue> & {
+  owner: string;
+  repo: string;
+  title: string;
+  body: string;
+  head: string;
+  base: string;
+  draft?: boolean;
+};
+
+interface CreatePullRequestResponse {
+  data: GitHubPullRequestRecord;
+}
+
+type MergePullRequestParams = Record<string, RequestParameterValue> & {
+  owner: string;
+  repo: string;
+  pull_number: number;
+  merge_method?: MergeMethod;
+};
+
+interface MergePullRequestResponse {
+  data: GitHubPullRequestMergeRecord;
+}
+
+type GetFileContentsParams = Record<string, RequestParameterValue> & {
+  owner: string;
+  repo: string;
+  path: string;
+  ref?: string;
+};
+
+interface GetFileContentsResponse {
+  data: GitHubRepositoryFileContentRecord | GitHubRepositoryNonFileContentRecord | GitHubRepositoryContentBaseRecord[];
+}
+
+type CreateOrUpdateFileParams = Record<string, RequestParameterValue> & {
+  owner: string;
+  repo: string;
+  path: string;
+  message: string;
+  content: string;
+  sha?: string;
+  branch?: string;
+};
+
+interface CreateOrUpdateFileResponse {
+  status: number;
+  data: {
+    content: GitHubFileWriteContentRecord;
+    commit: GitHubFileCommitRecord;
+  };
+}
+
+type ListReleasesParams = Record<string, RequestParameterValue> & {
+  owner: string;
+  repo: string;
+  page?: number;
+  per_page?: number;
+};
+
+interface ListReleasesResponse {
+  data: GitHubReleaseRecord[];
+}
+
 type GetRepositoryParams = Record<string, RequestParameterValue> & {
   owner: string;
   repo: string;
@@ -378,14 +843,25 @@ export interface GitHubApiClient {
   search: {
     repos: (params: SearchRepositoriesParams) => Promise<SearchRepositoriesResponse>;
   };
+  issues: {
+    listForRepo: (params: ListIssuesParams) => Promise<ListIssuesResponse>;
+    create: (params: CreateIssueParams) => Promise<CreateIssueResponse>;
+    createComment: (params: CreateIssueCommentParams) => Promise<CreateIssueCommentResponse>;
+  };
   pulls: {
     get: (params: GetPullRequestParams) => Promise<GetPullRequestResponse>;
+    create: (params: CreatePullRequestParams) => Promise<CreatePullRequestResponse>;
+    merge: (params: MergePullRequestParams) => Promise<MergePullRequestResponse>;
   };
   actions: {
     listWorkflowRunsForRepo: (params: ListWorkflowRunsParams) => Promise<ListWorkflowRunsResponse>;
   };
   repos: {
     get: (params: GetRepositoryParams) => Promise<GetRepositoryResponse>;
+    listCommits: (params: ListCommitsParams) => Promise<ListCommitsResponse>;
+    getContent: (params: GetFileContentsParams) => Promise<GetFileContentsResponse>;
+    createOrUpdateFileContents: (params: CreateOrUpdateFileParams) => Promise<CreateOrUpdateFileResponse>;
+    listReleases: (params: ListReleasesParams) => Promise<ListReleasesResponse>;
   };
 }
 
@@ -407,9 +883,9 @@ export const metadata: ToolkitServerMetadata = {
     "Repository search, pull request lookup, workflow run inspection, repository resources, and triage prompts for GitHub.",
   version: "0.1.0",
   packageName: "@universal-mcp-toolkit/server-github",
-  homepage: "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
-  repositoryUrl: "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
-  documentationUrl: "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit/tree/main/servers/github",
+  homepage: "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  repositoryUrl: "https://github.com/Markgatcha/universal-mcp-toolkit",
+  documentationUrl: "https://github.com/Markgatcha/universal-mcp-toolkit/tree/main/servers/github",
   envVarNames: ["GITHUB_TOKEN"],
   transports: ["stdio", "sse"],
   toolNames: TOOL_NAMES,
@@ -472,6 +948,26 @@ function toRequiredGitHubUser(user: MinimalGitHubUser | null | undefined, operat
   };
 }
 
+function toGitHubLabelRecord(label: string | { name?: string | null; color?: string | null }): GitHubLabel {
+  if (typeof label === "string") {
+    return {
+      name: label,
+      color: null,
+    };
+  }
+
+  if (typeof label.name === "string" && label.name.length > 0) {
+    return {
+      name: label.name,
+      color: label.color ?? null,
+    };
+  }
+
+  return {
+    color: label.color ?? null,
+  };
+}
+
 function createGitHubApiClient(config: GitHubServerConfig): GitHubApiClient {
   const userAgent = `${metadata.packageName}/${metadata.version}`;
   const octokit = config.apiBaseUrl
@@ -510,6 +1006,64 @@ function createGitHubApiClient(config: GitHubServerConfig): GitHubApiClient {
         };
       },
     },
+    issues: {
+      listForRepo: async (params) => {
+        const response = await octokit.rest.issues.listForRepo(params);
+
+        return {
+          data: response.data
+            .filter((issue) => !issue.pull_request)
+            .map((issue) => ({
+              number: issue.number,
+              title: issue.title,
+              state: issue.state,
+              body: issue.body ?? null,
+              html_url: issue.html_url,
+              url: issue.url,
+              user: issue.user ? toRequiredGitHubUser(issue.user, "listing issues") : null,
+              labels: (issue.labels ?? []).map((label) => toGitHubLabelRecord(label)),
+              comments: issue.comments,
+              created_at: issue.created_at,
+              updated_at: issue.updated_at,
+            })),
+        };
+      },
+      create: async (params) => {
+        const response = await octokit.rest.issues.create(params);
+
+        return {
+          data: {
+            number: response.data.number,
+            title: response.data.title,
+            state: response.data.state,
+            body: response.data.body ?? null,
+            html_url: response.data.html_url,
+            url: response.data.url,
+            user: response.data.user ? toRequiredGitHubUser(response.data.user, "creating an issue") : null,
+            labels: response.data.labels.map((label) => toGitHubLabelRecord(label)),
+            comments: response.data.comments,
+            created_at: response.data.created_at,
+            updated_at: response.data.updated_at,
+          },
+        };
+      },
+      createComment: async (params) => {
+        const response = await octokit.rest.issues.createComment(params);
+
+        return {
+          data: {
+            id: response.data.id,
+            body: response.data.body ?? params.body,
+            html_url: response.data.html_url,
+            url: response.data.url,
+            issue_url: response.data.issue_url,
+            user: response.data.user ? toRequiredGitHubUser(response.data.user, "creating an issue comment") : null,
+            created_at: response.data.created_at,
+            updated_at: response.data.updated_at,
+          },
+        };
+      },
+    },
     pulls: {
       get: async (params) => {
         const response = await octokit.rest.pulls.get(params);
@@ -527,10 +1081,7 @@ function createGitHubApiClient(config: GitHubServerConfig): GitHubApiClient {
             html_url: response.data.html_url,
             url: response.data.url,
             user: response.data.user ? toRequiredGitHubUser(response.data.user, "loading a pull request") : null,
-            labels: response.data.labels.map((label) => ({
-              name: label.name,
-              color: label.color ?? null,
-            })),
+            labels: response.data.labels.map((label) => toGitHubLabelRecord(label)),
             requested_reviewers: (response.data.requested_reviewers ?? []).map((reviewer) =>
               toRequiredGitHubUser(reviewer, "loading requested reviewers"),
             ),
@@ -551,6 +1102,57 @@ function createGitHubApiClient(config: GitHubServerConfig): GitHubApiClient {
             created_at: response.data.created_at,
             updated_at: response.data.updated_at,
             merged_at: response.data.merged_at,
+          },
+        };
+      },
+      create: async (params) => {
+        const response = await octokit.rest.pulls.create(params);
+
+        return {
+          data: {
+            number: response.data.number,
+            title: response.data.title,
+            state: response.data.state,
+            body: response.data.body,
+            draft: response.data.draft ?? false,
+            merged: response.data.merged,
+            mergeable: response.data.mergeable,
+            mergeable_state: response.data.mergeable_state ?? null,
+            html_url: response.data.html_url,
+            url: response.data.url,
+            user: response.data.user ? toRequiredGitHubUser(response.data.user, "creating a pull request") : null,
+            labels: response.data.labels.map((label) => toGitHubLabelRecord(label)),
+            requested_reviewers: (response.data.requested_reviewers ?? []).map((reviewer) =>
+              toRequiredGitHubUser(reviewer, "creating a pull request"),
+            ),
+            comments: response.data.comments,
+            review_comments: response.data.review_comments,
+            commits: response.data.commits,
+            additions: response.data.additions,
+            deletions: response.data.deletions,
+            changed_files: response.data.changed_files,
+            head: {
+              ref: response.data.head.ref,
+              sha: response.data.head.sha,
+            },
+            base: {
+              ref: response.data.base.ref,
+              sha: response.data.base.sha,
+            },
+            created_at: response.data.created_at,
+            updated_at: response.data.updated_at,
+            merged_at: response.data.merged_at,
+          },
+        };
+      },
+      merge: async (params) => {
+        const response = await octokit.rest.pulls.merge(params);
+
+        return {
+          data: {
+            sha: response.data.sha,
+            merged: response.data.merged,
+            message: response.data.message,
           },
         };
       },
@@ -627,6 +1229,131 @@ function createGitHubApiClient(config: GitHubServerConfig): GitHubApiClient {
           },
         };
       },
+      listCommits: async (params) => {
+        const response = await octokit.rest.repos.listCommits(params);
+
+        return {
+          data: response.data.map((commit) => ({
+            sha: commit.sha,
+            commit: {
+              message: commit.commit.message,
+              author: commit.commit.author
+                ? {
+                    name: commit.commit.author.name ?? null,
+                    date: commit.commit.author.date ?? null,
+                  }
+                : null,
+              committer: commit.commit.committer
+                ? {
+                    name: commit.commit.committer.name ?? null,
+                    date: commit.commit.committer.date ?? null,
+                  }
+                : null,
+            },
+            author:
+              commit.author &&
+              "login" in commit.author &&
+              "html_url" in commit.author &&
+              "url" in commit.author &&
+              typeof commit.author.login === "string" &&
+              typeof commit.author.html_url === "string" &&
+              typeof commit.author.url === "string"
+                ? toRequiredGitHubUser(commit.author as MinimalGitHubUser, "listing commits")
+                : null,
+            html_url: commit.html_url,
+            url: commit.url,
+          })),
+        };
+      },
+      getContent: async (params) => {
+        const response = await octokit.rest.repos.getContent(params);
+
+        if (Array.isArray(response.data)) {
+          return {
+            data: response.data.map((entry) => ({
+              type: entry.type as GitHubRepositoryContentType,
+              path: entry.path,
+              sha: entry.sha,
+              size: entry.size,
+              url: entry.url,
+              html_url: entry.html_url ?? null,
+              git_url: entry.git_url ?? null,
+              download_url: entry.download_url ?? null,
+            })),
+          };
+        }
+
+        return {
+          data: {
+            type: response.data.type as GitHubRepositoryContentType,
+            path: response.data.path,
+            sha: response.data.sha,
+            size: response.data.size,
+            url: response.data.url,
+            html_url: response.data.html_url ?? null,
+            git_url: response.data.git_url ?? null,
+            download_url: response.data.download_url ?? null,
+            encoding: "encoding" in response.data ? response.data.encoding ?? null : null,
+            content: "content" in response.data ? response.data.content ?? "" : null,
+          },
+        };
+      },
+      createOrUpdateFileContents: async (params) => {
+        const response = await octokit.rest.repos.createOrUpdateFileContents(params);
+
+        if (!response.data.content) {
+          throw new ExternalServiceError("GitHub did not return file content metadata while writing a file.", {
+            exposeToClient: false,
+          });
+        }
+
+        if (
+          !response.data.content.path ||
+          !response.data.content.sha ||
+          !response.data.content.url ||
+          !response.data.commit.sha ||
+          !response.data.commit.url
+        ) {
+          throw new ExternalServiceError("GitHub did not return complete file metadata while writing a file.", {
+            exposeToClient: false,
+          });
+        }
+
+        return {
+          status: response.status,
+          data: {
+            content: {
+              path: response.data.content.path,
+              sha: response.data.content.sha,
+              url: response.data.content.url,
+              html_url: response.data.content.html_url ?? null,
+              download_url: response.data.content.download_url ?? null,
+            },
+            commit: {
+              sha: response.data.commit.sha,
+              url: response.data.commit.url,
+              html_url: response.data.commit.html_url ?? null,
+            },
+          },
+        };
+      },
+      listReleases: async (params) => {
+        const response = await octokit.rest.repos.listReleases(params);
+
+        return {
+          data: response.data.map((release) => ({
+            id: release.id,
+            tag_name: release.tag_name,
+            name: release.name ?? null,
+            body: release.body ?? null,
+            draft: release.draft,
+            prerelease: release.prerelease,
+            published_at: release.published_at ?? null,
+            html_url: release.html_url,
+            url: release.url,
+          })),
+        };
+      },
     },
   };
 }
@@ -634,6 +1361,9 @@ function createGitHubApiClient(config: GitHubServerConfig): GitHubApiClient {
 type OwnerSummary = z.infer<typeof ownerSummarySchema>;
 type LabelSummary = z.infer<typeof labelSummarySchema>;
 type RepositorySummary = z.infer<typeof repositorySummarySchema>;
+type IssueSummary = z.infer<typeof issueSummarySchema>;
+type CommitSummary = z.infer<typeof commitSummarySchema>;
+type ReleaseSummary = z.infer<typeof releaseSummarySchema>;
 type WorkflowRunSummary = z.infer<typeof workflowRunSummarySchema>;
 
 function toOwnerSummary(user: GitHubUser): OwnerSummary {
@@ -695,6 +1425,216 @@ function toWorkflowRunSummary(record: GitHubWorkflowRunRecord): WorkflowRunSumma
     actor: toNullableOwnerSummary(record.actor),
     createdAt: record.created_at,
     updatedAt: record.updated_at,
+  };
+}
+
+function toIssueSummary(record: GitHubIssueRecord): IssueSummary {
+  return {
+    number: record.number,
+    title: record.title,
+    state: record.state,
+    author: toNullableOwnerSummary(record.user),
+    labels: record.labels.map((label) => toLabelSummary(label)),
+    comments: record.comments,
+    htmlUrl: record.html_url,
+    apiUrl: record.url,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+function toIssueOutput(record: GitHubIssueRecord, owner: string, repo: string): CreateIssueOutput {
+  return {
+    owner,
+    repo,
+    issueNumber: record.number,
+    title: record.title,
+    state: record.state,
+    body: record.body,
+    author: toNullableOwnerSummary(record.user),
+    labels: record.labels.map((label) => toLabelSummary(label)),
+    comments: record.comments,
+    htmlUrl: record.html_url,
+    apiUrl: record.url,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+function toCommentOnIssueOutput(
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  record: GitHubIssueCommentRecord,
+): CommentOnIssueOutput {
+  return {
+    owner,
+    repo,
+    issueNumber,
+    commentId: record.id,
+    body: record.body,
+    author: toNullableOwnerSummary(record.user),
+    htmlUrl: record.html_url,
+    apiUrl: record.url,
+    issueApiUrl: record.issue_url,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+function toCommitSummary(record: GitHubCommitRecord): CommitSummary {
+  return {
+    sha: record.sha,
+    message: record.commit.message,
+    author: toNullableOwnerSummary(record.author),
+    authorName: record.commit.author?.name ?? record.commit.committer?.name ?? null,
+    date: record.commit.author?.date ?? record.commit.committer?.date ?? null,
+    htmlUrl: record.html_url,
+    apiUrl: record.url,
+  };
+}
+
+function toPullRequestOutput(owner: string, repo: string, record: GitHubPullRequestRecord): GetPullRequestOutput {
+  return {
+    owner,
+    repo,
+    pullNumber: record.number,
+    title: record.title,
+    state: record.state,
+    body: record.body,
+    isDraft: record.draft ?? false,
+    isMerged: record.merged,
+    mergeable: record.mergeable,
+    mergeableState: record.mergeable_state ?? null,
+    htmlUrl: record.html_url,
+    apiUrl: record.url,
+    author: toNullableOwnerSummary(record.user),
+    labels: record.labels.map((label) => toLabelSummary(label)),
+    requestedReviewers: record.requested_reviewers.map((reviewer) => toOwnerSummary(reviewer)),
+    comments: record.comments,
+    reviewComments: record.review_comments,
+    commits: record.commits,
+    additions: record.additions,
+    deletions: record.deletions,
+    changedFiles: record.changed_files,
+    headRef: record.head.ref,
+    headSha: record.head.sha,
+    baseRef: record.base.ref,
+    baseSha: record.base.sha,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+    mergedAt: record.merged_at,
+  };
+}
+
+function requireGitHubFileContent(
+  data: GetFileContentsResponse["data"],
+  requestedPath: string,
+): GitHubRepositoryFileContentRecord {
+  if (Array.isArray(data)) {
+    throw new ValidationError(`Path "${requestedPath}" resolves to a directory. get_file_contents only supports files.`);
+  }
+
+  if (data.type !== GITHUB_FILE_CONTENT_TYPE) {
+    throw new ValidationError(
+      `Path "${requestedPath}" does not resolve to a file. GitHub returned type "${data.type}".`,
+    );
+  }
+
+  return data;
+}
+
+function decodeGitHubFileContent(record: GitHubRepositoryFileContentRecord): string {
+  if (record.encoding?.toLowerCase() !== GITHUB_CONTENTS_BASE64_ENCODING) {
+    throw new ExternalServiceError(
+      `GitHub returned encoding "${record.encoding ?? "unknown"}" for "${record.path}". get_file_contents only supports base64 payloads.`,
+    );
+  }
+
+  if (record.content === null) {
+    throw new ExternalServiceError(`GitHub did not include file contents for "${record.path}".`);
+  }
+
+  return Buffer.from(record.content.replace(/\s+/g, ""), GITHUB_CONTENTS_BASE64_ENCODING).toString("utf8");
+}
+
+function toFileContentsOutput(
+  repository: { owner: string; repo: string },
+  ref: string | undefined,
+  record: GitHubRepositoryFileContentRecord,
+): GetFileContentsOutput {
+  return {
+    owner: repository.owner,
+    repo: repository.repo,
+    path: record.path,
+    ref: ref ?? null,
+    sha: record.sha,
+    size: record.size,
+    encoding: record.encoding ?? GITHUB_CONTENTS_BASE64_ENCODING,
+    content: decodeGitHubFileContent(record),
+    htmlUrl: record.html_url,
+    downloadUrl: record.download_url,
+    apiUrl: record.url,
+    gitUrl: record.git_url,
+  };
+}
+
+function encodeGitHubFileContent(content: string): string {
+  return Buffer.from(content, "utf8").toString(GITHUB_CONTENTS_BASE64_ENCODING);
+}
+
+function toCreateOrUpdateFileOperation(status: number): CreateOrUpdateFileOperation {
+  return status === 201 ? "created" : "updated";
+}
+
+function toCreateOrUpdateFileOutput(
+  repository: { owner: string; repo: string },
+  response: CreateOrUpdateFileResponse,
+): CreateOrUpdateFileOutput {
+  return {
+    owner: repository.owner,
+    repo: repository.repo,
+    path: response.data.content.path,
+    operation: toCreateOrUpdateFileOperation(response.status),
+    commitSha: response.data.commit.sha,
+    commitApiUrl: response.data.commit.url,
+    commitHtmlUrl: response.data.commit.html_url ?? null,
+    contentSha: response.data.content.sha,
+    contentApiUrl: response.data.content.url,
+    contentHtmlUrl: response.data.content.html_url ?? null,
+    downloadUrl: response.data.content.download_url ?? null,
+  };
+}
+
+function toMergePullRequestOutput(
+  repository: { owner: string; repo: string },
+  pullRequest: GitHubPullRequestRecord,
+  mergeResult: GitHubPullRequestMergeRecord,
+  mergeMethod: MergeMethod,
+): MergePullRequestOutput {
+  return {
+    owner: repository.owner,
+    repo: repository.repo,
+    pullNumber: pullRequest.number,
+    title: pullRequest.title,
+    mergeMethod,
+    merged: mergeResult.merged,
+    message: mergeResult.message,
+    sha: mergeResult.sha,
+  };
+}
+
+function toReleaseSummary(record: GitHubReleaseRecord): ReleaseSummary {
+  return {
+    id: record.id,
+    tagName: record.tag_name,
+    name: record.name,
+    body: record.body,
+    isDraft: record.draft,
+    isPrerelease: record.prerelease,
+    publishedAt: record.published_at,
+    htmlUrl: record.html_url,
+    apiUrl: record.url,
   };
 }
 
@@ -771,6 +1711,119 @@ function renderWorkflowRuns(output: ListWorkflowRunsOutput): string {
   return [`Found ${output.totalCount} workflow runs for ${output.owner}/${output.repo}.`, ...lines].join("\n");
 }
 
+function renderIssues(output: ListIssuesOutput): string {
+  const filters = [
+    `state=${output.stateFilter}`,
+    output.assigneeFilter ? `assignee=${output.assigneeFilter}` : null,
+    output.labelFilter.length > 0 ? `labels=${output.labelFilter.join(", ")}` : null,
+  ].filter((value): value is string => value !== null);
+
+  const lines = output.issues.map((issue) => {
+    const author = issue.author?.login ?? "unknown-author";
+    const labels = issue.labels.length > 0 ? issue.labels.map((label) => label.name).join(", ") : "none";
+    return `- #${issue.number} ${issue.title} [${issue.state}] by ${author} • labels: ${labels} • comments: ${issue.comments}`;
+  });
+
+  const header = `Found ${output.issueCount} issues for ${output.owner}/${output.repo}${filters.length > 0 ? ` (${filters.join(" • ")})` : ""}.`;
+  return [header, ...lines].join("\n");
+}
+
+function renderCreatedIssue(output: CreateIssueOutput): string {
+  const labels = output.labels.length > 0 ? output.labels.map((label) => label.name).join(", ") : "none";
+
+  return [
+    `Created issue #${output.issueNumber} in ${output.owner}/${output.repo}: ${output.title}`,
+    `State: ${output.state}`,
+    `Labels: ${labels}`,
+    `URL: ${output.htmlUrl}`,
+  ].join("\n");
+}
+
+function renderCommentOnIssue(output: CommentOnIssueOutput): string {
+  return [
+    `Added comment to issue #${output.issueNumber} in ${output.owner}/${output.repo}.`,
+    `Comment ID: ${output.commentId}`,
+    `Author: ${output.author?.login ?? "unknown-author"}`,
+    `Created: ${output.createdAt}`,
+    `Comment URL: ${output.htmlUrl}`,
+    "",
+    output.body,
+  ].join("\n");
+}
+
+function renderCommits(output: ListCommitsOutput): string {
+  const scope = output.ref ? ` at ${output.ref}` : "";
+  const lines = output.commits.map((commit) => {
+    const headline = commit.message.split(/\r?\n/u)[0]?.trim() || commit.message;
+    return `- ${commit.sha.slice(0, 7)} ${headline} — ${commit.author?.login ?? commit.authorName ?? "unknown author"} (${commit.date ?? "unknown date"})`;
+  });
+
+  return [`Listed ${output.commits.length} commits for ${output.owner}/${output.repo}${scope}.`, ...lines].join("\n");
+}
+
+function renderCreatedPullRequest(output: CreatePullRequestOutput): string {
+  return [
+    `Created pull request #${output.pullNumber} in ${output.owner}/${output.repo}: ${output.title}`,
+    `State: ${output.state}${output.isDraft ? " (draft)" : ""}`,
+    `Branches: ${output.headRef} -> ${output.baseRef}`,
+    `URL: ${output.htmlUrl}`,
+  ].join("\n");
+}
+
+function renderMergePullRequest(output: MergePullRequestOutput): string {
+  const headline = output.merged
+    ? `Merged pull request #${output.pullNumber} in ${output.owner}/${output.repo}: ${output.title}`
+    : `GitHub did not merge pull request #${output.pullNumber} in ${output.owner}/${output.repo}: ${output.title}`;
+
+  return [headline, `Method: ${output.mergeMethod}`, `SHA: ${output.sha}`, `Message: ${output.message}`].join("\n");
+}
+
+function renderFileContents(output: GetFileContentsOutput): string {
+  const lines = [
+    `File: ${output.owner}/${output.repo}:${output.path}${output.ref ? ` @ ${output.ref}` : ""}`,
+    `SHA: ${output.sha}`,
+    `Size: ${output.size} bytes`,
+    `Encoding: ${output.encoding}`,
+    `API URL: ${output.apiUrl}`,
+  ];
+  if (output.htmlUrl) lines.push(`HTML URL: ${output.htmlUrl}`);
+  if (output.downloadUrl) lines.push(`Download URL: ${output.downloadUrl}`);
+  if (output.gitUrl) lines.push(`Git URL: ${output.gitUrl}`);
+  lines.push("", output.content.length > 0 ? output.content : "[empty file]");
+  return lines.join("\n");
+}
+
+function renderCreateOrUpdateFile(output: CreateOrUpdateFileOutput): string {
+  const action = output.operation === "created" ? "Created" : "Updated";
+  const lines = [
+    `${action} ${output.owner}/${output.repo}:${output.path}`,
+    `Commit: ${output.commitSha}`,
+    `Commit URL: ${output.commitHtmlUrl ?? output.commitApiUrl}`,
+    `Content URL: ${output.contentHtmlUrl ?? output.contentApiUrl}`,
+  ];
+
+  if (output.downloadUrl !== null) {
+    lines.push(`Download URL: ${output.downloadUrl}`);
+  }
+
+  return lines.join("\n");
+}
+
+function renderReleases(output: ListReleasesOutput): string {
+  const lines = output.releases.map((release) => {
+    const nameSuffix = release.name ? ` — ${release.name}` : "";
+    const statusParts: string[] = [];
+
+    if (release.isDraft) statusParts.push("draft");
+    if (release.isPrerelease) statusParts.push("prerelease");
+    statusParts.push(release.publishedAt ? `published ${release.publishedAt}` : "unpublished");
+
+    return `- ${release.tagName}${nameSuffix} [${statusParts.join(" • ")}]`;
+  });
+
+  return [`Found ${output.releases.length} releases for ${output.owner}/${output.repo}.`, ...lines].join("\n");
+}
+
 function getTemplateParam(params: Record<string, string | string[]>, key: string): string {
   const value = params[key];
   if (typeof value === "string" && value.length > 0) {
@@ -816,7 +1869,16 @@ export class GitHubServer extends ToolkitServer {
     this.config = config;
 
     this.registerSearchRepositoriesTool();
+    this.registerListIssuesTool();
+    this.registerCreateIssueTool();
+    this.registerCommentOnIssueTool();
+    this.registerGetFileContentsTool();
     this.registerGetPullRequestTool();
+    this.registerListCommitsTool();
+    this.registerCreatePullRequestTool();
+    this.registerMergePullRequestTool();
+    this.registerCreateOrUpdateFileTool();
+    this.registerListReleasesTool();
     this.registerListWorkflowRunsTool();
     this.registerRepositoryResource();
     this.registerTriagePrompt();
@@ -990,6 +2052,353 @@ export class GitHubServer extends ToolkitServer {
           };
         },
         renderText: renderPullRequest,
+      }),
+    );
+  }
+
+  private registerListIssuesTool(): void {
+    this.registerTool(
+      defineTool({
+        name: "list_issues",
+        title: "List issues",
+        description: "List repository issues with optional state, label, and assignee filters.",
+        inputSchema: listIssuesInputShape,
+        outputSchema: listIssuesOutputShape,
+        annotations: {
+          readOnlyHint: true,
+        },
+        handler: async (input, context) => {
+          const repository = this.resolveRepositoryTarget(input.owner, input.repo);
+          await context.log("info", `Listing issues for ${repository.owner}/${repository.repo}`);
+
+          const params: ListIssuesParams = {
+            owner: repository.owner,
+            repo: repository.repo,
+            state: input.state,
+            page: input.page,
+            per_page: input.perPage,
+          };
+
+          if (input.assignee !== undefined) {
+            params.assignee = input.assignee;
+          }
+
+          if (input.labels.length > 0) {
+            params.labels = input.labels.join(",");
+          }
+
+          const response = await this.withGitHubApi("listing issues", () => this.client.issues.listForRepo(params));
+          const issues = response.data.map((issue) => toIssueSummary(issue));
+
+          return {
+            owner: repository.owner,
+            repo: repository.repo,
+            stateFilter: input.state,
+            assigneeFilter: input.assignee ?? null,
+            labelFilter: [...input.labels],
+            page: input.page,
+            perPage: input.perPage,
+            issueCount: issues.length,
+            issues,
+          };
+        },
+        renderText: renderIssues,
+      }),
+    );
+  }
+
+  private registerCreateIssueTool(): void {
+    this.registerTool(
+      defineTool({
+        name: "create_issue",
+        title: "Create an issue",
+        description: "Create a new GitHub issue with title, body, and optional labels.",
+        inputSchema: createIssueInputShape,
+        outputSchema: createIssueOutputShape,
+        handler: async (input, context) => {
+          const repository = this.resolveRepositoryTarget(input.owner, input.repo);
+          await context.log("info", `Creating issue "${input.title}" in ${repository.owner}/${repository.repo}`);
+
+          const params: CreateIssueParams = {
+            owner: repository.owner,
+            repo: repository.repo,
+            title: input.title,
+            body: input.body,
+          };
+
+          if (input.labels.length > 0) {
+            params.labels = input.labels;
+          }
+
+          const response = await this.withGitHubApi("creating an issue", () => this.client.issues.create(params));
+
+          return toIssueOutput(response.data, repository.owner, repository.repo);
+        },
+        renderText: renderCreatedIssue,
+      }),
+    );
+  }
+
+  private registerCommentOnIssueTool(): void {
+    this.registerTool(
+      defineTool({
+        name: "comment_on_issue",
+        title: "Comment on an issue",
+        description: "Add a comment to an existing GitHub issue using configured repo defaults when available.",
+        inputSchema: commentOnIssueInputShape,
+        outputSchema: commentOnIssueOutputShape,
+        handler: async (input, context) => {
+          const repository = this.resolveRepositoryTarget(input.owner, input.repo);
+          await context.log("info", `Adding comment to issue #${input.issueNumber} for ${repository.owner}/${repository.repo}`);
+
+          const response = await this.withGitHubApi("commenting on an issue", () =>
+            this.client.issues.createComment({
+              owner: repository.owner,
+              repo: repository.repo,
+              issue_number: input.issueNumber,
+              body: input.body,
+            }),
+          );
+
+          return toCommentOnIssueOutput(repository.owner, repository.repo, input.issueNumber, response.data);
+        },
+        renderText: renderCommentOnIssue,
+      }),
+    );
+  }
+
+  private registerGetFileContentsTool(): void {
+    this.registerTool(
+      defineTool({
+        name: "get_file_contents",
+        title: "Get file contents",
+        description: "Read a file from a GitHub repository at an optional ref and return decoded contents with file metadata.",
+        inputSchema: getFileContentsInputShape,
+        outputSchema: getFileContentsOutputShape,
+        annotations: {
+          readOnlyHint: true,
+        },
+        handler: async (input, context) => {
+          const repository = this.resolveRepositoryTarget(input.owner, input.repo);
+          await context.log("info", `Loading file contents for ${repository.owner}/${repository.repo}:${input.path}`);
+
+          const params: GetFileContentsParams = {
+            owner: repository.owner,
+            repo: repository.repo,
+            path: input.path,
+          };
+
+          if (input.ref !== undefined) {
+            params.ref = input.ref;
+          }
+
+          const response = await this.withGitHubApi("loading file contents", () => this.client.repos.getContent(params));
+          const record = requireGitHubFileContent(response.data, input.path);
+          return toFileContentsOutput(repository, input.ref, record);
+        },
+        renderText: renderFileContents,
+      }),
+    );
+  }
+
+  private registerListCommitsTool(): void {
+    this.registerTool(
+      defineTool({
+        name: "list_commits",
+        title: "List commits",
+        description: "List recent commits for a repository with an optional branch or commitish selector.",
+        inputSchema: listCommitsInputShape,
+        outputSchema: listCommitsOutputShape,
+        annotations: {
+          readOnlyHint: true,
+        },
+        handler: async (input, context) => {
+          const repository = this.resolveRepositoryTarget(input.owner, input.repo);
+          await context.log(
+            "info",
+            `Listing commits for ${repository.owner}/${repository.repo}${input.sha ? ` at ${input.sha}` : ""}`,
+          );
+
+          const params: ListCommitsParams = {
+            owner: repository.owner,
+            repo: repository.repo,
+            page: input.page,
+            per_page: input.perPage,
+          };
+
+          if (input.sha !== undefined) {
+            params.sha = input.sha;
+          }
+
+          const response = await this.withGitHubApi("listing commits", () => this.client.repos.listCommits(params));
+
+          return {
+            owner: repository.owner,
+            repo: repository.repo,
+            ref: input.sha ?? null,
+            page: input.page,
+            perPage: input.perPage,
+            commits: response.data.map((commit) => toCommitSummary(commit)),
+          };
+        },
+        renderText: renderCommits,
+      }),
+    );
+  }
+
+  private registerCreatePullRequestTool(): void {
+    this.registerTool(
+      defineTool({
+        name: "create_pull_request",
+        title: "Create a pull request",
+        description: "Create a pull request from a head branch to a base branch in the target repository.",
+        inputSchema: createPullRequestInputShape,
+        outputSchema: createPullRequestOutputShape,
+        handler: async (input, context) => {
+          const repository = this.resolveRepositoryTarget(input.owner, input.repo);
+
+          if (input.head === input.base) {
+            throw new ValidationError("Head and base branches must be different when creating a pull request.");
+          }
+
+          await context.log(
+            "info",
+            `Creating pull request from ${input.head} to ${input.base} for ${repository.owner}/${repository.repo}`,
+          );
+
+          const params: CreatePullRequestParams = {
+            owner: repository.owner,
+            repo: repository.repo,
+            title: input.title,
+            body: input.body,
+            head: input.head,
+            base: input.base,
+          };
+
+          if (input.draft) {
+            params.draft = true;
+          }
+
+          const response = await this.withGitHubApi("creating a pull request", () => this.client.pulls.create(params));
+
+          return toPullRequestOutput(repository.owner, repository.repo, response.data);
+        },
+        renderText: renderCreatedPullRequest,
+      }),
+    );
+  }
+
+  private registerMergePullRequestTool(): void {
+    this.registerTool(
+      defineTool({
+        name: "merge_pull_request",
+        title: "Merge a pull request",
+        description: "Merge a GitHub pull request using the merge, squash, or rebase strategy.",
+        inputSchema: mergePullRequestInputShape,
+        outputSchema: mergePullRequestOutputShape,
+        handler: async (input, context) => {
+          const repository = this.resolveRepositoryTarget(input.owner, input.repo);
+          await context.log(
+            "info",
+            `Merging pull request #${input.pullNumber} for ${repository.owner}/${repository.repo} with ${input.mergeMethod}`,
+          );
+
+          const pullRequest = await this.withGitHubApi("loading a pull request before merging", () =>
+            this.client.pulls.get({
+              owner: repository.owner,
+              repo: repository.repo,
+              pull_number: input.pullNumber,
+            }),
+          );
+
+          const mergeResult = await this.withGitHubApi("merging a pull request", () =>
+            this.client.pulls.merge({
+              owner: repository.owner,
+              repo: repository.repo,
+              pull_number: input.pullNumber,
+              merge_method: input.mergeMethod,
+            }),
+          );
+
+          return toMergePullRequestOutput(repository, pullRequest.data, mergeResult.data, input.mergeMethod);
+        },
+        renderText: renderMergePullRequest,
+      }),
+    );
+  }
+
+  private registerCreateOrUpdateFileTool(): void {
+    this.registerTool(
+      defineTool({
+        name: "create_or_update_file",
+        title: "Create or update a repository file",
+        description: "Create a new file or replace an existing file in a GitHub repository with a commit.",
+        inputSchema: createOrUpdateFileInputShape,
+        outputSchema: createOrUpdateFileOutputShape,
+        handler: async (input, context) => {
+          const repository = this.resolveRepositoryTarget(input.owner, input.repo);
+          await context.log("info", `Creating or updating ${input.path} in ${repository.owner}/${repository.repo}`);
+
+          const params: CreateOrUpdateFileParams = {
+            owner: repository.owner,
+            repo: repository.repo,
+            path: input.path,
+            message: input.message,
+            content: encodeGitHubFileContent(input.content),
+          };
+
+          if (input.sha !== undefined) {
+            params.sha = input.sha;
+          }
+
+          if (input.branch !== undefined) {
+            params.branch = input.branch;
+          }
+
+          const response = await this.withGitHubApi("creating or updating a repository file", () =>
+            this.client.repos.createOrUpdateFileContents(params),
+          );
+
+          return toCreateOrUpdateFileOutput(repository, response);
+        },
+        renderText: renderCreateOrUpdateFile,
+      }),
+    );
+  }
+
+  private registerListReleasesTool(): void {
+    this.registerTool(
+      defineTool({
+        name: "list_releases",
+        title: "List releases",
+        description: "List repository releases with tag, draft, prerelease, publication, URL, and body details.",
+        inputSchema: listReleasesInputShape,
+        outputSchema: listReleasesOutputShape,
+        annotations: {
+          readOnlyHint: true,
+        },
+        handler: async (input, context) => {
+          const repository = this.resolveRepositoryTarget(input.owner, input.repo);
+          await context.log("info", `Listing releases for ${repository.owner}/${repository.repo}`);
+
+          const response = await this.withGitHubApi("listing releases", () =>
+            this.client.repos.listReleases({
+              owner: repository.owner,
+              repo: repository.repo,
+              page: input.page,
+              per_page: input.perPage,
+            }),
+          );
+
+          return {
+            owner: repository.owner,
+            repo: repository.repo,
+            page: input.page,
+            perPage: input.perPage,
+            releases: response.data.map((release) => toReleaseSummary(release)),
+          };
+        },
+        renderText: renderReleases,
       }),
     );
   }
