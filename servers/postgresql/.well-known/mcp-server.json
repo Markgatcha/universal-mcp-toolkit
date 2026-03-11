@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "postgresql",
+  "title": "PostgreSQL MCP Server",
+  "description": "Schema inspection and safe query tools for PostgreSQL.",
+  "version": "0.1.0",
+  "transports": [
+    "stdio",
+    "http+sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "POSTGRESQL_URL"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "packageName": "@universal-mcp-toolkit/server-postgresql",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "tools": [
+    "list-tables",
+    "describe-table",
+    "run-query"
+  ],
+  "resources": [
+    "schema-overview"
+  ],
+  "prompts": [
+    "query-review"
+  ]
+}

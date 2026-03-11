@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "vercel",
+  "title": "Vercel MCP Server",
+  "description": "Project, deployment, and account tools for Vercel.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-vercel",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "VERCEL_TOKEN",
+      "VERCEL_TEAM_ID"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "tools": [
+    "list_projects",
+    "list_deployments",
+    "get_deployment"
+  ],
+  "resources": [
+    "account"
+  ],
+  "prompts": [
+    "deployment-audit"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "hackernews",
+  "title": "Hacker News MCP Server",
+  "description": "Top stories, search, and thread tools for Hacker News.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-hackernews",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": []
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "tools": [
+    "get_top_stories",
+    "search_stories",
+    "get_item_thread"
+  ],
+  "resources": [
+    "trends"
+  ],
+  "prompts": [
+    "community-digest"
+  ]
+}

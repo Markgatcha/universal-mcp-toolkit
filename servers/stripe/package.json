@@ -1,0 +1,50 @@
+{
+  "name": "@universal-mcp-toolkit/server-stripe",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Customer, invoice, price, and subscription tools for Stripe.",
+  "license": "MIT",
+  "bin": {
+    "umt-stripe": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git"
+  },
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    ".well-known"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsx watch src/index.ts",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "developer-tools",
+    "typescript",
+    "stripe",
+    "billing",
+    "subscriptions",
+    "payments"
+  ],
+  "dependencies": {
+    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "stripe": "^20.4.1",
+    "zod": "^4.3.6"
+  }
+}

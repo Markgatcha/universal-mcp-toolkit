@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "docker",
+  "title": "Docker MCP Server",
+  "description": "Container, image, and daemon inspection tools for Docker.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-docker",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": []
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "tools": [
+    "list_containers",
+    "inspect_container",
+    "list_images"
+  ],
+  "resources": [
+    "daemon"
+  ],
+  "prompts": [
+    "incident-debug"
+  ]
+}

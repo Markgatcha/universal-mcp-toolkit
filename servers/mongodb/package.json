@@ -1,0 +1,50 @@
+{
+  "name": "@universal-mcp-toolkit/server-mongodb",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Database, collection, and document tools for MongoDB.",
+  "license": "MIT",
+  "bin": {
+    "umt-mongodb": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git"
+  },
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    ".well-known"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsx watch src/index.ts",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "developer-tools",
+    "typescript",
+    "mongodb",
+    "database",
+    "documents",
+    "nosql"
+  ],
+  "dependencies": {
+    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "mongodb": "^7.1.0",
+    "zod": "^4.3.6"
+  }
+}

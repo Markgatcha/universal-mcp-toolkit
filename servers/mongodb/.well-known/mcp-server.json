@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "mongodb",
+  "title": "MongoDB MCP Server",
+  "description": "Database, collection, and document tools for MongoDB.",
+  "version": "0.1.0",
+  "transports": [
+    "stdio",
+    "http+sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "MONGODB_URI"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "packageName": "@universal-mcp-toolkit/server-mongodb",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "tools": [
+    "list-collections",
+    "find-documents",
+    "aggregate-documents"
+  ],
+  "resources": [
+    "cluster-overview"
+  ],
+  "prompts": [
+    "data-summary"
+  ]
+}

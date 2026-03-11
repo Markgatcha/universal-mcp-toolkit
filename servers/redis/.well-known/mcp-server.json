@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "redis",
+  "title": "Redis MCP Server",
+  "description": "Key inspection and cache diagnostics tools for Redis.",
+  "version": "0.1.0",
+  "transports": [
+    "stdio",
+    "http+sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "REDIS_URL"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "packageName": "@universal-mcp-toolkit/server-redis",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "tools": [
+    "get-key",
+    "set-key",
+    "inspect-server-info"
+  ],
+  "resources": [
+    "cache-overview"
+  ],
+  "prompts": [
+    "cache-debug"
+  ]
+}

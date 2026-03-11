@@ -1,0 +1,51 @@
+{
+  "name": "universal-mcp-toolkit-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The canonical open-source monorepo for production-ready MCP servers.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.32.0",
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=10.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit/issues"
+  },
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "developer-tools",
+    "typescript",
+    "monorepo",
+    "turborepo",
+    "developer-experience"
+  ],
+  "scripts": {
+    "build": "node scripts/run-turbo.mjs build",
+    "dev": "node scripts/run-turbo.mjs dev --parallel",
+    "lint": "node scripts/run-turbo.mjs lint",
+    "typecheck": "node scripts/run-turbo.mjs typecheck",
+    "test": "node scripts/run-turbo.mjs test",
+    "clean": "node scripts/run-turbo.mjs clean && rimraf node_modules .turbo",
+    "doctor": "corepack pnpm --filter universal-mcp-toolkit exec universal-mcp-toolkit doctor"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^4.0.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.4.0",
+    "rimraf": "^6.1.3",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "turbo": "^2.8.15",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

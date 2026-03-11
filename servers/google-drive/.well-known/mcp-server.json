@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "google-drive",
+  "title": "Google Drive MCP Server",
+  "description": "File discovery, metadata inspection, export, and summarization tools for Google Drive.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-google-drive",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "GOOGLE_DRIVE_ACCESS_TOKEN"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "tools": [
+    "search-files",
+    "get-file-metadata",
+    "export-file"
+  ],
+  "resources": [
+    "drive-overview"
+  ],
+  "prompts": [
+    "summarize-doc"
+  ]
+}

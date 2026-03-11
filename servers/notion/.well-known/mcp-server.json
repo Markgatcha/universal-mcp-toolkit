@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "notion",
+  "title": "Notion MCP Server",
+  "description": "Search Notion pages, inspect page metadata and content, create pages, expose workspace context, and generate summary prompts.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-notion",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "documentationUrl": "https://developers.notion.com/reference/intro",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "NOTION_TOKEN"
+    ],
+    "optional": [
+      "NOTION_DEFAULT_PARENT_PAGE_ID",
+      "NOTION_WORKSPACE_NAME",
+      "NOTION_API_BASE_URL",
+      "NOTION_API_VERSION"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "tools": [
+    "search-pages",
+    "get-page",
+    "create-page"
+  ],
+  "resources": [
+    "workspace"
+  ],
+  "prompts": [
+    "summarize-doc"
+  ],
+  "tags": [
+    "notion",
+    "knowledge-base",
+    "documentation",
+    "wiki"
+  ]
+}

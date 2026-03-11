@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "linear",
+  "title": "Linear MCP Server",
+  "description": "Search, inspect, create, and triage Linear issues with team-aware resources and prompts.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-linear",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "documentationUrl": "https://developers.linear.app/docs/graphql",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "LINEAR_API_KEY"
+    ],
+    "optional": [
+      "LINEAR_DEFAULT_TEAM_ID",
+      "LINEAR_DEFAULT_TEAM_KEY",
+      "LINEAR_WORKSPACE_NAME",
+      "LINEAR_API_URL"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "tools": [
+    "search_issues",
+    "get_issue",
+    "create_issue"
+  ],
+  "resources": [
+    {
+      "name": "team",
+      "uri": "linear://team/default",
+      "mimeType": "application/json",
+      "description": "JSON summary of accessible Linear teams and the configured default team."
+    }
+  ],
+  "prompts": [
+    {
+      "name": "sprint-triage",
+      "description": "Generate a sprint triage prompt grounded in the current Linear team context."
+    }
+  ],
+  "tags": [
+    "linear",
+    "issues",
+    "triage",
+    "graphql",
+    "project-management"
+  ]
+}

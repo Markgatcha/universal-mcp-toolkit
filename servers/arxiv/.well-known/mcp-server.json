@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "arxiv",
+  "title": "arXiv MCP Server",
+  "description": "Paper search and feed tools for arXiv.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-arxiv",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": []
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "tools": [
+    "search_papers",
+    "get_paper",
+    "list_recent_papers"
+  ],
+  "resources": [
+    "feed"
+  ],
+  "prompts": [
+    "literature-review"
+  ]
+}

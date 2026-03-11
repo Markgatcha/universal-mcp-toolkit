@@ -1,0 +1,50 @@
+{
+  "name": "@universal-mcp-toolkit/server-docker",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Container and image inspection tools for Docker.",
+  "license": "MIT",
+  "bin": {
+    "umt-docker": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git"
+  },
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    ".well-known"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsx watch src/index.ts",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "developer-tools",
+    "typescript",
+    "docker",
+    "containers",
+    "images",
+    "devops"
+  ],
+  "dependencies": {
+    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "dockerode": "^4.0.9",
+    "zod": "^4.3.6"
+  }
+}

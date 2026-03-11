@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "supabase",
+  "title": "Supabase MCP Server",
+  "description": "Database, auth, storage, and function tools for Supabase.",
+  "version": "0.1.0",
+  "transports": [
+    "stdio",
+    "http+sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "SUPABASE_URL",
+      "SUPABASE_KEY"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "packageName": "@universal-mcp-toolkit/server-supabase",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "tools": [
+    "list-tables",
+    "query-table",
+    "list-storage-buckets"
+  ],
+  "resources": [
+    "project-overview"
+  ],
+  "prompts": [
+    "incident-response"
+  ]
+}

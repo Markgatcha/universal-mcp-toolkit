@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "jira",
+  "title": "Jira MCP Server",
+  "description": "Search Jira Cloud issues, inspect tickets, transition work, and fetch project context.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-jira",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "documentationUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit/tree/main/servers/jira",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "JIRA_BASE_URL",
+      "JIRA_EMAIL",
+      "JIRA_API_TOKEN"
+    ],
+    "optional": [
+      "JIRA_DEFAULT_PROJECT_KEY"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "tools": [
+    {
+      "name": "get_issue",
+      "description": "Fetch a Jira issue with normalized fields, description text, and comments."
+    },
+    {
+      "name": "search_issues",
+      "description": "Search Jira issues with JQL or structured filters and return normalized issue summaries."
+    },
+    {
+      "name": "transition_issue",
+      "description": "Resolve a Jira transition by name or id, apply it, and return the updated issue."
+    }
+  ],
+  "resources": [
+    {
+      "name": "project",
+      "uriTemplate": "jira://projects/{projectKey}",
+      "mimeType": "application/json",
+      "description": "Return normalized Jira project metadata as JSON."
+    }
+  ],
+  "prompts": [
+    {
+      "name": "incident_triage",
+      "description": "Create a reusable incident-triage prompt using Jira issue context."
+    }
+  ],
+  "examples": {
+    "toolCalls": [
+      {
+        "name": "search_issues",
+        "arguments": {
+          "text": "latency spike",
+          "maxResults": 5
+        }
+      },
+      {
+        "name": "get_issue",
+        "arguments": {
+          "issueKey": "OPS-42"
+        }
+      },
+      {
+        "name": "transition_issue",
+        "arguments": {
+          "issueKey": "OPS-42",
+          "transitionName": "Done",
+          "comment": "Mitigation deployed and metrics recovered."
+        }
+      }
+    ],
+    "resourceUris": [
+      "jira://projects/OPS"
+    ]
+  }
+}

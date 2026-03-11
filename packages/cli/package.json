@@ -1,0 +1,72 @@
+{
+  "name": "universal-mcp-toolkit",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A beautiful unified CLI for discovering, configuring, and running universal-mcp-toolkit MCP servers.",
+  "license": "MIT",
+  "bin": {
+    "universal-mcp-toolkit": "./dist/index.js",
+    "umt": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git"
+  },
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsx watch src/index.ts",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "developer-tools",
+    "typescript",
+    "cli",
+    "commander",
+    "terminal",
+    "developer-experience"
+  ],
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "cli-table3": "^0.6.5",
+    "commander": "^14.0.3",
+    "inquirer": "^13.3.0",
+    "ora": "^9.3.0",
+    "@universal-mcp-toolkit/server-github": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-notion": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-slack": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-linear": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-jira": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-google-calendar": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-google-drive": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-spotify": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-stripe": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-postgresql": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-mongodb": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-redis": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-supabase": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-vercel": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-cloudflare-workers": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-docker": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-npm-registry": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-hackernews": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-arxiv": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-filesystem": "workspace:0.1.0"
+  }
+}

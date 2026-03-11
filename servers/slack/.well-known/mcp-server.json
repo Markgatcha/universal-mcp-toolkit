@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "slack",
+  "title": "Slack MCP Server",
+  "description": "Slack workspace tools for channel discovery, history lookup, posting updates, and drafting messages.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-slack",
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git",
+  "documentationUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "SLACK_BOT_TOKEN"
+    ],
+    "optional": [
+      "SLACK_DEFAULT_CHANNEL_ID",
+      "SLACK_TEAM_ID",
+      "SLACK_WORKSPACE_NAME",
+      "SLACK_API_BASE_URL"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "tools": [
+    "list_channels",
+    "fetch_channel_history",
+    "post_message"
+  ],
+  "resources": [
+    "workspace"
+  ],
+  "prompts": [
+    "compose-update"
+  ],
+  "toolDetails": [
+    {
+      "name": "list_channels",
+      "description": "List Slack channels with archive filtering, conversation type filters, and pagination support."
+    },
+    {
+      "name": "fetch_channel_history",
+      "description": "Fetch recent messages for a channel with cursor pagination and timestamp filters."
+    },
+    {
+      "name": "post_message",
+      "description": "Post a Slack message to a channel or thread, optionally using a configured default channel."
+    }
+  ],
+  "resourceDetails": [
+    {
+      "name": "workspace",
+      "uri": "slack://workspace",
+      "description": "Workspace metadata, authenticated bot identity, and configured defaults."
+    }
+  ],
+  "promptDetails": [
+    {
+      "name": "compose-update",
+      "description": "Draft a polished Slack update from structured status inputs."
+    }
+  ],
+  "tags": [
+    "slack",
+    "channels",
+    "messaging",
+    "chatops",
+    "workspace"
+  ]
+}
