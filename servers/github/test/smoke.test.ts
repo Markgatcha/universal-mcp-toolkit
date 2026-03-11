@@ -166,14 +166,25 @@ function createFakeClient() {
     search: {
       repos: searchRepos,
     },
+    issues: {
+      listForRepo: vi.fn(async () => ({ data: [] })),
+      create: vi.fn(async () => ({ data: {} as any })),
+      createComment: vi.fn(async () => ({ data: {} as any })),
+    },
     pulls: {
       get: getPullRequest,
+      create: vi.fn(async () => ({ data: {} as any })),
+      merge: vi.fn(async () => ({ data: {} as any })),
     },
     actions: {
       listWorkflowRunsForRepo,
     },
     repos: {
       get: getRepository,
+      listCommits: vi.fn(async () => ({ data: [] })),
+      getContent: vi.fn(async () => ({ data: {} as any })),
+      createOrUpdateFileContents: vi.fn(async () => ({ status: 201, data: {} as any })),
+      listReleases: vi.fn(async () => ({ data: [] })),
     },
   };
 
@@ -226,6 +237,7 @@ describe("GitHubServer", () => {
       page: 1,
       per_page: 10,
     });
+
     expect(result).toMatchObject({
       query: "mcp toolkit",
       totalCount: 1,
@@ -252,6 +264,7 @@ describe("GitHubServer", () => {
     const pullRequest = await server.invokeTool<GetPullRequestOutput>("get_pull_request", {
       pullNumber: 42,
     });
+
     const workflowRuns = await server.invokeTool<ListWorkflowRunsOutput>("list_workflow_runs", {
       branch: "feature/triage",
       perPage: 5,
@@ -262,6 +275,7 @@ describe("GitHubServer", () => {
       repo: "hello-world",
       pull_number: 42,
     });
+
     expect(listWorkflowRunsForRepo).toHaveBeenCalledWith({
       owner: "octo-org",
       repo: "hello-world",
@@ -270,12 +284,14 @@ describe("GitHubServer", () => {
       per_page: 5,
       exclude_pull_requests: false,
     });
+
     expect(pullRequest).toMatchObject({
       owner: "octo-org",
       repo: "hello-world",
       pullNumber: 42,
       mergeableState: "clean",
     });
+
     expect(workflowRuns).toMatchObject({
       owner: "octo-org",
       repo: "hello-world",
