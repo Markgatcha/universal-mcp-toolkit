@@ -1,5 +1,8 @@
 # universal-mcp-toolkit
-[![CI](https://github.com/Markgatcha/universal-mcptoolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Markgatcha/universal-mcp-toolkit/actions/workflows/ci.yml)
+[![CI](https://github.com/Markgatcha/universal-mcp-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Markgatcha/universal-mcp-toolkit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg?logo=pnpm)](https://pnpm.io/)
+
+
 The canonical open-source monorepo for production-ready Model Context Protocol servers.
 
 If you have ever wanted one place to find great MCP servers for GitHub, Slack, Notion, databases, cloud platforms, research sources, and local files without stitching together a dozen half-finished repos, this is it.
