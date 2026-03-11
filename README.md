@@ -316,6 +316,10 @@ The monorepo is intentionally structured so it can grow without losing coherence
 - Expand host config templates as more MCP clients standardize their formats
 - Deepen smoke and contract tests across transports
 
+## Community
+
+Please read [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md) before participating in issues, pull requests, reviews, or discussions. The project aims to stay both technically rigorous and welcoming to contributors at every experience level.
+
 ## License
 
 MIT
