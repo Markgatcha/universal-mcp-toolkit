@@ -1,0 +1,58 @@
+# universal-mcp-toolkit
+
+> The canonical open-source monorepo for production-ready Model Context Protocol (MCP) servers. 20 integrations. One architecture. One CLI.
+
+## What it does
+
+`universal-mcp-toolkit` is an MCP aggregator and monorepo that lets AI agents (Claude, Cursor, Windsurf, and any MCP-compatible host) connect to 20 real-world services through a single unified configuration. Instead of maintaining a separate MCP server per tool, you configure once and get all integrations through one consistent interface.
+
+## Install
+
+```bash
+npx universal-mcp-toolkit list
+npx universal-mcp-toolkit install
+npx universal-mcp-toolkit config --server github slack filesystem --target claude-desktop
+```
+
+## npm package
+
+- Package: https://www.npmjs.com/package/universal-mcp-toolkit
+- Install: `npm install -g universal-mcp-toolkit` or use via `npx`
+
+## GitHub repository
+
+https://github.com/Markgatcha/universal-mcp-toolkit
+
+## Included MCP servers
+
+- **Collaboration:** GitHub, Notion, Slack, Linear, Jira
+- **Productivity:** Google Calendar, Google Drive
+- **Media & Commerce:** Spotify, Stripe
+- **Data:** PostgreSQL, MongoDB, Redis, Supabase
+- **Platform & DevOps:** Vercel, Cloudflare Workers, Docker, npm Registry
+- **Research & Local:** Hacker News, arXiv, FileSystem
+
+## Core capabilities
+
+- `@universal-mcp-toolkit/core` — shared runtime with ToolkitServer base class, Zod validation, pino logging, stdio and HTTP+SSE transport
+- `universal-mcp-toolkit` CLI — list, config, install, run, doctor commands
+- `.well-known/mcp-server.json` discovery cards per server
+- TypeScript strict mode across the entire workspace
+- Turborepo monorepo orchestration
+
+## Companion project
+
+https://github.com/Markgatcha/memos — MemOS: persistent, graph-based memory layer for AI agents. Pairs with universal-mcp-toolkit to give agents persistent context across sessions.
+
+## License
+
+MIT
+
+## Listings
+
+- Glama MCP directory: https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit
+- punkpeye/awesome-mcp-servers: https://github.com/punkpeye/awesome-mcp-servers (Aggregators section)
+
+## Keywords
+
+MCP, Model Context Protocol, MCP server, MCP aggregator, Claude, Cursor, AI tools, LLM tools, TypeScript, monorepo, Turborepo, pnpm, GitHub MCP, Notion MCP, Slack MCP, PostgreSQL MCP, filesystem MCP, npx, CLI
