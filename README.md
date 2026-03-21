@@ -325,6 +325,26 @@ The monorepo is intentionally structured so it can grow without losing coherence
 
 Please read [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md) before participating in issues, pull requests, reviews, or discussions. The project aims to stay both technically rigorous and welcoming to contributors at every experience level.
 
+## Persistent Memory
+
+Pair universal-mcp-toolkit with **[MemOS](https://github.com/Markgatcha/memos)** for persistent, graph-based memory across agent sessions.
+
+```bash
+# Add persistent memory to your MCP agents
+pip install memos
+npm install @memos/sdk
+```
+
+MemOS acts as the **memory layer** for your MCP stack — every tool call, result, and context your agent produces can be stored, retrieved, and searched across restarts and sessions. A native MCP adapter is coming in MemOS v0.2.
+
+| Layer | Tool | Role |
+|-------|------|------|
+| Transport & Tools | universal-mcp-toolkit | MCP protocol, server registry, tool routing |
+| Memory & Persistence | [MemOS](https://github.com/Markgatcha/memos) | Graph-based persistent memory across sessions |
+| LLM Inference | Ollama / any LLM | Local model execution |
+
+---
+
 ## License
 
 MIT
