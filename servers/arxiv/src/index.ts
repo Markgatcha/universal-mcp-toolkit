@@ -1,5 +1,6 @@
 import {
   createServerCard,
+  createStreamingResponse,
   defineTool,
   ExternalServiceError,
   loadEnv,
@@ -268,29 +269,29 @@ export class ArxivServer extends ToolkitServer {
         name: "search_papers",
         title: "Search arXiv papers",
         description: "Search arXiv papers by keyword or phrase.",
+        experimental_streamingResponse: true,
         inputSchema: {
           query: z.string().trim().min(1),
           maxResults: z.number().int().min(1).max(25).default(5),
           sortBy: z.enum(["relevance", "submittedDate", "lastUpdatedDate"]).default("relevance"),
         },
         outputSchema: {
-          papers: z.array(paperSchema),
-          returned: z.number().int(),
+          text: z.string(),
         },
-        handler: async ({ query, maxResults, sortBy }, context) => {
-          await context.log("info", `Searching arXiv for ${query}`);
-          const papers = await this.client.searchPapers({ query, maxResults, sortBy });
-          return {
-            papers: [...papers],
-            returned: papers.length,
-          };
+        handler: (input, context) => {
+          const client = this.client;
+          return createStreamingResponse(
+            (async function* () {
+              await context.log("info", `Searching arXiv for ${input.query}`);
+              const papers = await client.searchPapers({ query: input.query, maxResults: input.maxResults, sortBy: input.sortBy });
+              yield `Found ${papers.length} paper(s) for "${input.query}":\n`;
+              for (const paper of papers) {
+                yield `${paper.id}: ${paper.title}\n`;
+              }
+            })(),
+          );
         },
-        renderText: ({ papers, returned }) => {
-          if (returned === 0) {
-            return "No arXiv papers found.";
-          }
-          return papers.map((paper) => `${paper.id}: ${paper.title}`).join("\n");
-        },
+        renderText: ({ text }) => text,
       }),
     );
 

@@ -63,12 +63,13 @@ describe("arxiv smoke", () => {
       expect(server.getResourceNames()).toEqual([...metadata.resourceNames].sort());
       expect(server.getPromptNames()).toEqual([...metadata.promptNames].sort());
 
-      const search = await server.invokeTool<{ papers: ReadonlyArray<{ id: string }>; returned: number }>(
+      const search = await server.invokeTool<{ text: string }>(
         "search_papers",
         { query: "agents", maxResults: 5, sortBy: "relevance" },
       );
-      expect(search.returned).toBe(1);
-      expect(search.papers[0]?.id).toBe("2401.00001");
+      expect(search.text).toContain("Found 1 paper(s)");
+      expect(search.text).toContain("2401.00001");
+      expect(search.text).toContain("Toolkit Agents for Reliable Patches");
 
       const recent = await server.invokeTool<{ category: string; papers: ReadonlyArray<{ title: string }> }>(
         "list_recent_papers",

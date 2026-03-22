@@ -48,7 +48,7 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 
 `universal-mcp-toolkit` fixes that with one opinionated, high-quality Turborepo:
 
-- 20 production-focused MCP servers
+- 23 production-focused MCP servers
 - One shared strict-mode TypeScript core
 - One polished CLI for install, config, run, and diagnostics
 - Consistent Zod validation, structured errors, and pino logging
@@ -69,10 +69,10 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 | --- | --- |
 | Core runtime | `@universal-mcp-toolkit/core` with typed tool registration, env loading, Zod validation, pino logging, stdio and HTTP+SSE runtime bootstrapping |
 | Unified CLI | `universal-mcp-toolkit` with `list`, `config`, `install`, `run`, and `doctor` |
-| Collaboration servers | GitHub, Notion, Slack, Linear, Jira |
+| Collaboration servers | GitHub, Notion, Slack, Linear, Jira, Discord, Trello |
 | Productivity servers | Google Calendar, Google Drive |
 | Media and commerce servers | Spotify, Stripe |
-| Data servers | PostgreSQL, MongoDB, Redis, Supabase |
+| Data servers | PostgreSQL, MongoDB, Redis, Supabase, Airtable |
 | Platform servers | Vercel, Cloudflare Workers, Docker, npm Registry |
 | Research and local servers | Hacker News, arXiv, FileSystem |
 
@@ -80,7 +80,7 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 
 | Option | Breadth | DX quality | Shared architecture | Host config help | Documentation polish |
 | --- | --- | --- | --- | --- | --- |
-| `universal-mcp-toolkit` | 20 servers in one monorepo | High | Yes | Yes | High |
+| `universal-mcp-toolkit` | 23 servers in one monorepo | High | Yes | Yes | High |
 | Single-service MCP repos | Narrow | Varies | No | Rarely | Varies |
 | Personal one-off scripts | Very narrow | Low | No | No | Usually none |
 
@@ -108,6 +108,9 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 | Hacker News | Top stories, search, threads | none required |
 | arXiv | Paper search and reading lists | none required |
 | FileSystem | Safe local file search, reads, writes | `FILESYSTEM_ROOTS` |
+| Discord | Guilds, channels, messages, members | `DISCORD_BOT_TOKEN` |
+| Airtable | Tables, records, CRUD operations | `AIRTABLE_API_KEY`, `AIRTABLE_BASE_ID` |
+| Trello | Boards, lists, cards, archiving | `TRELLO_API_KEY`, `TRELLO_TOKEN` |
 
 Some servers also expose optional tuning variables such as `POSTGRESQL_ALLOW_WRITES`, `REDIS_ALLOW_WRITES`, `MONGODB_ALLOW_WRITE_PIPELINES`, `VERCEL_TEAM_ID`, or `FILESYSTEM_MAX_READ_BYTES`. The root `.env.example` includes the most useful knobs.
 
@@ -138,6 +141,9 @@ universal-mcp-toolkit/
 │  ├─ npm-registry/
 │  ├─ hackernews/
 │  ├─ arxiv/
+│  ├─ discord/
+│  ├─ airtable/
+│  ├─ trello/
 │  └─ filesystem/
 ├─ turbo.json
 ├─ pnpm-workspace.yaml
