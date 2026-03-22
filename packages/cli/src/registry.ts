@@ -10,6 +10,7 @@ export interface ServerRegistryEntry {
   packageName: string;
   envVarNames: readonly string[];
   transports: readonly ("stdio" | "sse")[];
+  experimental?: boolean;
 }
 
 export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
@@ -183,6 +184,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-arxiv",
     envVarNames: [],
     transports: ["stdio", "sse"],
+    experimental: true,
   },
   {
     id: "filesystem",
@@ -191,6 +193,33 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     description: "Read and write files safely inside explicitly allowed roots.",
     packageName: "@universal-mcp-toolkit/server-filesystem",
     envVarNames: ["FILESYSTEM_ROOTS"],
+    transports: ["stdio", "sse"],
+  },
+  {
+    id: "discord",
+    title: "Discord",
+    category: "Collaboration",
+    description: "Guild discovery, channel lookup, message history, and messaging.",
+    packageName: "@universal-mcp-toolkit/server-discord",
+    envVarNames: ["DISCORD_BOT_TOKEN"],
+    transports: ["stdio", "sse"],
+  },
+  {
+    id: "airtable",
+    title: "Airtable",
+    category: "Data",
+    description: "Table listing, record CRUD, and filtering for Airtable bases.",
+    packageName: "@universal-mcp-toolkit/server-airtable",
+    envVarNames: ["AIRTABLE_API_KEY", "AIRTABLE_BASE_ID"],
+    transports: ["stdio", "sse"],
+  },
+  {
+    id: "trello",
+    title: "Trello",
+    category: "Collaboration",
+    description: "Board and list discovery, card CRUD, and archiving.",
+    packageName: "@universal-mcp-toolkit/server-trello",
+    envVarNames: ["TRELLO_API_KEY", "TRELLO_TOKEN"],
     transports: ["stdio", "sse"],
   },
 ];

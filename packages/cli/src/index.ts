@@ -5,16 +5,21 @@ import inquirer from "inquirer";
 import { access } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import ora from "ora";
 
 import {
   createGeneratedConfig,
+  deleteProfile,
   getGeneratedConfigPath,
   getStateFilePath,
+  listProfiles,
+  loadProfile,
   resolveWorkspaceEntryFile,
   saveInstallProfile,
+  saveNamedProfile,
   writeGeneratedConfig,
+  type ExportedProfile,
 } from "./config-store.js";
 import { printSection, renderServerTable, renderStatusLabel } from "./output.js";
 import { ConfigTarget, type InvocationMode, getRegistryEntry, SERVER_REGISTRY } from "./registry.js";
@@ -165,6 +170,234 @@ async function runDoctor(serverId?: string): Promise<void> {
   }
 }
 
+async function runUpdate(): Promise<void> {
+  const spinner = ora("Checking for updates").start();
+  try {
+    const currentVersion = "0.1.0";
+    const registryOutput = execSync("npm view universal-mcp-toolkit version --registry https://registry.npmjs.org", {
+      encoding: "utf8",
+      timeout: 15000,
+    }).trim();
+    const latestVersion = registryOutput;
+
+    if (currentVersion === latestVersion) {
+      spinner.succeed(`Already up to date (v${currentVersion})`);
+      return;
+    }
+
+    spinner.info(`Current: v${currentVersion} | Latest: v${latestVersion}`);
+
+    const answers = await inquirer.prompt<{ update: boolean }>([
+      {
+        type: "confirm",
+        name: "update",
+        message: `Update to v${latestVersion} now?`,
+        default: false,
+      },
+    ]);
+
+    if (!answers.update) {
+      console.log(chalk.gray("Skipped update."));
+      return;
+    }
+
+    const updateSpinner = ora(`Installing universal-mcp-toolkit@${latestVersion}`).start();
+    execSync(`npm install -g universal-mcp-toolkit@${latestVersion}`, {
+      stdio: "pipe",
+      timeout: 60000,
+    });
+    updateSpinner.succeed(`Updated to v${latestVersion}`);
+  } catch (error) {
+    spinner.fail("Failed to check for updates");
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(chalk.red(message));
+  }
+}
+
+async function runTest(serverId: string): Promise<void> {
+  const entry = getRegistryEntry(serverId);
+
+  printSection("Environment check");
+  const missingEnv = entry.envVarNames.filter((name) => !process.env[name]);
+  if (missingEnv.length > 0) {
+    console.log(chalk.yellow(`Warning: Missing env vars: ${missingEnv.join(", ")}`));
+  } else {
+    console.log(chalk.green("All required environment variables present."));
+  }
+
+  printSection("Server handshake");
+  const distPath = resolveWorkspaceEntryFile(entry);
+  const distExists = await pathExists(distPath);
+  if (!distExists) {
+    console.log(chalk.red(`Build output not found: ${distPath}`));
+    console.log(chalk.gray("Run the build first: corepack pnpm build"));
+    process.exitCode = 1;
+    return;
+  }
+
+  const spinner = ora(`Starting ${entry.title} in stdio mode`).start();
+
+  try {
+    const child = spawn(process.execPath, [distPath, "--transport", "stdio"], {
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: process.cwd(),
+      env: { ...process.env, NODE_NO_WARNINGS: "1" },
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    const initRequest = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "umt-test", version: "0.1.0" },
+      },
+    }) + "\n";
+
+    const toolsListRequest = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/list",
+      params: {},
+    }) + "\n";
+
+    child.stdin.write(initRequest);
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+
+    child.stdin.write(toolsListRequest);
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+
+    child.kill();
+
+    const lines = stdout.split("\n").filter((line) => line.trim().length > 0);
+    let toolsResponse: unknown = null;
+
+    for (const line of lines) {
+      try {
+        const parsed = JSON.parse(line) as Record<string, unknown>;
+        if (parsed.id === 2 && parsed.result !== undefined) {
+          toolsResponse = parsed.result;
+          break;
+        }
+      } catch {
+        // skip non-JSON lines
+      }
+    }
+
+    if (toolsResponse && typeof toolsResponse === "object" && "tools" in toolsResponse) {
+      const tools = (toolsResponse as { tools: Array<{ name: string }> }).tools;
+      spinner.succeed(`${entry.title} responded with ${tools.length} tool(s)`);
+      printSection("Available tools");
+      for (const tool of tools) {
+        console.log(chalk.green(`  ✓ ${tool.name}`));
+      }
+      console.log(chalk.green("\nServer handshake successful."));
+    } else {
+      spinner.fail(`${entry.title} did not return a valid tools/list response`);
+      if (stderr.length > 0) {
+        console.log(chalk.gray(`\nServer stderr:\n${stderr.slice(0, 500)}`));
+      }
+      process.exitCode = 1;
+    }
+  } catch (error) {
+    spinner.fail(`Failed to test ${entry.title}`);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(chalk.red(message));
+    process.exitCode = 1;
+  }
+}
+
+async function runExport(outputPath: string): Promise<void> {
+  const { readState } = await import("./config-store.js");
+  const state = await readState();
+
+  if (state.installs.length === 0) {
+    console.log(chalk.yellow("No install profiles to export. Run `umt install` first."));
+    return;
+  }
+
+  const seenEnvKeys = new Set<string>();
+  for (const install of state.installs) {
+    for (const serverId of install.serverIds) {
+      try {
+        const entry = getRegistryEntry(serverId);
+        for (const envName of entry.envVarNames) {
+          seenEnvKeys.add(envName);
+        }
+      } catch {
+        // skip unknown server IDs
+      }
+    }
+  }
+
+  const exportData: ExportedProfile = {
+    exportedAt: new Date().toISOString(),
+    version: "0.1.0",
+    profiles: state.installs.map((install, index) => ({
+      name: install.profileName ?? `install-${index + 1}`,
+      target: install.target,
+      mode: install.mode,
+      serverIds: install.serverIds,
+      envVarKeys: install.serverIds.flatMap((id) => {
+        try {
+          return [...getRegistryEntry(id).envVarNames];
+        } catch {
+          return [];
+        }
+      }),
+    })),
+  };
+
+  await writeGeneratedConfig(outputPath, exportData as unknown as Parameters<typeof writeGeneratedConfig>[1]);
+  console.log(chalk.green(`Exported ${state.installs.length} profile(s) to ${outputPath}`));
+  console.log(chalk.gray("Note: credential values are never included in exports."));
+}
+
+async function runProfileList(): Promise<void> {
+  const profiles = await listProfiles();
+  if (profiles.length === 0) {
+    console.log(chalk.yellow("No saved profiles. Run `umt install --profile <name>` to create one."));
+    return;
+  }
+
+  printSection("Saved profiles");
+  for (const profile of profiles) {
+    console.log(chalk.bold(`  ${profile.name}`));
+    console.log(chalk.gray(`    Target: ${profile.target} | Mode: ${profile.mode} | Servers: ${profile.serverIds.join(", ")}`));
+    console.log(chalk.gray(`    Config: ${profile.outputPath}`));
+    console.log(chalk.gray(`    Created: ${profile.createdAt}`));
+  }
+}
+
+async function runProfileUse(name: string): Promise<void> {
+  const profile = await loadProfile(name);
+  const spinner = ora(`Activating profile '${name}'`).start();
+
+  const entries = profile.serverIds.map((id) => getRegistryEntry(id));
+  const generatedConfig = createGeneratedConfig(entries, profile.mode);
+  await writeGeneratedConfig(profile.outputPath, generatedConfig);
+  spinner.succeed(`Applied profile '${name}' to ${profile.outputPath}`);
+}
+
+async function runProfileDelete(name: string): Promise<void> {
+  await deleteProfile(name);
+  console.log(chalk.green(`Deleted profile '${name}'.`));
+}
+
 export async function main(argv: readonly string[] = process.argv): Promise<void> {
   const program = new Command();
 
@@ -202,7 +435,8 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
   program
     .command("install")
     .description("Interactively generate and write a host config file, then save the install profile.")
-    .action(async () => {
+    .option("--profile <name>", "Save the config under a named profile.")
+    .action(async (options: { profile?: string }) => {
       const target = await promptForTarget();
       const serverIds = await promptForServers();
       const mode = await promptForMode();
@@ -217,8 +451,22 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
           outputPath,
           serverIds: [...serverIds],
           createdAt: new Date().toISOString(),
+          ...(options.profile ? { profileName: options.profile } : {}),
         });
-        spinner.succeed(`Saved ${target} install profile`);
+
+        if (options.profile) {
+          await saveNamedProfile({
+            name: options.profile,
+            target,
+            mode,
+            outputPath,
+            serverIds: [...serverIds],
+            createdAt: new Date().toISOString(),
+          });
+          spinner.succeed(`Saved ${target} install profile as '${options.profile}'`);
+        } else {
+          spinner.succeed(`Saved ${target} install profile`);
+        }
       } catch (error) {
         spinner.fail("Install failed");
         throw error;
@@ -242,6 +490,56 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .argument("[serverId]", "Optionally scope the checks to one server.")
     .action(async (serverId?: string) => {
       await runDoctor(serverId);
+    });
+
+  program
+    .command("update")
+    .description("Check for updates and optionally install the latest version from npm.")
+    .action(async () => {
+      await runUpdate();
+    });
+
+  program
+    .command("test")
+    .description("Run a live end-to-end test of a server via stdio transport.")
+    .argument("<serverId>", "The server ID to test.")
+    .action(async (serverId: string) => {
+      await runTest(serverId);
+    });
+
+  program
+    .command("export")
+    .description("Export install profiles to a portable JSON file (without secret values).")
+    .option("-o, --output <file>", "Output file path.", "umt-profile-export.json")
+    .action(async (options: { output: string }) => {
+      await runExport(options.output);
+    });
+
+  const profileCmd = program
+    .command("profile")
+    .description("Manage saved install profiles.");
+
+  profileCmd
+    .command("list")
+    .description("List all saved profiles.")
+    .action(async () => {
+      await runProfileList();
+    });
+
+  profileCmd
+    .command("use")
+    .description("Activate a saved profile by writing its config to disk.")
+    .argument("<name>", "The profile name to activate.")
+    .action(async (name: string) => {
+      await runProfileUse(name);
+    });
+
+  profileCmd
+    .command("delete")
+    .description("Remove a saved profile.")
+    .argument("<name>", "The profile name to delete.")
+    .action(async (name: string) => {
+      await runProfileDelete(name);
     });
 
   await program.parseAsync(argv);

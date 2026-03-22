@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 
 import type { ConfigTarget, InvocationMode, ServerRegistryEntry } from "./registry.js";
 
@@ -13,6 +13,7 @@ export interface InstallProfile {
   outputPath: string;
   serverIds: string[];
   createdAt: string;
+  profileName?: string;
 }
 
 export interface CliState {
@@ -28,6 +29,27 @@ export interface GeneratedConfig {
       env?: Record<string, string>;
     }
   >;
+}
+
+export interface SavedProfile {
+  name: string;
+  target: ConfigTarget;
+  mode: InvocationMode;
+  outputPath: string;
+  serverIds: string[];
+  createdAt: string;
+}
+
+export interface ExportedProfile {
+  exportedAt: string;
+  version: string;
+  profiles: Array<{
+    name: string;
+    target: ConfigTarget;
+    mode: InvocationMode;
+    serverIds: string[];
+    envVarKeys: string[];
+  }>;
 }
 
 export function getStateDirectory(): string {
@@ -128,4 +150,66 @@ export function createGeneratedConfig(
 export async function writeGeneratedConfig(targetPath: string, generatedConfig: GeneratedConfig): Promise<void> {
   await mkdir(path.dirname(targetPath), { recursive: true });
   await writeFile(targetPath, JSON.stringify(generatedConfig, null, 2), "utf8");
+}
+
+export function getProfilesDirectory(): string {
+  return path.join(getStateDirectory(), "profiles");
+}
+
+function getProfilePath(name: string): string {
+  return path.join(getProfilesDirectory(), `${name}.json`);
+}
+
+export async function saveNamedProfile(profile: SavedProfile): Promise<void> {
+  const dir = getProfilesDirectory();
+  await mkdir(dir, { recursive: true });
+  await writeFile(getProfilePath(profile.name), JSON.stringify(profile, null, 2), "utf8");
+}
+
+export async function listProfiles(): Promise<SavedProfile[]> {
+  const dir = getProfilesDirectory();
+  try {
+    const entries = await readdir(dir);
+    const profiles: SavedProfile[] = [];
+    for (const entry of entries) {
+      if (!entry.endsWith(".json")) continue;
+      try {
+        const contents = await readFile(path.join(dir, entry), "utf8");
+        const parsed = JSON.parse(contents) as SavedProfile;
+        profiles.push(parsed);
+      } catch {
+        // skip corrupted profile files
+      }
+    }
+    return profiles.sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+
+export async function loadProfile(name: string): Promise<SavedProfile> {
+  try {
+    const contents = await readFile(getProfilePath(name), "utf8");
+    return JSON.parse(contents) as SavedProfile;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(`Profile '${name}' not found.`);
+    }
+    throw error;
+  }
+}
+
+export async function deleteProfile(name: string): Promise<void> {
+  const profilePath = getProfilePath(name);
+  try {
+    await rm(profilePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(`Profile '${name}' not found.`);
+    }
+    throw error;
+  }
 }

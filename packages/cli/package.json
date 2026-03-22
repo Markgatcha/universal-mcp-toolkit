@@ -5,14 +5,13 @@
   "description": "A beautiful unified CLI for discovering, configuring, and running universal-mcp-toolkit MCP servers.",
   "license": "MIT",
   "bin": {
-    "universal-mcp-toolkit": "./dist/index.js",
     "umt": "./dist/index.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git"
+    "url": "git+https://github.com/Markgatcha/universal-mcp-toolkit.git"
   },
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -67,6 +66,12 @@
     "@universal-mcp-toolkit/server-npm-registry": "workspace:0.1.0",
     "@universal-mcp-toolkit/server-hackernews": "workspace:0.1.0",
     "@universal-mcp-toolkit/server-arxiv": "workspace:0.1.0",
-    "@universal-mcp-toolkit/server-filesystem": "workspace:0.1.0"
+    "@universal-mcp-toolkit/server-filesystem": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-discord": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-airtable": "workspace:0.1.0",
+    "@universal-mcp-toolkit/server-trello": "workspace:0.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

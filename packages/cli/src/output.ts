@@ -15,16 +15,22 @@ export function renderServerTable(entries: readonly ServerRegistryEntry[]): stri
   });
 
   for (const entry of entries) {
+    const experimentalBadge = entry.experimental ? chalk.yellow(" [EXPERIMENTAL]") : "";
     table.push([
       chalk.white(entry.id),
-      chalk.bold(entry.title),
+      `${chalk.bold(entry.title)}${experimentalBadge}`,
       chalk.magenta(entry.category),
       entry.envVarNames.length === 0 ? chalk.gray("none") : chalk.yellow(entry.envVarNames.join(", ")),
       entry.description,
     ]);
   }
 
-  return table.toString();
+  const hasExperimental = entries.some((e) => e.experimental);
+  const footer = hasExperimental
+    ? `\n${chalk.yellow("Items marked [EXPERIMENTAL] may change or be removed in future releases.")}`
+    : "";
+
+  return table.toString() + footer;
 }
 
 export function renderStatusLabel(ok: boolean): string {
