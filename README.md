@@ -9,6 +9,34 @@ The canonical open-source monorepo for production-ready Model Context Protocol s
 
 If you have ever wanted one place to find great MCP servers for GitHub, Slack, Notion, databases, cloud platforms, research sources, and local files without stitching together a dozen half-finished repos, this is it.
 
+## ⚡ Quick Start
+
+The fastest way to get going:
+
+```bash
+# See all 20 available servers
+npx universal-mcp-toolkit list
+
+# Interactive setup — pick your servers, choose transport, write config
+npx universal-mcp-toolkit install
+
+# Generate a Claude Desktop config snippet
+npx universal-mcp-toolkit config --server github slack filesystem --target claude-desktop
+
+# Run a server locally
+npx universal-mcp-toolkit run github --transport stdio
+
+# Check your environment before debugging
+npx universal-mcp-toolkit doctor github
+```
+
+Or install globally:
+
+```bash
+npm install -g universal-mcp-toolkit
+umt list
+```
+
 ## Why this exists
 
 The MCP ecosystem is exploding, but the developer experience is still fragmented.
@@ -344,6 +372,42 @@ MemOS acts as the **memory layer** for your MCP stack — every tool call, resul
 | LLM Inference | Ollama / any LLM | Local model execution |
 
 ---
+
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Markgatcha/universal-mcp-toolkit&type=Date)](https://star-history.com/#Markgatcha/universal-mcp-toolkit&Date)
+
+---
+
+## 💬 Used By the Community
+
+Building something with `universal-mcp-toolkit`? We'd love to know.
+
+Open a [Discussion](https://github.com/Markgatcha/universal-mcp-toolkit/discussions) and tell us:
+
+- What you're building
+- Which servers you're using
+- Any integrations or workflows you've set up
+
+You might get featured here.
+
+### Known uses
+
+- **Claude Desktop + GitHub + FileSystem** — local dev assistant that reads repos and writes to disk
+- **Cursor + PostgreSQL + Supabase** — database-aware AI code completion
+- **Paired with [MemOS](https://github.com/Markgatcha/memos)** — persistent agent memory across sessions
+
+---
+
+## 📦 Show & Tell
+
+If you've created a custom server, workflow, or integration using this toolkit as a base, open a PR to add it to the [Wiki](https://github.com/Markgatcha/universal-mcp-toolkit/wiki) or start a [Discussion](https://github.com/Markgatcha/universal-mcp-toolkit/discussions/new?category=show-and-tell). The best examples will be highlighted in the README.
+
+---
+
+## License
+
+MIT — see [LICENSE](./LICENSE) for full terms.
 
 ## License
 
