@@ -1,0 +1,53 @@
+{
+  "name": "@universal-mcp-toolkit/server-airtable",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Table listing, record CRUD, and filtering for Airtable bases.",
+  "license": "MIT",
+  "bin": {
+    "server-airtable": "./dist/index.js",
+    "umt-airtable": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Markgatcha/universal-mcp-toolkit.git"
+  },
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    ".well-known"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsx watch src/index.ts",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "developer-tools",
+    "typescript",
+    "airtable",
+    "data",
+    "records",
+    "tables"
+  ],
+  "dependencies": {
+    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "zod": "^4.3.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

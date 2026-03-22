@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "trello",
+  "title": "Trello MCP Server",
+  "description": "Board and list discovery, card CRUD, and archiving for Trello workspaces.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-trello",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit.git",
+  "documentationUrl": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "TRELLO_API_KEY",
+      "TRELLO_TOKEN"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  },
+  "tools": [
+    "trello_list_boards",
+    "trello_list_lists",
+    "trello_list_cards",
+    "trello_create_card",
+    "trello_update_card",
+    "trello_archive_card"
+  ],
+  "resources": [],
+  "prompts": [],
+  "toolDetails": [
+    {
+      "name": "trello_list_boards",
+      "description": "List all boards for the authenticated user."
+    },
+    {
+      "name": "trello_list_lists",
+      "description": "List all lists on a board by board ID."
+    },
+    {
+      "name": "trello_list_cards",
+      "description": "List cards on a board or list by board or list ID."
+    },
+    {
+      "name": "trello_create_card",
+      "description": "Create a new card in a list."
+    },
+    {
+      "name": "trello_update_card",
+      "description": "Update a card's name, description, due date, closed state, or list."
+    },
+    {
+      "name": "trello_archive_card",
+      "description": "Archive (close) a card by ID."
+    }
+  ],
+  "resourceDetails": [],
+  "promptDetails": [],
+  "tags": [
+    "trello",
+    "boards",
+    "cards",
+    "lists",
+    "project-management"
+  ]
+}

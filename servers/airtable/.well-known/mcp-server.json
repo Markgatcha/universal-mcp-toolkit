@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "airtable",
+  "title": "Airtable MCP Server",
+  "description": "Table listing, record CRUD, and filtering for Airtable bases.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-airtable",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit.git",
+  "documentationUrl": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "AIRTABLE_API_KEY",
+      "AIRTABLE_BASE_ID"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  },
+  "tools": [
+    "airtable_list_tables",
+    "airtable_get_records",
+    "airtable_create_record",
+    "airtable_update_record",
+    "airtable_delete_record"
+  ],
+  "resources": [],
+  "prompts": [],
+  "toolDetails": [
+    {
+      "name": "airtable_list_tables",
+      "description": "List all tables in the configured Airtable base."
+    },
+    {
+      "name": "airtable_get_records",
+      "description": "Fetch records from a table with optional formula filtering and max records limit."
+    },
+    {
+      "name": "airtable_create_record",
+      "description": "Create a new record in a table with specified fields."
+    },
+    {
+      "name": "airtable_update_record",
+      "description": "Update an existing record by ID with partial field changes."
+    },
+    {
+      "name": "airtable_delete_record",
+      "description": "Delete a record by ID from a table."
+    }
+  ],
+  "resourceDetails": [],
+  "promptDetails": [],
+  "tags": [
+    "airtable",
+    "data",
+    "records",
+    "tables",
+    "crud"
+  ]
+}

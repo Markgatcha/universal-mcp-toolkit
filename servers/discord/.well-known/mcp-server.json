@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "discord",
+  "title": "Discord MCP Server",
+  "description": "Guild discovery, channel lookup, message history, and messaging for Discord servers.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-discord",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit.git",
+  "documentationUrl": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "DISCORD_BOT_TOKEN"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  },
+  "tools": [
+    "discord_list_guilds",
+    "discord_list_channels",
+    "discord_get_messages",
+    "discord_send_message",
+    "discord_get_guild_members"
+  ],
+  "resources": [],
+  "prompts": [],
+  "toolDetails": [
+    {
+      "name": "discord_list_guilds",
+      "description": "List all guilds (servers) the bot is in."
+    },
+    {
+      "name": "discord_list_channels",
+      "description": "List channels in a guild by guild ID."
+    },
+    {
+      "name": "discord_get_messages",
+      "description": "Fetch recent messages from a channel with an optional limit."
+    },
+    {
+      "name": "discord_send_message",
+      "description": "Send a message to a channel by channel ID."
+    },
+    {
+      "name": "discord_get_guild_members",
+      "description": "List members of a guild with an optional limit."
+    }
+  ],
+  "resourceDetails": [],
+  "promptDetails": [],
+  "tags": [
+    "discord",
+    "guilds",
+    "channels",
+    "messaging",
+    "chat"
+  ]
+}
