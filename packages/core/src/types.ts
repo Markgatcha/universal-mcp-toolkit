@@ -82,10 +82,16 @@ export interface ToolkitToolDefinition<TInputShape extends ZodShape, TOutputShap
   inputSchema: TInputShape;
   outputSchema: TOutputShape;
   annotations?: ToolAnnotations;
+  timeoutMs?: number;
+  /**
+   * @experimental - Streaming MCP tool responses are not yet widely supported by MCP clients.
+   * Enable only if your host client explicitly supports streaming tool content.
+   */
+  experimental_streamingResponse?: boolean;
   handler: (
     input: InferShape<TInputShape>,
     context: ToolkitToolExecutionContext,
-  ) => Promise<InferShape<TOutputShape>>;
+  ) => Promise<InferShape<TOutputShape>> | AsyncIterable<string>;
   renderText?: (output: InferShape<TOutputShape>) => string;
 }
 

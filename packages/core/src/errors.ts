@@ -82,3 +82,20 @@ export function normalizeError(error: unknown): ToolkitError {
     exposeToClient: false,
   });
 }
+
+export class ToolTimeoutError extends ToolkitError {
+  public readonly toolName: string;
+  public readonly timeoutMs: number;
+
+  public constructor(toolName: string, timeoutMs: number) {
+    super(`Tool '${toolName}' timed out after ${timeoutMs}ms.`, {
+      code: "tool_timeout",
+      statusCode: 504,
+      details: { toolName, timeoutMs },
+      exposeToClient: true,
+    });
+    this.name = "ToolTimeoutError";
+    this.toolName = toolName;
+    this.timeoutMs = timeoutMs;
+  }
+}

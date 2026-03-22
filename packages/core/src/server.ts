@@ -4,7 +4,7 @@ import type { CallToolResult, GetPromptResult, ReadResourceResult } from "@model
 import type { Logger } from "pino";
 
 import { createLogger } from "./logger.js";
-import { ValidationError, normalizeError } from "./errors.js";
+import { ToolTimeoutError, ValidationError, normalizeError } from "./errors.js";
 import type {
   InferShape,
   ToolkitLogLevel,
@@ -106,6 +106,9 @@ export abstract class ToolkitServer {
       throw new ValidationError(`Tool '${definition.name}' requires both input and output schemas.`);
     }
 
+    const timeoutMs = definition.timeoutMs ?? 30_000;
+    const isStreaming = definition.experimental_streamingResponse ?? false;
+
     const storedTool: StoredTool = {
       name: definition.name,
       invoke: async (input, sessionId) => {
@@ -134,7 +137,38 @@ export abstract class ToolkitServer {
           context.sessionId = sessionId;
         }
 
-        const output = await definition.handler(parsedInputResult.data, context);
+        const controller = new AbortController();
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          const timer = setTimeout(() => {
+            reject(new ToolTimeoutError(definition.name, timeoutMs));
+          }, timeoutMs);
+          controller.signal.addEventListener("abort", () => clearTimeout(timer), { once: true });
+        });
+
+        const handlerResult = await Promise.race([
+          definition.handler(parsedInputResult.data, context),
+          timeoutPromise,
+        ]);
+
+        controller.abort();
+
+        if (isStreaming && handlerResult !== null && typeof handlerResult === "object" && Symbol.asyncIterator in handlerResult) {
+          const chunks: string[] = [];
+          for await (const chunk of handlerResult as AsyncIterable<string>) {
+            chunks.push(chunk);
+          }
+          const combined = chunks.join("");
+          const parsedOutputResult = await safeParseAsync(outputSchema, { text: combined });
+          if (!parsedOutputResult.success) {
+            throw new ValidationError(
+              `Output validation failed for tool '${definition.name}': ${getParseErrorMessage(parsedOutputResult.error)}`,
+              parsedOutputResult.error,
+            );
+          }
+          return parsedOutputResult.data;
+        }
+
+        const output = handlerResult;
         const parsedOutputResult = await safeParseAsync(outputSchema, output);
         if (!parsedOutputResult.success) {
           throw new ValidationError(
