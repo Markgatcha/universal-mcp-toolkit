@@ -1,6 +1,6 @@
 {
   "name": "universal-mcp-toolkit-monorepo",
-  "version": "0.1.0",
+    "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "The canonical open-source monorepo for production-ready MCP servers.",
@@ -12,12 +12,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git"
+          "url": "git+https://github.com/Markgatcha/universal-mcp-toolkit.git"
   },
   "bugs": {
-    "url": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit/issues"
+          "url": "https://github.com/Markgatcha/universal-mcp-toolkit/issues"
   },
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+      "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "keywords": [
     "mcp",
     "model-context-protocol",
