@@ -1,0 +1,32 @@
+{
+  "name": "universal-mcp-toolkit",
+  "version": "1.0.0",
+  "description": "The canonical open-source monorepo for production-ready Model Context Protocol servers. 20 integrations, one architecture, one CLI.",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit",
+  "repository": "https://github.com/Markgatcha/universal-mcp-toolkit",
+  "license": "MIT",
+  "author": "Markgatcha",
+  "type": "aggregator",
+  "category": "aggregators",
+  "keywords": [
+    "mcp", "model-context-protocol", "mcp-server", "mcp-aggregator",
+    "typescript", "monorepo", "claude", "cursor", "ai-tools", "llm"
+  ],
+  "npm": "https://www.npmjs.com/package/universal-mcp-toolkit",
+  "install": {
+    "npx": "npx universal-mcp-toolkit install",
+    "global": "npm install -g universal-mcp-toolkit"
+  },
+  "transports": ["stdio", "http+sse"],
+  "servers": [
+    "github", "notion", "slack", "linear", "jira",
+    "google-calendar", "google-drive", "spotify", "stripe",
+    "postgresql", "mongodb", "redis", "supabase",
+    "vercel", "cloudflare-workers", "docker", "npm-registry",
+    "hackernews", "arxiv", "filesystem"
+  ],
+  "listings": [
+    "https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit",
+    "https://github.com/punkpeye/awesome-mcp-servers"
+  ]
+}
