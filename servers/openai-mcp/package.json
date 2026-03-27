@@ -1,0 +1,53 @@
+{
+  "name": "@contextcore/mcp-openai",
+  "version": "1.2.0",
+  "type": "module",
+  "description": "OpenAI/Codex API integration with chat, completion, embedding, images, and more",
+  "license": "MIT",
+  "bin": {
+    "umt-openai": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git"
+  },
+  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    ".well-known"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsx watch src/index.ts",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "developer-tools",
+    "typescript",
+    "openai",
+    "gpt",
+    "llm",
+    "embedding"
+  ],
+  "dependencies": {
+    "openai": "^4.77.0",
+    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "zod": "^4.3.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

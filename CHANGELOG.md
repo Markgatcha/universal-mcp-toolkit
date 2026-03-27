@@ -74,6 +74,40 @@ This is the first stable release of `universal-mcp-toolkit` — a production-rea
 
 ---
 
+## [1.2.0-stable] - 2026-03-27
+
+### New MCP Servers
+- `@contextcore/mcp-notion` — full Notion workspace integration (8 tools)
+- `@contextcore/mcp-playwright` — browser automation and scraping (9 tools)
+- `@contextcore/mcp-slack` — Slack workspace integration (10 tools)
+- `@contextcore/mcp-openai` — OpenAI/Codex API + any OpenAI-compatible endpoint (8 tools)
+
+### CLI Improvements
+- `umt doctor` — environment and config health checker
+- `umt status` — view running server processes
+- `umt logs` — tail server log files with --follow support
+- `umt upgrade` — check and apply package updates
+- `umt init` — interactive setup wizard for new users
+- `umt run` — start individual servers with hot reload
+- `umt search` — search available servers by keyword
+- `umt export-config` — export config for Claude Desktop, Cursor, or VS Code
+- `umt link memos` — connect to local MemOS/ContextCore memory database
+
+### Multi-Profile Support
+- `umt profile create/use/list/show/delete/export/import`
+- All commands respect active profile
+
+### Reliability
+- Auto-restart on crash via `umt run --supervise`
+- Crash loop detection (5 crashes in 60s = stop)
+- PID tracking and uptime in `umt status`
+
+### ContextCore Integration
+- `umt link memos` bridges universal-mcp-toolkit with MemOS
+- Shared namespace support groundwork for v1.3.0
+
+---
+
 ## [Unreleased]
 
 ### Planned

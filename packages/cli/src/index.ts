@@ -2,8 +2,10 @@
 import chalk from "chalk";
 import { Command } from "commander";
 import inquirer from "inquirer";
-import { access } from "node:fs/promises";
-import { constants as fsConstants } from "node:fs";
+import { access, readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
+import { constants as fsConstants, createReadStream, createWriteStream } from "node:fs";
+import { createInterface } from "readline";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawn, execSync } from "node:child_process";
 import ora from "ora";
@@ -116,31 +118,123 @@ async function generateConfig(
   console.log(JSON.stringify(generatedConfig, null, 2));
 }
 
-async function runServer(serverId: string, transport: "sse" | "stdio", host: string, port: number): Promise<void> {
+async function runServer(serverId: string, transport: "sse" | "stdio", host: string, port: number, supervise?: boolean): Promise<void> {
   const entry = getRegistryEntry(serverId);
   const spinner = ora(`Resolving ${entry.title} package`).start();
-
+  const { getStateDirectory } = await import("./config-store.js");
+  
   try {
     const entryFile = resolveWorkspaceEntryFile(entry);
     spinner.succeed(`Launching ${entry.title}`);
 
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(process.execPath, [entryFile, "--transport", transport, "--host", host, "--port", String(port)], {
-        stdio: "inherit",
-        cwd: process.cwd(),
+    const logDir = path.join(getStateDirectory(), "logs");
+    await mkdir(logDir, { recursive: true });
+    const logFile = path.join(logDir, `${serverId}.log`);
+    const logStream = createWriteStream(logFile, { flags: "a" });
+    
+    const stateFile = path.join(getStateDirectory(), "state.json");
+    let state: { processes: Array<{ serverId: string; pid: number; port?: number; startTime: string; restartCount: number; crashTimes: number[] }> } = { processes: [] };
+    try {
+      const oldState = await readFile(stateFile, "utf8");
+      state = JSON.parse(oldState);
+    } catch {}
+
+    let crashTimes: number[] = [];
+    let restartCount = 0;
+    let currentPid: number | null = null;
+
+    const updateState = async () => {
+      state.processes = state.processes.filter(p => p.serverId !== serverId);
+      if (currentPid) {
+        state.processes.push({
+          serverId,
+          pid: currentPid,
+          port: port,
+          startTime: new Date().toISOString(),
+          restartCount,
+          crashTimes,
+        });
+      }
+      await writeFile(stateFile, JSON.stringify(state, null, 2));
+    };
+
+    if (supervise) {
+      console.log(chalk.cyan(`[${serverId}] Starting with supervision enabled...`));
+      
+      while (true) {
+        const crashStart = Date.now();
+        
+        const child = spawn(process.execPath, [entryFile, "--transport", transport, "--host", host, "--port", String(port)], {
+          stdio: "inherit",
+          cwd: process.cwd(),
+        });
+        
+        currentPid = child.pid || null;
+        
+        const timestamp = new Date().toISOString();
+        logStream.write(`[${timestamp}] Starting server (pid ${child.pid})\n`);
+        
+        await updateState();
+
+        await new Promise<void>((resolve) => {
+          child.on("exit", (code: number | null) => {
+            const exitTime = Date.now();
+            
+            crashTimes = crashTimes.filter(t => exitTime - t < 60000);
+            crashTimes.push(exitTime);
+            
+            logStream.write(`[${new Date().toISOString()}] Server exited with code ${code}\n`);
+            
+            if (code === 0) {
+              currentPid = null;
+              logStream.write(`[${new Date().toISOString()}] Server stopped normally\n`);
+              logStream.end();
+              resolve();
+              return;
+            }
+            
+            restartCount++;
+            
+            if (crashTimes.length >= 5) {
+              const errMsg = `[${serverId}] Server crashed 5 times in 60s — giving up. Check logs with: umt logs ${serverId}`;
+              console.log(chalk.red(errMsg));
+              logStream.write(`[${new Date().toISOString()}] ${errMsg}\n`);
+              logStream.end();
+              resolve();
+              return;
+            }
+            
+            console.log(chalk.yellow(`[${serverId}] Server crashed (code ${code}). Restarting in 2s...`));
+            setTimeout(resolve, 2000);
+          });
+          
+          child.on("error", (err: Error) => {
+            logStream.write(`[${new Date().toISOString()}] Error: ${err.message}\n`);
+          });
+        });
+        
+        if (!currentPid) break;
+      }
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(process.execPath, [entryFile, "--transport", transport, "--host", host, "--port", String(port)], {
+          stdio: "inherit",
+          cwd: process.cwd(),
+        });
+        
+        currentPid = child.pid || null;
+        
+        child.on("exit", (code) => {
+          if (code === 0) {
+            resolve();
+            return;
+          }
+          reject(new Error(`${entry.title} exited with code ${code ?? 1}.`));
+        });
+        
+        child.on("error", reject);
       });
-
-      child.on("exit", (code) => {
-        if (code === 0) {
-          resolve();
-          return;
-        }
-
-        reject(new Error(`${entry.title} exited with code ${code ?? 1}.`));
-      });
-
-      child.on("error", reject);
-    });
+    }
   } catch (error) {
     spinner.fail(`Failed to launch ${entry.title}`);
     throw error;
@@ -480,8 +574,9 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .option("--transport <transport>", "stdio or sse", "stdio")
     .option("--host <host>", "Host for SSE mode.", "127.0.0.1")
     .option("--port <port>", "Port for SSE mode.", "3333")
-    .action(async (serverId: string, options: { host: string; port: string; transport: "sse" | "stdio" }) => {
-      await runServer(serverId, options.transport, options.host, Number.parseInt(options.port, 10));
+    .option("--supervise", "Enable auto-restart on crash with crash loop detection.")
+    .action(async (serverId: string, options: { host: string; port: string; transport: "sse" | "stdio"; supervise?: boolean }) => {
+      await runServer(serverId, options.transport, options.host, Number.parseInt(options.port, 10), options.supervise);
     });
 
   program
@@ -542,7 +637,379 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       await runProfileDelete(name);
     });
 
+  const statusCmd = program
+    .command("status")
+    .description("Show currently running umt server processes.");
+
+  statusCmd.action(async () => {
+    await runStatus();
+  });
+
+  program
+    .command("logs")
+    .description("Tail the log file for a specific server.")
+    .argument("<serverName>", "The server name to tail logs for.")
+    .option("--lines <n>", "Number of lines to display.", "50")
+    .option("--follow", "Stream new lines as they are added.")
+    .action(async (serverName: string, options: { lines: string; follow?: boolean }) => {
+      await runLogs(serverName, parseInt(options.lines, 10), !!options.follow);
+    });
+
+  program
+    .command("upgrade")
+    .description("Check npm registry for newer versions and upgrade.")
+    .option("--all", "Upgrade all packages without prompting.")
+    .argument("[serverName]", "Specific server to upgrade.")
+    .action(async (options: { all?: boolean }, serverName?: string) => {
+      await runUpgrade(options.all ?? false, serverName);
+    });
+
+  program
+    .command("init")
+    .description("Interactive setup wizard for new users.")
+    .action(async () => {
+      await runInit();
+    });
+
+  program
+    .command("search")
+    .description("Search available servers by name, description, and tags.")
+    .argument("<query>", "Search query.")
+    .action(async (query: string) => {
+      await runSearch(query);
+    });
+
+  program
+    .command("export-config")
+    .description("Export current server configuration in client-specific format.")
+    .option("--format <format>", "Config format: claude, cursor, vscode, all.", "claude")
+    .option("--output <path>", "Output file path.")
+    .action(async (options: { format: string; output?: string }) => {
+      await runExportConfig(options.format, options.output);
+    });
+
+  program
+    .command("link")
+    .description("Link to local MemOS/ContextCore memory database.")
+    .argument("[memos]", "Link to memos.")
+    .option("--db-path <path>", "Path to MemOS SQLite database.")
+    .action(async (options: { dbPath?: string }) => {
+      await runLinkMemos(options.dbPath);
+    });
+
+  const profileCmd2 = program.command("profile");
+  
+  profileCmd2
+    .command("create")
+    .description("Create a new named profile with interactive wizard.")
+    .argument("<name>", "Profile name.")
+    .action(async (name: string) => {
+      await runProfileCreate(name);
+    });
+
+  profileCmd2
+    .command("show")
+    .description("Show profile configuration.")
+    .argument("[name]", "Profile name (shows active if not provided).")
+    .action(async (name?: string) => {
+      await runProfileShow(name);
+    });
+
+  profileCmd2
+    .command("export")
+    .description("Export a profile as a portable JSON file.")
+    .argument("<name>", "Profile name.")
+    .option("--output <path>", "Output file path.")
+    .action(async (options: { output?: string }, name: string) => {
+      await runProfileExport(name, options.output);
+    });
+
+  profileCmd2
+    .command("import")
+    .description("Import a profile from a JSON file.")
+    .argument("<path>", "Path to profile JSON file.")
+    .action(async (profilePath: string) => {
+      await runProfileImport(profilePath);
+    });
+
   await program.parseAsync(argv);
+}
+
+async function runStatus(): Promise<void> {
+  try {
+    const { getStateDirectory } = await import("./config-store.js");
+    const statePath = path.join(getStateDirectory(), "state.json");
+    
+    if (!(await pathExists(statePath))) {
+      console.log(chalk.yellow("No servers currently running."));
+      console.log(chalk.gray("Use 'umt run <server>' to start a server."));
+      return;
+    }
+    
+    const contents = await readFile(statePath, "utf8");
+    const state = JSON.parse(contents);
+    
+    if (!state.processes || state.processes.length === 0) {
+      console.log(chalk.yellow("No servers currently running."));
+      console.log(chalk.gray("Use 'umt run <server>' to start a server."));
+      return;
+    }
+    
+    printSection("Running Servers");
+    console.log(chalk.cyan("Server".padEnd(20)) + chalk.cyan("PID").padEnd(12) + chalk.cyan("Port").padEnd(10) + chalk.cyan("Uptime").padEnd(15) + chalk.cyan("Restarts"));
+    
+    for (const proc of state.processes) {
+      const startTime = new Date(proc.startTime);
+      const uptime = Date.now() - startTime.getTime();
+      const uptimeStr = uptime < 60000 ? "<1m" : `${Math.floor(uptime / 60000)}m`;
+      console.log(
+        proc.serverId.padEnd(20) +
+        String(proc.pid).padEnd(12) +
+        String(proc.port || "-").padEnd(10) +
+        uptimeStr.padEnd(15) +
+        String(proc.restartCount || 0)
+      );
+    }
+  } catch (error) {
+    console.log(chalk.yellow("No servers currently running."));
+    console.log(chalk.gray("Use 'umt run <server>' to start a server."));
+  }
+}
+
+async function runLogs(serverName: string, lines: number, follow: boolean): Promise<void> {
+  try {
+    const { getStateDirectory } = await import("./config-store.js");
+    const logDir = path.join(getStateDirectory(), "logs");
+    const logFile = path.join(logDir, `${serverName}.log`);
+    
+    if (!(await pathExists(logFile))) {
+      console.log(chalk.red(`No logs found for '${serverName}'.`));
+      return;
+    }
+    
+    if (follow) {
+      console.log(chalk.gray(`Following logs for ${serverName}... (Ctrl+C to stop)`));
+      const stream = createReadStream(logFile);
+      const rl = createInterface({ input: stream });
+      
+      stream.on('error', (err) => {
+        console.log(chalk.red(`Error reading log: ${err.message}`));
+      });
+      
+      rl.on('line', (line) => {
+        console.log(line);
+      });
+    } else {
+      const contents = await readFile(logFile, "utf8");
+      const allLines = contents.split("\n");
+      const lastLines = allLines.slice(-lines);
+      console.log(lastLines.join("\n"));
+    }
+  } catch (error) {
+    console.log(chalk.red(`Error: ${error instanceof Error ? error.message : "Unknown error"}`));
+  }
+}
+
+async function runUpgrade(allPackages: boolean, serverName?: string): Promise<void> {
+  const spinner = ora("Checking for updates...").start();
+  
+  try {
+    if (serverName) {
+      const entry = getRegistryEntry(serverName);
+      const result = execSync(`npm view ${entry.packageName} version`, { encoding: "utf8" }).trim();
+      spinner.succeed(`Current version: ${entry.packageName}`);
+      console.log(`Latest version in npm: ${chalk.green(result)}`);
+    } else if (allPackages) {
+      const packages = SERVER_REGISTRY.map(e => e.packageName);
+      for (const pkg of packages) {
+        const result = execSync(`npm view ${pkg} version`, { encoding: "utf8" }).trim();
+        console.log(`${pkg}: ${chalk.green(result)}`);
+      }
+      spinner.succeed("All packages checked.");
+    } else {
+      const pkg = "@universal-mcp-toolkit/cli";
+      const result = execSync(`npm view ${pkg} version`, { encoding: "utf8" }).trim();
+      spinner.succeed(`CLI version: ${chalk.green(result)}`);
+    }
+  } catch (error) {
+    spinner.fail("Failed to check for updates");
+  }
+}
+
+async function runInit(): Promise<void> {
+  const target = await promptForTarget();
+  const serverIds = await promptForServers();
+  const mode = await promptForMode();
+  const outputPath = await promptForOutputPath(target);
+
+  const spinner = ora("Writing config...").start();
+  try {
+    await generateConfig(serverIds, target, mode, outputPath);
+    spinner.succeed(`Config written to ${outputPath}`);
+    printSection("Next Steps");
+    console.log(chalk.white("1. Set required environment variables in your shell"));
+    console.log(chalk.white("2. Restart your MCP host (Claude Desktop, Cursor, etc.)"));
+    console.log(chalk.white("3. Run 'umt doctor' to verify configuration"));
+  } catch (error) {
+    spinner.fail("Init failed");
+    throw error;
+  }
+}
+
+async function runSearch(query: string): Promise<void> {
+  const lowerQuery = query.toLowerCase();
+  const matches = SERVER_REGISTRY.filter(entry => 
+    entry.id.toLowerCase().includes(lowerQuery) ||
+    entry.title.toLowerCase().includes(lowerQuery) ||
+    entry.description.toLowerCase().includes(lowerQuery)
+  );
+  
+  if (matches.length === 0) {
+    console.log(chalk.yellow(`No servers found matching '${query}'.`));
+    return;
+  }
+  
+  console.log(renderServerTable(matches));
+}
+
+async function runExportConfig(format: string, outputPath?: string): Promise<void> {
+  try {
+    const { loadActiveProfile } = await import("./config-store.js");
+    const profile = await loadActiveProfile();
+    
+    if (!profile) {
+      console.log(chalk.yellow("No active profile. Run 'umt init' or 'umt profile use' first."));
+      return;
+    }
+    
+    const entries = profile.serverIds.map(id => getRegistryEntry(id));
+    const config = createGeneratedConfig(entries, profile.mode);
+    
+    const target = format === "cursor" ? "cursor" : format === "vscode" ? "json" : "claude-desktop";
+    
+    if (outputPath) {
+      await writeFile(outputPath, JSON.stringify(config, null, 2));
+      console.log(chalk.green(`Config written to ${outputPath}`));
+    } else {
+      console.log(JSON.stringify(config, null, 2));
+    }
+  } catch (error) {
+    console.log(chalk.red(`Error: ${error instanceof Error ? error.message : "Unknown error"}`));
+  }
+}
+
+async function runLinkMemos(dbPath?: string): Promise<void> {
+  const { getStateDirectory } = await import("./config-store.js");
+  const configDir = getStateDirectory();
+  
+  let pathToUse = dbPath;
+  
+  if (!pathToUse) {
+    const home = process.env.HOME || process.env.USERPROFILE || ".";
+    const defaultPaths = [path.join(home, ".memos", "memos.db"), path.join(home, "memos.db")];
+    
+    for (const p of defaultPaths) {
+      if (existsSync(p)) {
+        pathToUse = p;
+        break;
+      }
+    }
+    
+    if (!pathToUse) {
+      console.log(chalk.red("No db-path provided and no default MemOS database found."));
+      console.log(chalk.gray("Please provide --db-path or place memos.db in ~/.memos/"));
+      return;
+    }
+  }
+  
+  const configPath = path.join(configDir, "config.json");
+  await mkdir(configDir, { recursive: true });
+  
+  const config = { memosPath: pathToUse };
+  await writeFile(configPath, JSON.stringify(config, null, 2));
+  
+  console.log(chalk.green(`MemOS linked at ${pathToUse}.`));
+  console.log(chalk.gray("MCP servers can now access ContextCore memory."));
+}
+
+async function runProfileCreate(name: string): Promise<void> {
+  const target = await promptForTarget();
+  const serverIds = await promptForServers();
+  const mode = await promptForMode();
+  const outputPath = await promptForOutputPath(target);
+  
+  const spinner = ora(`Creating profile '${name}'...`).start();
+  try {
+    await generateConfig(serverIds, target, mode, outputPath);
+    await saveNamedProfile({
+      name,
+      target,
+      mode,
+      outputPath,
+      serverIds,
+      createdAt: new Date().toISOString(),
+    });
+    spinner.succeed(`Profile '${name}' created`);
+  } catch (error) {
+    spinner.fail("Failed to create profile");
+    throw error;
+  }
+}
+
+async function runProfileShow(name?: string): Promise<void> {
+  try {
+    const { loadActiveProfile, readState } = await import("./config-store.js");
+    
+    let profile;
+    if (name) {
+      profile = await loadProfile(name);
+    } else {
+      profile = await loadActiveProfile();
+    }
+    
+    if (!profile) {
+      console.log(chalk.yellow("No profile found. Create one with 'umt init' or 'umt profile create'."));
+      return;
+    }
+    
+    printSection(`Profile: ${name || "Active"}`);
+    console.log(`Target: ${profile.target}`);
+    console.log(`Mode: ${profile.mode}`);
+    console.log(`Output: ${profile.outputPath}`);
+    console.log(`Servers: ${profile.serverIds.join(", ")}`);
+    console.log(`Created: ${profile.createdAt}`);
+  } catch (error) {
+    console.log(chalk.red(`Error: ${error instanceof Error ? error.message : "Unknown error"}`));
+  }
+}
+
+async function runProfileExport(name: string, outputPath?: string): Promise<void> {
+  try {
+    const profile = await loadProfile(name);
+    const exportPath = outputPath || `${name}-profile.json`;
+    await writeFile(exportPath, JSON.stringify(profile, null, 2));
+    console.log(chalk.green(`Profile '${name}' exported to ${exportPath}`));
+  } catch (error) {
+    console.log(chalk.red(`Error: ${error instanceof Error ? error.message : "Unknown error"}`));
+  }
+}
+
+async function runProfileImport(profilePath: string): Promise<void> {
+  try {
+    const contents = await readFile(profilePath, "utf8");
+    const profile = JSON.parse(contents);
+    
+    if (!profile.name) {
+      console.log(chalk.red("Invalid profile: missing 'name' field."));
+      return;
+    }
+    
+    const spinner = ora(`Importing profile '${profile.name}'...`).start();
+    await saveNamedProfile(profile);
+    spinner.succeed(`Profile '${profile.name}' imported`);
+  } catch (error) {
+    console.log(chalk.red(`Error: ${error instanceof Error ? error.message : "Unknown error"}`));
+  }
 }
 
 if (process.argv[1] && import.meta.url === new URL(process.argv[1], "file:").href) {

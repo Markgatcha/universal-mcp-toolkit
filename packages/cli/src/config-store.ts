@@ -213,3 +213,27 @@ export async function deleteProfile(name: string): Promise<void> {
     throw error;
   }
 }
+
+export function getActiveProfilePath(): string {
+  return path.join(getStateDirectory(), "active-profile");
+}
+
+export async function loadActiveProfile(): Promise<SavedProfile | null> {
+  try {
+    const activePath = getActiveProfilePath();
+    const contents = await readFile(activePath, "utf8");
+    const data = JSON.parse(contents);
+    if(data.profileName) {
+      return await loadProfile(data.profileName);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setActiveProfile(name: string): Promise<void> {
+  await mkdir(getStateDirectory(), { recursive: true });
+  const activePath = getActiveProfilePath();
+  await writeFile(activePath, JSON.stringify({ profileName: name }), "utf8");
+}

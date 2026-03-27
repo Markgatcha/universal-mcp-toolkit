@@ -222,8 +222,44 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     envVarNames: ["TRELLO_API_KEY", "TRELLO_TOKEN"],
     transports: ["stdio", "sse"],
   },
+,
+  {
+    id: "notion-mcp",
+    title: "Notion (MCP)",
+    category: "Collaboration",
+    description: "Full Notion workspace integration with search, CRUD on pages and databases.",
+    packageName: "@contextcore/mcp-notion",
+    envVarNames: ["NOTION_API_KEY"],
+    transports: ["stdio", "sse"]
+  },
+  {
+    id: "playwright-mcp",
+    title: "Playwright (MCP)",
+    category: "Automation",
+    description: "Browser automation and web scraping with Playwright.",
+    packageName: "@contextcore/mcp-playwright",
+    envVarNames: [],
+    transports: ["stdio", "sse"]
+  },
+  {
+    id: "slack-mcp",
+    title: "Slack (MCP)",
+    category: "Collaboration",
+    description: "Full Slack workspace integration with channels, messages, users, and files.",
+    packageName: "@contextcore/mcp-slack",
+    envVarNames: ["SLACK_BOT_TOKEN"],
+    transports: ["stdio", "sse"]
+  },
+  {
+    id: "openai-mcp",
+    title: "OpenAI (MCP)",
+    category: "AI",
+    description: "OpenAI/Codex API integration with chat, completion, embedding, and more.",
+    packageName: "@contextcore/mcp-openai",
+    envVarNames: ["OPENAI_API_KEY"],
+    transports: ["stdio", "sse"]
+  }
 ];
-
 export function getRegistryEntry(id: string): ServerRegistryEntry {
   const entry = SERVER_REGISTRY.find((candidate) => candidate.id === id);
   if (!entry) {

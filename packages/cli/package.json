@@ -1,6 +1,6 @@
 {
   "name": "universal-mcp-toolkit",
-  "version": "0.1.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "A beautiful unified CLI for discovering, configuring, and running universal-mcp-toolkit MCP servers.",
   "license": "MIT",
@@ -69,7 +69,11 @@
     "@universal-mcp-toolkit/server-filesystem": "workspace:0.1.0",
     "@universal-mcp-toolkit/server-discord": "workspace:0.1.0",
     "@universal-mcp-toolkit/server-airtable": "workspace:0.1.0",
-    "@universal-mcp-toolkit/server-trello": "workspace:0.1.0"
+    "@universal-mcp-toolkit/server-trello": "workspace:0.1.0",
+    "@contextcore/mcp-notion": "workspace:1.2.0",
+    "@contextcore/mcp-playwright": "workspace:1.2.0",
+    "@contextcore/mcp-slack": "workspace:1.2.0",
+    "@contextcore/mcp-openai": "workspace:1.2.0"
   },
   "publishConfig": {
     "access": "public"
