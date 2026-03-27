@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-postgresql",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Schema inspection and safe query tools for PostgreSQL.",
   "license": "MIT",
@@ -43,7 +43,7 @@
     "schema"
   ],
   "dependencies": {
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "pg": "^8.20.0",
     "zod": "^4.3.6"
   }

@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-github",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Repository search, pull request lookup, workflow run inspection, repository resources, and triage prompts for GitHub.",
   "license": "MIT",
@@ -44,7 +44,7 @@
     "actions"
   ],
   "dependencies": {
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "octokit": "^5.0.5",
     "zod": "^4.3.6"
   }

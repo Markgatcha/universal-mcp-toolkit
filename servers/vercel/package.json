@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-vercel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Project, deployment, and environment tools for Vercel.",
   "license": "MIT",
@@ -43,7 +43,7 @@
     "frontend"
   ],
   "dependencies": {
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "zod": "^4.3.6"
   }
 }

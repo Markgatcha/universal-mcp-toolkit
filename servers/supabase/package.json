@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-supabase",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Database, auth, storage, and function tools for Supabase.",
   "license": "MIT",
@@ -44,7 +44,7 @@
   ],
   "dependencies": {
     "@supabase/supabase-js": "^2.99.0",
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "zod": "^4.3.6"
   }
 }

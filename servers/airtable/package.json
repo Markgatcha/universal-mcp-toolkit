@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-airtable",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Table listing, record CRUD, and filtering for Airtable bases.",
   "license": "MIT",
@@ -44,7 +44,7 @@
     "tables"
   ],
   "dependencies": {
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "zod": "^4.3.6"
   },
   "publishConfig": {
