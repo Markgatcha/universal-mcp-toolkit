@@ -1,5 +1,5 @@
 ---
-"universal-mcp-toolkit": major
+"universal-mcp-toolkit": minor
 "@universal-mcp-toolkit/core": minor
 "@universal-mcp-toolkit/server-notion": minor
 "@contextcore/mcp-notion": minor
