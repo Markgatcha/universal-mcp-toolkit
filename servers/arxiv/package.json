@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-arxiv",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Paper discovery and reading-list tools for arXiv.",
   "license": "MIT",
@@ -44,7 +44,7 @@
     "science"
   ],
   "dependencies": {
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "fast-xml-parser": "^5.5.1",
     "zod": "^4.3.6"
   },

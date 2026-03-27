@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-slack",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Channel lookup, history, and messaging tools for Slack workspaces.",
   "license": "MIT",
@@ -43,7 +43,7 @@
     "channels"
   ],
   "dependencies": {
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "zod": "^4.3.6"
   }
 }

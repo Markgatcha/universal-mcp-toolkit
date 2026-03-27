@@ -1,6 +1,6 @@
 {
   "name": "@contextcore/mcp-notion",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "type": "module",
   "description": "Full Notion workspace integration — search, create, update pages and databases.",
   "license": "MIT",
@@ -44,7 +44,7 @@
   ],
   "dependencies": {
     "@notionhq/client": "^2.3.0",
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "zod": "^4.3.6"
   },
   "publishConfig": {

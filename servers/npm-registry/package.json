@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-npm-registry",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Package metadata, search, and version tools for the npm registry.",
   "license": "MIT",
@@ -43,7 +43,7 @@
     "versions"
   ],
   "dependencies": {
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "zod": "^4.3.6"
   }
 }

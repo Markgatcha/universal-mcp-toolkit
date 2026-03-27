@@ -1,6 +1,6 @@
 {
   "name": "@contextcore/mcp-openai",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "type": "module",
   "description": "OpenAI/Codex API integration with chat, completion, embedding, images, and more",
   "license": "MIT",
@@ -44,7 +44,7 @@
   ],
   "dependencies": {
     "openai": "^4.77.0",
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "zod": "^4.3.6"
   },
   "publishConfig": {

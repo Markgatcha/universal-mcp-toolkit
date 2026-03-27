@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-notion",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Search Notion pages, inspect page metadata and content, create pages, expose workspace context, and generate summary prompts.",
   "license": "MIT",
@@ -43,7 +43,7 @@
     "wiki"
   ],
   "dependencies": {
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "zod": "^4.3.6"
   }
 }

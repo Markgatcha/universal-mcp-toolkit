@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-trello",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Board and list discovery, card CRUD, and archiving for Trello workspaces.",
   "license": "MIT",
@@ -44,7 +44,7 @@
     "project-management"
   ],
   "dependencies": {
-    "@universal-mcp-toolkit/core": "workspace:0.1.0",
+    "@universal-mcp-toolkit/core": "workspace:0.2.0",
     "zod": "^4.3.6"
   },
   "publishConfig": {
