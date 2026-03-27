@@ -222,7 +222,6 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     envVarNames: ["TRELLO_API_KEY", "TRELLO_TOKEN"],
     transports: ["stdio", "sse"],
   },
-,
   {
     id: "notion-mcp",
     title: "Notion (MCP)",
