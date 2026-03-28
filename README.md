@@ -4,7 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/universal-mcp-toolkit?label=downloads&color=red)](https://www.npmjs.com/package/universal-mcp-toolkit)
 [![universal-mcp-toolkit MCP server](https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit/badges/score.svg)](https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
-![Code Coverage](https://img.shields.io/codecov/c/github/Markgatcha/universal-mcp-toolkit)
+
 
 
 The canonical open-source monorepo for production-ready Model Context Protocol servers.
