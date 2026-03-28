@@ -2,6 +2,7 @@
 [![CI](https://github.com/Markgatcha/universal-mcp-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Markgatcha/universal-mcp-toolkit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg?logo=pnpm)](https://pnpm.io/) [![npm](https://img.shields.io/npm/v/universal-mcp-toolkit?label=npm)](https://www.npmjs.com/package/universal-mcp-toolkit)
 [![npm downloads](https://img.shields.io/npm/dm/universal-mcp-toolkit?label=downloads&color=red)](https://www.npmjs.com/package/universal-mcp-toolkit)
+[![universal-mcp-toolkit MCP server](https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit/badges/score.svg)](https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit)
 
 
 
