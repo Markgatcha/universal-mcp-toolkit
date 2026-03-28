@@ -3,7 +3,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg?logo=pnpm)](https://pnpm.io/) [![npm](https://img.shields.io/npm/v/universal-mcp-toolkit?label=npm)](https://www.npmjs.com/package/universal-mcp-toolkit)
 [![npm downloads](https://img.shields.io/npm/dm/universal-mcp-toolkit?label=downloads&color=red)](https://www.npmjs.com/package/universal-mcp-toolkit)
 [![universal-mcp-toolkit MCP server](https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit/badges/score.svg)](https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit)
-
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+![Code Coverage](https://img.shields.io/codecov/c/github/Markgatcha/universal-mcp-toolkit)
 
 
 The canonical open-source monorepo for production-ready Model Context Protocol servers.
