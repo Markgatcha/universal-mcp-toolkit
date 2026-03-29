@@ -1,8 +1,3 @@
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
-# IMPORTANT: The InstallerSha256 below is a placeholder. You MUST compute the
-# real SHA256 of scripts/umt-installer.ps1 before submitting this manifest:
-#   Get-FileHash scripts\umt-installer.ps1 -Algorithm SHA256
-# Then replace the placeholder with the actual hash value.
 
 PackageIdentifier: ContextCore.UniversalMcpToolkit
 PackageVersion: 1.2.0
@@ -26,7 +21,6 @@ AppsAndFeaturesEntries:
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/Markgatcha/universal-mcp-toolkit/releases/download/v1.2.0/umt-installer.ps1
-    # PLACEHOLDER: Replace with real hash before submission
-    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+    InstallerSha256: 8A78E64D9BBB7867FA1F53D3C3F13611FD489E84EC5A81107CC5D1DC08D53CC6
 ManifestType: installer
 ManifestVersion: 1.6.0
