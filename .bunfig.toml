@@ -1,0 +1,12 @@
+[install]
+# Use exact versions to match pnpm lockfile behavior
+exact = true
+
+[install.scopes]
+# Scope registry for @contextcore packages
+"@contextcore" = { registry = "https://registry.npmjs.org" }
+"@universal-mcp-toolkit" = { registry = "https://registry.npmjs.org" }
+
+[run]
+# Allow bun to run package.json scripts
+bun = true

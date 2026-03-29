@@ -36,3 +36,23 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  bun-test:
+    name: Test with Bun
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install with bun
+        run: bun install
+
+      - name: Build with bun
+        run: bun run build
+
+      - name: Test CLI resolves
+        run: bun run packages/cli/dist/index.js --version

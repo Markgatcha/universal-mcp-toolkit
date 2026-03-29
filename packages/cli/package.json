@@ -75,6 +75,10 @@
     "@contextcore/mcp-slack": "workspace:1.3.0",
     "@contextcore/mcp-openai": "workspace:1.3.0"
   },
+  "engines": {
+    "node": ">=20.11.0",
+    "bun": ">=1.0.0"
+  },
   "publishConfig": {
     "access": "public"
   }
