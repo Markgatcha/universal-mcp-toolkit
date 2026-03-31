@@ -16,7 +16,7 @@ If you have ever wanted one place to find great MCP servers for GitHub, Slack, N
 The fastest way to get going:
 
 ```bash
-# See all 20 available servers
+# See all 27 available servers
 npx universal-mcp-toolkit list
 
 # Interactive setup — pick your servers, choose transport, write config
@@ -50,7 +50,7 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 
 `universal-mcp-toolkit` fixes that with one opinionated, high-quality Turborepo:
 
-- 23 production-focused MCP servers
+- 27 production-focused MCP servers
 - One shared strict-mode TypeScript core
 - One polished CLI for install, config, run, and diagnostics
 - Consistent Zod validation, structured errors, and pino logging
@@ -82,7 +82,7 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 
 | Option | Breadth | DX quality | Shared architecture | Host config help | Documentation polish |
 | --- | --- | --- | --- | --- | --- |
-| `universal-mcp-toolkit` | 23 servers in one monorepo | High | Yes | Yes | High |
+| `universal-mcp-toolkit` | 27 servers in one monorepo | High | Yes | Yes | High |
 | Single-service MCP repos | Narrow | Varies | No | Rarely | Varies |
 | Personal one-off scripts | Very narrow | Low | No | No | Usually none |
 
@@ -113,6 +113,8 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 | Discord | Guilds, channels, messages, members | `DISCORD_BOT_TOKEN` |
 | Airtable | Tables, records, CRUD operations | `AIRTABLE_API_KEY`, `AIRTABLE_BASE_ID` |
 | Trello | Boards, lists, cards, archiving | `TRELLO_API_KEY`, `TRELLO_TOKEN` |
+| Playwright | Browser automation and web scraping | `PLAYWRIGHT_BROWSERS_PATH` (optional) |
+| OpenAI | Chat completions, embeddings, and model queries | `OPENAI_API_KEY` |
 
 Some servers also expose optional tuning variables such as `POSTGRESQL_ALLOW_WRITES`, `REDIS_ALLOW_WRITES`, `MONGODB_ALLOW_WRITE_PIPELINES`, `VERCEL_TEAM_ID`, or `FILESYSTEM_MAX_READ_BYTES`. The root `.env.example` includes the most useful knobs.
 
@@ -157,7 +159,7 @@ universal-mcp-toolkit/
 ### Clone and install
 
 ```bash
-git clone https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git
+git clone https://github.com/Markgatcha/universal-mcp-toolkit.git
 cd universal-mcp-toolkit
 corepack pnpm install
 ```
@@ -212,9 +214,36 @@ Run an interactive setup flow, choose servers, choose `npx` or workspace mode, w
 
 Launch any built workspace server locally with stdio or HTTP+SSE transport.
 
+The `--supervise` flag enables crash-loop detection and automatic restarts:
+
+```sh
+umt run github --transport stdio --supervise
+```
+
+If the server crashes 5 times within 60 seconds it stops retrying. Logs are written to the state directory under `logs/<serverId>.log` and can be tailed with `umt logs <serverId>`.
+
 ### `umt doctor`
 
 Check build output, config state, and required environment variables before you waste time debugging a missing token or missing `dist` file.
+
+### New in v1.1.0+
+
+| Command | What it does |
+|---|---|
+| `umt status` | Show currently running umt server processes and their PIDs |
+| `umt logs <server>` | Tail the log file for a specific server |
+| `umt test <server>` | Run a live end-to-end MCP handshake test against a server |
+| `umt search <query>` | Search available servers by name, description, and tags |
+| `umt init` | Interactive setup wizard for new users |
+| `umt update` | Check npm for a newer version of the CLI and optionally install it |
+| `umt upgrade` | Check npm for newer versions of individual server packages |
+| `umt export` | Export install profiles to a portable JSON file (no secrets included) |
+| `umt export-config` | Export current server config in a specific client format |
+| `umt link` | Link a local MemOS/ContextCore SQLite memory database |
+| `umt profile create <name>` | Create a new named profile with interactive wizard |
+| `umt profile show [name]` | Show profile configuration details |
+| `umt profile export <name>` | Export a named profile to a JSON file |
+| `umt profile import <path>` | Import a profile from a JSON file |
 
 ## Configuration examples
 
@@ -326,6 +355,14 @@ corepack pnpm typecheck
 corepack pnpm test
 ```
 
+### Bun (also supported)
+
+```sh
+bun install
+bun run build
+bun run packages/cli/dist/index.js --version
+```
+
 Use Turbo filters when you only want to work on one package:
 
 ```bash
@@ -346,7 +383,7 @@ The operator console for listing, configuring, installing, running, and diagnosi
 
 ### `servers/*`
 
-Twenty independently publishable MCP server packages that all share the same operational shape.
+27 independently publishable MCP server packages that all share the same operational shape.
 
 ## Roadmap direction
 
@@ -416,7 +453,3 @@ If you've created a custom server, workflow, or integration using this toolkit a
 ## License
 
 MIT — see [LICENSE](./LICENSE) for full terms.
-
-## License
-
-MIT

@@ -8,7 +8,12 @@ import { createInterface } from "readline";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawn, execSync } from "node:child_process";
+import { createRequire } from "node:module";
 import ora from "ora";
+
+const _require = createRequire(import.meta.url);
+const _pkg = _require("../package.json") as { version: string };
+const CLI_VERSION = _pkg.version;
 
 import {
   createGeneratedConfig,
@@ -224,7 +229,9 @@ async function runServer(serverId: string, transport: "sse" | "stdio", host: str
         
         currentPid = child.pid || null;
         
-        child.on("exit", (code) => {
+        child.on("exit", async (code) => {
+          currentPid = null;
+          await updateState();
           if (code === 0) {
             resolve();
             return;
@@ -267,7 +274,7 @@ async function runDoctor(serverId?: string): Promise<void> {
 async function runUpdate(): Promise<void> {
   const spinner = ora("Checking for updates").start();
   try {
-    const currentVersion = "0.1.0";
+    const currentVersion = CLI_VERSION;
     const registryOutput = execSync("npm view universal-mcp-toolkit version --registry https://registry.npmjs.org", {
       encoding: "utf8",
       timeout: 15000,
@@ -440,7 +447,7 @@ async function runExport(outputPath: string): Promise<void> {
 
   const exportData: ExportedProfile = {
     exportedAt: new Date().toISOString(),
-    version: "0.1.0",
+    version: CLI_VERSION,
     profiles: state.installs.map((install, index) => ({
       name: install.profileName ?? `install-${index + 1}`,
       target: install.target,
@@ -498,7 +505,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
   program
     .name("universal-mcp-toolkit")
     .description("A polished control plane for the universal-mcp-toolkit MCP server monorepo.")
-    .version("0.1.0");
+    .version(CLI_VERSION);
 
   program
     .command("list")
@@ -660,7 +667,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .description("Check npm registry for newer versions and upgrade.")
     .option("--all", "Upgrade all packages without prompting.")
     .argument("[serverName]", "Specific server to upgrade.")
-    .action(async (options: { all?: boolean }, serverName?: string) => {
+    .action(async (serverName: string | undefined, options: { all?: boolean }) => {
       await runUpgrade(options.all ?? false, serverName);
     });
 
@@ -693,13 +700,11 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .description("Link to local MemOS/ContextCore memory database.")
     .argument("[memos]", "Link to memos.")
     .option("--db-path <path>", "Path to MemOS SQLite database.")
-    .action(async (options: { dbPath?: string }) => {
+    .action(async (memos: string | undefined, options: { dbPath?: string }) => {
       await runLinkMemos(options.dbPath);
     });
 
-  const profileCmd2 = program.command("profile");
-  
-  profileCmd2
+  profileCmd
     .command("create")
     .description("Create a new named profile with interactive wizard.")
     .argument("<name>", "Profile name.")
@@ -707,7 +712,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       await runProfileCreate(name);
     });
 
-  profileCmd2
+  profileCmd
     .command("show")
     .description("Show profile configuration.")
     .argument("[name]", "Profile name (shows active if not provided).")
@@ -715,16 +720,16 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       await runProfileShow(name);
     });
 
-  profileCmd2
+  profileCmd
     .command("export")
     .description("Export a profile as a portable JSON file.")
     .argument("<name>", "Profile name.")
     .option("--output <path>", "Output file path.")
-    .action(async (options: { output?: string }, name: string) => {
+    .action(async (name: string, options: { output?: string }) => {
       await runProfileExport(name, options.output);
     });
 
-  profileCmd2
+  profileCmd
     .command("import")
     .description("Import a profile from a JSON file.")
     .argument("<path>", "Path to profile JSON file.")
@@ -827,7 +832,7 @@ async function runUpgrade(allPackages: boolean, serverName?: string): Promise<vo
       }
       spinner.succeed("All packages checked.");
     } else {
-      const pkg = "@universal-mcp-toolkit/cli";
+      const pkg = "universal-mcp-toolkit";
       const result = execSync(`npm view ${pkg} version`, { encoding: "utf8" }).trim();
       spinner.succeed(`CLI version: ${chalk.green(result)}`);
     }
