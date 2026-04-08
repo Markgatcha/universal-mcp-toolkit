@@ -46,7 +46,12 @@ export const metadata = {
 export const serverCard = createServerCard(metadata);
 
 function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/+$/, "");
+  // Use string operations instead of regex to avoid polynomial backtracking
+  let result = baseUrl;
+  while (result.endsWith('/')) {
+    result = result.slice(0, -1);
+  }
+  return result;
 }
 
 function toNullableString(value: string | null | undefined): string | null {
