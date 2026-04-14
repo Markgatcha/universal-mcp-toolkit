@@ -14,6 +14,7 @@ overrides:
   picomatch@<2.3.2: '>=2.3.2'
   picomatch@>=4.0.0 <4.0.4: '>=4.0.4'
   vite@<7.3.2: '>=7.3.2'
+  axios@<1.15.0: '>=1.15.0'
 
 importers:
 
