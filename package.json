@@ -54,5 +54,10 @@
     "turbo": "^2.8.15",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
+  },
+  "pnpm": {
+    "overrides": {
+      "axios": ">=1.15.0"
+    }
   }
 }
