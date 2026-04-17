@@ -156,6 +156,7 @@ class FetchHackerNewsClient implements HackerNewsClient {
   public async getTopStories(limit: number): Promise<ReadonlyArray<HackerNewsStorySummary>> {
     const ids = await this.fetchJson(new URL(`${this.apiBaseUrl}/topstories.json`), z.array(z.number().int().nonnegative()));
     const items = await Promise.all(ids.slice(0, limit).map((id) => this.fetchItem(id)));
+
     return items
       .filter((item): item is z.infer<typeof hnItemSchema> => isHnItem(item) && item.type === "story")
       .map((item) => this.toStorySummary(item));
@@ -168,6 +169,7 @@ class FetchHackerNewsClient implements HackerNewsClient {
     url.searchParams.set("hitsPerPage", String(input.limit));
 
     const payload = await this.fetchJson(url, hnSearchResponseSchema);
+
     return payload.hits.map((hit) => ({
       id: Number.parseInt(hit.objectID, 10),
       title: hit.title ?? "Untitled story",
@@ -182,10 +184,9 @@ class FetchHackerNewsClient implements HackerNewsClient {
 
   public async getThread(input: { itemId: number; depth: number; maxChildren: number }): Promise<HackerNewsThread> {
     const root = await this.fetchItem(input.itemId);
+
     if (!root) {
-      throw new ExternalServiceError(`Hacker News item ${input.itemId} was not found.`, {
-        statusCode: 404,
-      });
+      throw new ExternalServiceError(`Hacker News item ${input.itemId} was not found.`, { statusCode: 404 });
     }
 
     return {
@@ -198,13 +199,14 @@ class FetchHackerNewsClient implements HackerNewsClient {
     ids: ReadonlyArray<number>,
     depth: number,
     maxChildren: number,
-  ): Promise<Array<HackerNewsThreadComment>> {
+  ): Promise<ReadonlyArray<HackerNewsThreadComment>> {
     if (depth <= 0) {
       return [];
     }
 
     const children = await Promise.all(ids.slice(0, maxChildren).map((id) => this.fetchItem(id)));
     const comments = children.filter((item): item is z.infer<typeof hnItemSchema> => isHnItem(item) && item.type === "comment");
+
     return Promise.all(
       comments.map(async (comment) => ({
         id: comment.id,
@@ -233,9 +235,7 @@ class FetchHackerNewsClient implements HackerNewsClient {
     const url = new URL(`${this.apiBaseUrl}/item/${id}.json`);
     const response = await this.fetchImpl(url, {
       method: "GET",
-      headers: {
-        accept: "application/json",
-      },
+      headers: { accept: "application/json" },
     });
 
     if (!response.ok) {
@@ -267,9 +267,7 @@ class FetchHackerNewsClient implements HackerNewsClient {
   private async fetchJson<T>(url: URL, schema: z.ZodType<T>): Promise<T> {
     const response = await this.fetchImpl(url, {
       method: "GET",
-      headers: {
-        accept: "application/json",
-      },
+      headers: { accept: "application/json" },
     });
 
     if (!response.ok) {
@@ -303,9 +301,18 @@ export class HackerNewsServer extends ToolkitServer {
       defineTool({
         name: "get_top_stories",
         title: "Get top stories",
-        description: "Get the current top Hacker News stories.",
+        description:
+          "Fetch the current top Hacker News stories by reading the public Firebase `topstories` feed and hydrating the first `limit` item IDs. Use this when you want HN's live ranked front page; use `search_stories` for keyword lookup and `get_item_thread` for a single item with comments. This operation is read-only, idempotent, and requires no auth; it reflects HN's live ranking algorithm, and the server adds no extra rate limiting beyond the public HN API. `limit` is validated before the request is made, and out-of-range values are rejected; the returned list may be shorter if some IDs resolve to deleted, dead, missing, or non-story items.",
         inputSchema: {
-          limit: z.number().int().min(1).max(30).default(10),
+          limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(30)
+            .default(10)
+            .describe(
+              "Number of top-ranked stories to return from the live `topstories` feed. Valid range is 1-30; the default is 10 when omitted. The server fetches the first N IDs from HN, so this controls both how many item lookups happen and the maximum number of stories returned. The final array can be shorter if some fetched IDs do not resolve to visible story items.",
+            ),
         },
         outputSchema: {
           stories: z.array(storySummarySchema),
@@ -319,7 +326,8 @@ export class HackerNewsServer extends ToolkitServer {
             returned: stories.length,
           };
         },
-        renderText: ({ stories }) => stories.map((story) => `${story.title} (${story.score ?? 0} points)`).join("\n"),
+        renderText: ({ stories }) => stories.map((story) => `${story.title} (${story.score ?? 0} points)`).join("
+"),
       }),
     );
 
@@ -327,10 +335,25 @@ export class HackerNewsServer extends ToolkitServer {
       defineTool({
         name: "search_stories",
         title: "Search stories",
-        description: "Search Hacker News stories by keyword.",
+        description:
+          "Search Hacker News stories through the public Algolia search API. Use this when you need keyword or phrase matching; use `get_top_stories` for live front-page ranking and `get_item_thread` for one item's comment tree. This operation is read-only, idempotent, and requires no auth; it reads HN's public search index, and the server adds no extra rate limiting beyond the public HN API. `query` is trimmed and must be non-empty, `limit` is validated before the request is made, and invalid values are rejected by the schema.",
         inputSchema: {
-          query: z.string().trim().min(1),
-          limit: z.number().int().min(1).max(30).default(10),
+          query: z
+            .string()
+            .trim()
+            .min(1)
+            .describe(
+              "Search text sent to the HN Algolia index. This field is required, and the value is trimmed before use; empty or whitespace-only queries are rejected. Use this for keyword matching across story records, not for fetching a known item ID. Results are limited by `limit`.",
+            ),
+          limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(30)
+            .default(10)
+            .describe(
+              "Maximum number of matching stories to return from the Algolia search response. Valid range is 1-30; the default is 10 when omitted. This is forwarded as `hitsPerPage`, so it caps the number of hits returned for the provided `query`. A smaller value reduces the result set but does not change the search semantics.",
+            ),
         },
         outputSchema: {
           stories: z.array(storySummarySchema),
@@ -348,7 +371,8 @@ export class HackerNewsServer extends ToolkitServer {
           if (returned === 0) {
             return "No matching Hacker News stories found.";
           }
-          return stories.map((story) => `${story.title} by ${story.author ?? "unknown"}`).join("\n");
+          return stories.map((story) => `${story.title} by ${story.author ?? "unknown"}`).join("
+");
         },
       }),
     );
@@ -357,11 +381,34 @@ export class HackerNewsServer extends ToolkitServer {
       defineTool({
         name: "get_item_thread",
         title: "Get item thread",
-        description: "Fetch a Hacker News story and its comment thread.",
+        description:
+          "Fetch a Hacker News item and recursively expand its comment thread from the public Firebase item API. Use this when you already have an `itemId` and want the item plus nested replies; use `get_top_stories` or `search_stories` to discover the item first. This operation is read-only, idempotent, and requires no auth; it reads current HN item data, and the server adds no extra rate limiting beyond the public HN API. `itemId` is required and must be a non-negative integer, `depth` controls reply recursion below the root, `maxChildren` caps how many child IDs are fetched at each level, and invalid values are rejected by the schema; if the root item does not exist, the upstream API error is surfaced.",
         inputSchema: {
-          itemId: z.number().int().nonnegative(),
-          depth: z.number().int().min(1).max(6).default(2),
-          maxChildren: z.number().int().min(1).max(50).default(20),
+          itemId: z
+            .number()
+            .int()
+            .nonnegative()
+            .describe(
+              "Root HN item ID to fetch. This field is required and must be a non-negative integer. The server uses it to load the item from the public Firebase API before expanding replies. If the item is missing, the tool returns the upstream not-found error for that ID.",
+            ),
+          depth: z
+            .number()
+            .int()
+            .min(1)
+            .max(6)
+            .default(2)
+            .describe(
+              "Maximum reply depth to fetch below the root item. Valid range is 1-6; the default is 2 when omitted. Each recursive level decrements this value, so `1` returns only top-level replies and larger values include deeper comment branches. This interacts with `maxChildren`, which still limits how many children are fetched at each level.",
+            ),
+          maxChildren: z
+            .number()
+            .int()
+            .min(1)
+            .max(50)
+            .default(20)
+            .describe(
+              "Maximum number of child IDs to fetch per node at each recursion level. Valid range is 1-50; the default is 20 when omitted. This limit applies at the root and every nested comment, so it can truncate wide branches even when `depth` allows further expansion. Use a higher value to see more replies per comment, or a lower value to reduce fetch fan-out.",
+            ),
         },
         outputSchema: {
           thread: threadSchema,
@@ -406,7 +453,7 @@ export class HackerNewsServer extends ToolkitServer {
         this.createTextPrompt(
           [
             `Prepare a Hacker News community digest for ${audience}.`,
-            `Focus on the theme \"${theme}\" and summarize roughly ${storyCount} stories.`,
+            `Focus on the theme "${theme}" and summarize roughly ${storyCount} stories.`,
             "Highlight debates, notable launches, practical takeaways, and unresolved questions.",
           ].join(" "),
         ),
@@ -414,9 +461,7 @@ export class HackerNewsServer extends ToolkitServer {
   }
 }
 
-export async function createServer(
-  options: CreateHackerNewsServerOptions = {},
-): Promise<HackerNewsServer> {
+export async function createServer(options: CreateHackerNewsServerOptions = {}): Promise<HackerNewsServer> {
   if (options.client) {
     return new HackerNewsServer(options.client);
   }
