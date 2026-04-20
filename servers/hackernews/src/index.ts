@@ -303,7 +303,7 @@ export class HackerNewsServer extends ToolkitServer {
       defineTool({
         name: "get_top_stories",
         title: "Get top stories",
-        description: "Get the current top Hacker News stories.",
+        description: "Fetches the current Hacker News front page/top stories ranking from the public HN Firebase API and returns story summaries only, making it distinct from search_stories, which performs keyword lookup via Algolia, and get_item_thread, which expands one known item into comments. Read-only, no auth required, idempotent, and safe to call repeatedly; if HN omits deleted, dead, or missing items the result may contain fewer than the requested stories, and upstream HTTP or schema failures are surfaced as errors. Use limit to set how many stories to request, from 1 to 30 inclusive, with a default of 10. Use this tool when the user asks for trending, top, front page, or current popular stories without keywords, and prefer search_stories when they provide search terms or get_item_thread when you already have a specific item ID.",
         inputSchema: {
           limit: z.number().int().min(1).max(30).default(10),
         },
@@ -327,7 +327,7 @@ export class HackerNewsServer extends ToolkitServer {
       defineTool({
         name: "search_stories",
         title: "Search stories",
-        description: "Search Hacker News stories by keyword.",
+        description: "Searches Hacker News stories by keyword using the public Algolia HN search API and returns matching story summaries, which differs from get_top_stories because results are relevance-based matches rather than the live front-page rank, and differs from get_item_thread because it does not require an item ID or fetch comments. Read-only, no auth required, idempotent, and safe to repeat; an empty query is rejected by schema, no-match searches return [] instead of an error, and HTTP or response-shape problems are raised as errors. Provide query as a non-empty trimmed string of keywords or topics, and limit as the number of matches to return from 1 to 30 inclusive with a default of 10. Use this tool when the user names a topic, phrase, or keywords and you want discovery by search terms, not trending ranking or comment-thread expansion.",
         inputSchema: {
           query: z.string().trim().min(1),
           limit: z.number().int().min(1).max(30).default(10),
@@ -357,7 +357,7 @@ export class HackerNewsServer extends ToolkitServer {
       defineTool({
         name: "get_item_thread",
         title: "Get item thread",
-        description: "Fetch a Hacker News story and its comment thread.",
+        description: "Fetches a specific Hacker News item by numeric itemId and expands its nested comment tree, making it the right choice only when you already know the story or comment ID; it differs from get_top_stories and search_stories because it returns one thread, not a ranked list or keyword matches. Read-only, no auth required, idempotent, and based on public HN APIs; if the item does not exist the tool throws an error, while deleted, dead, or missing descendants are skipped and wide branches are truncated at maxChildren per level. Set itemId to a nonnegative integer ID, depth to control reply nesting from 1 to 6 inclusive with a default of 2, and maxChildren to cap child fetches per node from 1 to 50 inclusive with a default of 20. Use this tool when you need the full discussion context for a known story or comment ID, especially after another source has already identified the item.",
         inputSchema: {
           itemId: z.number().int().nonnegative(),
           depth: z.number().int().min(1).max(6).default(2),
