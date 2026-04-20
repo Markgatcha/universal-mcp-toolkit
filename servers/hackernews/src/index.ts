@@ -319,7 +319,7 @@ export class HackerNewsServer extends ToolkitServer {
           returned: z.number().int(),
         },
         handler: async ({ limit }, context) => {
-          await context.log("info", "Fetching top Hacker News stories");
+          await context.log("Fetching top Hacker News stories");
           const stories = await this.client.getTopStories(limit);
           return {
             stories: [...stories],
@@ -360,7 +360,7 @@ export class HackerNewsServer extends ToolkitServer {
           returned: z.number().int(),
         },
         handler: async ({ query, limit }, context) => {
-          await context.log("info", `Searching Hacker News for ${query}`);
+          await context.log(`Searching Hacker News for ${query}`);
           const stories = await this.client.searchStories({ query, limit });
           return {
             stories: [...stories],
@@ -414,7 +414,7 @@ export class HackerNewsServer extends ToolkitServer {
           thread: threadSchema,
         },
         handler: async ({ itemId, depth, maxChildren }, context) => {
-          await context.log("info", `Fetching Hacker News thread ${itemId}`);
+          await context.log(`Fetching Hacker News thread ${itemId}`);
           return {
             thread: await this.client.getThread({ itemId, depth, maxChildren }),
           };
