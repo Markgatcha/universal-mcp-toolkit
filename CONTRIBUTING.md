@@ -83,7 +83,7 @@ Look at `servers/hackernews/` or `servers/arxiv/` as examples of clean, no-auth 
 ## Development Setup
 
 ```bash
-# Prerequisites: Node.js 18+, pnpm (via corepack)
+# Prerequisites: Node.js 20.11+, pnpm (via corepack)
 corepack enable
 
 # Install all dependencies

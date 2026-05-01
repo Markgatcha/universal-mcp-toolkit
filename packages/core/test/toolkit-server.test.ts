@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { createServerCard, defineTool, parseRuntimeOptions, ToolkitServer, type ToolkitServerMetadata } from "../src/index.js";
+import {
+  ConfigurationError,
+  createServerCard,
+  defineTool,
+  normalizeError,
+  parseRuntimeOptions,
+  ToolkitServer,
+  type ToolkitServerMetadata,
+} from "../src/index.js";
 
 const metadata: ToolkitServerMetadata = {
   id: "test-server",
@@ -91,5 +99,17 @@ describe("ToolkitServer", () => {
       ssePath: "/events",
       messagesPath: "/rpc",
     });
+  });
+
+  it("rejects unsupported transports", () => {
+    expect(() => parseRuntimeOptions(["--transport", "http"])) .toThrow(ConfigurationError);
+  });
+
+  it("normalizes unknown errors without exposing their message", () => {
+    const normalized = normalizeError(new Error("secret failure"));
+
+    expect(normalized.code).toBe("unexpected_error");
+    expect(normalized.toClientMessage()).toBe("The upstream service returned an unexpected error.");
+    expect(normalized.details).toEqual({ name: "Error" });
   });
 });

@@ -70,8 +70,10 @@ export function normalizeError(error: unknown): ToolkitError {
     return new ToolkitError(error.message, {
       code: "unexpected_error",
       statusCode: 500,
-      details: error.stack,
-      exposeToClient: true,
+      details: {
+        name: error.name,
+      },
+      exposeToClient: false,
     });
   }
 

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Getting Started | Universal MCP Toolkit</title>
+  <meta name="description" content="Quick setup guide for universal-mcp-toolkit.">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; background: #0d1117; color: #c9d1d9; }
+    main { max-width: 900px; margin: 0 auto; padding: 40px 20px 64px; }
+    h1, h2 { color: #79c0ff; }
+    code, pre { background: #161b22; color: #c9d1d9; border-radius: 6px; }
+    pre { padding: 16px; overflow-x: auto; }
+    a { color: #58a6ff; }
+    .note { border-left: 4px solid #58a6ff; padding: 12px 16px; background: #161b22; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Getting Started</h1>
+    <p>Set up <code>universal-mcp-toolkit</code> with the smallest possible path first.</p>
+
+    <h2>1. Install</h2>
+    <pre><code>npx universal-mcp-toolkit list
+npx universal-mcp-toolkit install</code></pre>
+
+    <h2>2. Find your host config</h2>
+    <ul>
+      <li>Windows: <code>%APPDATA%\Claude\claude_desktop_config.json</code></li>
+      <li>macOS: <code>~/Library/Application Support/Claude/claude_desktop_config.json</code></li>
+      <li>Linux: <code>~/.config/Claude/claude_desktop_config.json</code></li>
+    </ul>
+
+    <h2>3. Generate config</h2>
+    <pre><code>npx universal-mcp-toolkit config --server github slack filesystem --target claude-desktop</code></pre>
+
+    <div class="note">
+      The JSON examples use literal placeholders such as <code>${GITHUB_TOKEN}</code>. Replace them with real values before pasting into your host config.
+    </div>
+
+    <h2>4. Validate</h2>
+    <pre><code>npx universal-mcp-toolkit doctor github
+npx universal-mcp-toolkit run github --transport stdio</code></pre>
+
+    <p>Back to <a href="../README.md">README</a> or <a href="./index.html">docs home</a>.</p>
+  </main>
+</body>
+</html>

@@ -8,6 +8,7 @@ export interface ServerRegistryEntry {
   category: string;
   description: string;
   packageName: string;
+  npxArgs?: readonly string[];
   envVarNames: readonly string[];
   transports: readonly ("stdio" | "sse")[];
   experimental?: boolean;
@@ -221,6 +222,16 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-trello",
     envVarNames: ["TRELLO_API_KEY", "TRELLO_TOKEN"],
     transports: ["stdio", "sse"],
+  },
+  {
+    id: "memos",
+    title: "MemOS",
+    category: "Memory",
+    description: "Local-first persistent memory over MCP, backed by a MemOS SQLite database.",
+    packageName: "@mem-os/sdk",
+    npxArgs: ["-y", "@mem-os/sdk", "mcp"],
+    envVarNames: [],
+    transports: ["stdio"],
   },
   {
     id: "notion-mcp",

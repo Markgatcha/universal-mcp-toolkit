@@ -9,9 +9,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git"
+    "url": "git+https://github.com/Markgatcha/universal-mcp-toolkit.git"
   },
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

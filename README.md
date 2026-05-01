@@ -16,7 +16,7 @@ If you have ever wanted one place to find great MCP servers for GitHub, Slack, N
 The fastest way to get going:
 
 ```bash
-# See all 27 available servers
+# See all 28 available servers
 npx universal-mcp-toolkit list
 
 # Interactive setup — pick your servers, choose transport, write config
@@ -31,6 +31,8 @@ npx universal-mcp-toolkit run github --transport stdio
 # Check your environment before debugging
 npx universal-mcp-toolkit doctor github
 ```
+
+For a guided setup walkthrough, open [docs/getting-started.html](./docs/getting-started.html).
 
 Or install globally:
 
@@ -77,6 +79,9 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 | Data servers | PostgreSQL, MongoDB, Redis, Supabase, Airtable |
 | Platform servers | Vercel, Cloudflare Workers, Docker, npm Registry |
 | Research and local servers | Hacker News, arXiv, FileSystem |
+| Memory server | MemOS local persistent memory |
+
+Experimental companion packages under the `@contextcore/*` scope currently include Notion, Slack, Playwright, and OpenAI variants used for a separate publish line and testing lane.
 
 ## Comparison
 
@@ -110,6 +115,7 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 | Hacker News | Top stories, search, threads | none required |
 | arXiv | Paper search and reading lists | none required |
 | FileSystem | Safe local file search, reads, writes | `FILESYSTEM_ROOTS` |
+| MemOS | Local-first persistent memory over MCP | none required |
 | Discord | Guilds, channels, messages, members | `DISCORD_BOT_TOKEN` |
 | Airtable | Tables, records, CRUD operations | `AIRTABLE_API_KEY`, `AIRTABLE_BASE_ID` |
 | Trello | Boards, lists, cards, archiving | `TRELLO_API_KEY`, `TRELLO_TOKEN` |
@@ -125,6 +131,9 @@ universal-mcp-toolkit/
 ├─ packages/
 │  ├─ core/
 │  └─ cli/
+├─ docs/
+│  ├─ index.html
+│  └─ getting-started.html
 ├─ servers/
 │  ├─ github/
 │  ├─ notion/
@@ -233,6 +242,7 @@ Check build output, config state, and required environment variables before you 
 | `umt status` | Show currently running umt server processes and their PIDs |
 | `umt logs <server>` | Tail the log file for a specific server |
 | `umt test <server>` | Run a live end-to-end MCP handshake test against a server |
+| `umt conformance [server]` | Check registry config and live stdio handshakes where local build output exists |
 | `umt search <query>` | Search available servers by name, description, and tags |
 | `umt init` | Interactive setup wizard for new users |
 | `umt update` | Check npm for a newer version of the CLI and optionally install it |
@@ -254,6 +264,10 @@ Paste a generated snippet into your Claude Desktop config file. On Windows, that
 ```text
 %APPDATA%\Claude\claude_desktop_config.json
 ```
+
+On macOS, use `~/Library/Application Support/Claude/claude_desktop_config.json`. On Linux, use `~/.config/Claude/claude_desktop_config.json`.
+
+The JSON examples below use literal placeholders like `${GITHUB_TOKEN}`. Replace them with real values before pasting into your host config.
 
 Example:
 
@@ -371,6 +385,8 @@ corepack pnpm --filter universal-mcp-toolkit typecheck
 corepack pnpm --filter @universal-mcp-toolkit/server-github test
 ```
 
+If you only want the onboarding path, start with [docs/getting-started.html](./docs/getting-started.html).
+
 ## Package highlights
 
 ### `packages/core`
@@ -405,10 +421,13 @@ Pair universal-mcp-toolkit with **[MemOS](https://github.com/Markgatcha/memos)**
 ```bash
 # Add persistent memory to your MCP agents
 pip install memos
-npm install @memos/sdk
+npm install @mem-os/sdk
+
+# Generate a ready-to-paste MemOS MCP config
+npx universal-mcp-toolkit link memos --db-path ~/.memos/memos.db
 ```
 
-MemOS acts as the **memory layer** for your MCP stack — every tool call, result, and context your agent produces can be stored, retrieved, and searched across restarts and sessions. A native MCP adapter is coming in MemOS v0.2.
+MemOS acts as the **memory layer** for your MCP stack — every tool call, result, and context your agent produces can be stored, retrieved, and searched across restarts and sessions. The MemOS MCP adapter runs through `npx -y @mem-os/sdk mcp`.
 
 | Layer | Tool | Role |
 |-------|------|------|

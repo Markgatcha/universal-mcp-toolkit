@@ -1,10 +1,10 @@
 # universal-mcp-toolkit
 
-> The canonical open-source monorepo for production-ready Model Context Protocol (MCP) servers. 20 integrations. One architecture. One CLI.
+> The canonical open-source monorepo for production-ready Model Context Protocol (MCP) servers. 27 integrations. One architecture. One CLI.
 
 ## What it does
 
-`universal-mcp-toolkit` is an MCP aggregator and monorepo that lets AI agents (Claude, Cursor, Windsurf, and any MCP-compatible host) connect to 20 real-world services through a single unified configuration. Instead of maintaining a separate MCP server per tool, you configure once and get all integrations through one consistent interface.
+`universal-mcp-toolkit` is an MCP aggregator and monorepo that lets AI agents (Claude, Cursor, Windsurf, and any MCP-compatible host) connect to 27 real-world services through a single unified configuration. Instead of maintaining a separate MCP server per tool, you configure once and get all integrations through one consistent interface.
 
 ## Install
 
@@ -25,12 +25,13 @@ https://github.com/Markgatcha/universal-mcp-toolkit
 
 ## Included MCP servers
 
-- **Collaboration:** GitHub, Notion, Slack, Linear, Jira
+- **Collaboration:** GitHub, Notion, Slack, Linear, Jira, Discord, Airtable, Trello
 - **Productivity:** Google Calendar, Google Drive
 - **Media & Commerce:** Spotify, Stripe
 - **Data:** PostgreSQL, MongoDB, Redis, Supabase
 - **Platform & DevOps:** Vercel, Cloudflare Workers, Docker, npm Registry
 - **Research & Local:** Hacker News, arXiv, FileSystem
+- **Experimental / companion:** Notion (MCP), Playwright (MCP), Slack (MCP), OpenAI (MCP)
 
 ## Core capabilities
 

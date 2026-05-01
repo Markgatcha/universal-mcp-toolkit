@@ -1,11 +1,14 @@
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 
 import type { ConfigTarget, InvocationMode, ServerRegistryEntry } from "./registry.js";
 
 const require = createRequire(import.meta.url);
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 export interface InstallProfile {
   target: ConfigTarget;
@@ -92,13 +95,13 @@ export async function saveInstallProfile(profile: InstallProfile): Promise<void>
   });
 }
 
-function resolvePackageRoot(packageName: string): string {
-  const packageJsonPath = require.resolve(`${packageName}/package.json`);
-  return path.dirname(packageJsonPath);
-}
-
 export function resolveWorkspaceEntryFile(entry: ServerRegistryEntry): string {
-  return path.join(resolvePackageRoot(entry.packageName), "dist", "index.js");
+  const repoPath = path.join(repoRoot, "servers", entry.id, "dist", "index.js");
+  try {
+    return existsSync(repoPath) ? repoPath : path.join(path.dirname(require.resolve(`${entry.packageName}/package.json`)), "dist", "index.js");
+  } catch {
+    return repoPath;
+  }
 }
 
 export function createPlaceholderEnv(entry: ServerRegistryEntry): Record<string, string> | undefined {
@@ -120,7 +123,7 @@ export function createGeneratedConfig(
         mode === "npx"
           ? {
               command: "npx",
-              args: ["-y", entry.packageName, "--transport", "stdio"],
+              args: [...(entry.npxArgs ?? ["-y", entry.packageName, "--transport", "stdio"])],
             }
           : {
               command: process.execPath,

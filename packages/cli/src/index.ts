@@ -1,19 +1,37 @@
 #!/usr/bin/env node
 import chalk from "chalk";
 import { Command } from "commander";
-import inquirer from "inquirer";
 import { access, readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
 import { constants as fsConstants, createReadStream, createWriteStream } from "node:fs";
 import { createInterface } from "readline";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { spawn, execSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import ora from "ora";
 
 const _require = createRequire(import.meta.url);
 const _pkg = _require("../package.json") as { version: string };
 const CLI_VERSION = _pkg.version;
+const { execFile } = await import("node:child_process");
+const execFileAsync = promisify(execFile);
+
+type InquirerQuestion = {
+  type: string;
+  name: string;
+  message: string;
+  choices?: Array<{ name: string; value: string }>;
+  loop?: boolean;
+  validate?: (value: any) => true | string;
+  default?: unknown;
+};
+
+async function promptForAnswers<T = Record<string, unknown>>(questions: InquirerQuestion[]): Promise<T> {
+  const { default: inquirer } = await import("inquirer");
+  return inquirer.prompt(questions as never) as Promise<T>;
+}
 
 import {
   createGeneratedConfig,
@@ -41,7 +59,7 @@ async function pathExists(targetPath: string): Promise<boolean> {
 }
 
 async function promptForServers(): Promise<string[]> {
-  const answers = await inquirer.prompt<{ serverIds: string[] }>([
+  const answers = await promptForAnswers<{ serverIds: string[] }>([
     {
       type: "checkbox",
       name: "serverIds",
@@ -59,7 +77,7 @@ async function promptForServers(): Promise<string[]> {
 }
 
 async function promptForTarget(): Promise<ConfigTarget> {
-  const answers = await inquirer.prompt<{ target: ConfigTarget }>([
+  const answers = await promptForAnswers<{ target: ConfigTarget }>([
     {
       type: "list",
       name: "target",
@@ -76,7 +94,7 @@ async function promptForTarget(): Promise<ConfigTarget> {
 }
 
 async function promptForMode(): Promise<InvocationMode> {
-  const answers = await inquirer.prompt<{ mode: InvocationMode }>([
+  const answers = await promptForAnswers<{ mode: InvocationMode }>([
     {
       type: "list",
       name: "mode",
@@ -93,7 +111,7 @@ async function promptForMode(): Promise<InvocationMode> {
 
 async function promptForOutputPath(target: ConfigTarget): Promise<string> {
   const defaultPath = getGeneratedConfigPath(target);
-  const answers = await inquirer.prompt<{ outputPath: string }>([
+  const answers = await promptForAnswers<{ outputPath: string }>([
     {
       type: "input",
       name: "outputPath",
@@ -275,11 +293,11 @@ async function runUpdate(): Promise<void> {
   const spinner = ora("Checking for updates").start();
   try {
     const currentVersion = CLI_VERSION;
-    const registryOutput = execSync("npm view universal-mcp-toolkit version --registry https://registry.npmjs.org", {
-      encoding: "utf8",
+    const { stdout: registryOutput } = await execFileAsync("npm", ["view", "universal-mcp-toolkit", "version", "--registry", "https://registry.npmjs.org"], {
       timeout: 15000,
-    }).trim();
-    const latestVersion = registryOutput;
+      windowsHide: true,
+    });
+    const latestVersion = registryOutput.trim();
 
     if (currentVersion === latestVersion) {
       spinner.succeed(`Already up to date (v${currentVersion})`);
@@ -288,7 +306,7 @@ async function runUpdate(): Promise<void> {
 
     spinner.info(`Current: v${currentVersion} | Latest: v${latestVersion}`);
 
-    const answers = await inquirer.prompt<{ update: boolean }>([
+    const answers = await promptForAnswers<{ update: boolean }>([
       {
         type: "confirm",
         name: "update",
@@ -303,9 +321,9 @@ async function runUpdate(): Promise<void> {
     }
 
     const updateSpinner = ora(`Installing universal-mcp-toolkit@${latestVersion}`).start();
-    execSync(`npm install -g universal-mcp-toolkit@${latestVersion}`, {
-      stdio: "pipe",
+    await execFileAsync("npm", ["install", "-g", `universal-mcp-toolkit@${latestVersion}`], {
       timeout: 60000,
+      windowsHide: true,
     });
     updateSpinner.succeed(`Updated to v${latestVersion}`);
   } catch (error) {
@@ -345,12 +363,7 @@ async function runTest(serverId: string): Promise<void> {
       env: { ...process.env, NODE_NO_WARNINGS: "1" },
     });
 
-    let stdout = "";
     let stderr = "";
-
-    child.stdout.on("data", (data: Buffer) => {
-      stdout += data.toString();
-    });
 
     child.stderr.on("data", (data: Buffer) => {
       stderr += data.toString();
@@ -374,30 +387,76 @@ async function runTest(serverId: string): Promise<void> {
       params: {},
     }) + "\n";
 
+    let buffer = "";
+    const pendingResponses = new Map<number, { resolve: (value: unknown) => void; reject: (reason: unknown) => void; timeout: NodeJS.Timeout }>();
+
+    const waitForResponse = (id: number): Promise<unknown> => new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        pendingResponses.delete(id);
+        reject(new Error(`Timed out waiting for response ${id}.`));
+      }, 5000);
+
+      pendingResponses.set(id, { resolve, reject, timeout });
+    });
+
+    const failPendingResponses = (reason: Error): void => {
+      for (const pending of pendingResponses.values()) {
+        clearTimeout(pending.timeout);
+        pending.reject(reason);
+      }
+      pendingResponses.clear();
+    };
+
+    const flushLines = (): void => {
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const parsed = JSON.parse(trimmed) as { id?: number; result?: unknown; error?: unknown };
+          if (typeof parsed.id === "number") {
+            const pending = pendingResponses.get(parsed.id);
+            if (pending) {
+              clearTimeout(pending.timeout);
+              pendingResponses.delete(parsed.id);
+              if (parsed.error !== undefined) {
+                pending.reject(new Error(JSON.stringify(parsed.error)));
+              } else {
+                pending.resolve(parsed.result);
+              }
+            }
+          }
+        } catch {
+          // ignore non-JSON lines
+        }
+      }
+    };
+
+    child.stdout.on("data", (data: Buffer) => {
+      buffer += data.toString();
+      flushLines();
+    });
+
+    child.once("exit", (code) => {
+      if (code !== 0) {
+        failPendingResponses(new Error(`Server exited before completing handshake (code ${code ?? 1}).`));
+      }
+    });
+
+    child.once("error", (error) => {
+      failPendingResponses(error instanceof Error ? error : new Error("Server process error."));
+    });
+
     child.stdin.write(initRequest);
-
-    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
-
+    const initResponse = waitForResponse(1);
     child.stdin.write(toolsListRequest);
+    const toolsResponsePromise = waitForResponse(2);
 
-    await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+    await initResponse;
+    const toolsResponse = await toolsResponsePromise;
 
     child.kill();
-
-    const lines = stdout.split("\n").filter((line) => line.trim().length > 0);
-    let toolsResponse: unknown = null;
-
-    for (const line of lines) {
-      try {
-        const parsed = JSON.parse(line) as Record<string, unknown>;
-        if (parsed.id === 2 && parsed.result !== undefined) {
-          toolsResponse = parsed.result;
-          break;
-        }
-      } catch {
-        // skip non-JSON lines
-      }
-    }
 
     if (toolsResponse && typeof toolsResponse === "object" && "tools" in toolsResponse) {
       const tools = (toolsResponse as { tools: Array<{ name: string }> }).tools;
@@ -420,6 +479,150 @@ async function runTest(serverId: string): Promise<void> {
     console.error(chalk.red(message));
     process.exitCode = 1;
   }
+}
+
+async function runConformance(serverId?: string): Promise<void> {
+  const entries = serverId ? [getRegistryEntry(serverId)] : SERVER_REGISTRY;
+  const rows: Array<{ id: string; status: "pass" | "skip" | "fail"; detail: string }> = [];
+
+  for (const entry of entries) {
+    const hasMetadata =
+      entry.id.length > 0 &&
+      entry.title.length > 0 &&
+      entry.packageName.length > 0 &&
+      entry.transports.length > 0;
+
+    if (!hasMetadata) {
+      rows.push({ id: entry.id || "(missing)", status: "fail", detail: "Registry metadata is incomplete." });
+      continue;
+    }
+
+    const npxConfig = createGeneratedConfig([entry], "npx").mcpServers[entry.id];
+    if (!npxConfig?.command || npxConfig.args.length === 0) {
+      rows.push({ id: entry.id, status: "fail", detail: "Could not generate an npx stdio config." });
+      continue;
+    }
+
+    const distPath = resolveWorkspaceEntryFile(entry);
+    const distExists = await pathExists(distPath);
+    if (!distExists) {
+      const detail = entry.npxArgs
+        ? `External MCP entry configured as: npx ${entry.npxArgs.join(" ")}`
+        : `Workspace build output missing: ${distPath}`;
+      rows.push({ id: entry.id, status: entry.npxArgs ? "pass" : "skip", detail });
+      continue;
+    }
+
+    try {
+      const tools = await runStdioHandshake(distPath, 5000);
+      rows.push({ id: entry.id, status: "pass", detail: `stdio initialize/tools-list returned ${tools} tool(s).` });
+    } catch (error) {
+      rows.push({
+        id: entry.id,
+        status: "fail",
+        detail: error instanceof Error ? error.message : "Unknown handshake failure.",
+      });
+    }
+  }
+
+  printSection("Conformance");
+  for (const row of rows) {
+    const marker = row.status === "pass" ? chalk.green("PASS") : row.status === "skip" ? chalk.yellow("SKIP") : chalk.red("FAIL");
+    console.log(`${marker} ${row.id.padEnd(24)} ${row.detail}`);
+  }
+
+  const failed = rows.filter((row) => row.status === "fail").length;
+  const skipped = rows.filter((row) => row.status === "skip").length;
+  console.log(chalk.gray(`\n${rows.length - failed - skipped} passed, ${skipped} skipped, ${failed} failed.`));
+  if (failed > 0) process.exitCode = 1;
+}
+
+async function runStdioHandshake(distPath: string, timeoutMs: number): Promise<number> {
+  const child = spawn(process.execPath, [distPath, "--transport", "stdio"], {
+    stdio: ["pipe", "pipe", "pipe"],
+    cwd: process.cwd(),
+    env: { ...process.env, NODE_NO_WARNINGS: "1" },
+  });
+
+  let buffer = "";
+  let stderr = "";
+  const pendingResponses = new Map<number, { resolve: (value: unknown) => void; reject: (reason: unknown) => void; timeout: NodeJS.Timeout }>();
+
+  const waitForResponse = (id: number): Promise<unknown> => new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pendingResponses.delete(id);
+      reject(new Error(`Timed out waiting for response ${id}.`));
+    }, timeoutMs);
+    pendingResponses.set(id, { resolve, reject, timeout });
+  });
+
+  const failPendingResponses = (reason: Error): void => {
+    for (const pending of pendingResponses.values()) {
+      clearTimeout(pending.timeout);
+      pending.reject(reason);
+    }
+    pendingResponses.clear();
+  };
+
+  child.stderr.on("data", (data: Buffer) => {
+    stderr += data.toString();
+  });
+
+  child.stdout.on("data", (data: Buffer) => {
+    buffer += data.toString();
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        const parsed = JSON.parse(trimmed) as { id?: number; result?: unknown; error?: unknown };
+        if (typeof parsed.id !== "number") continue;
+        const pending = pendingResponses.get(parsed.id);
+        if (!pending) continue;
+        clearTimeout(pending.timeout);
+        pendingResponses.delete(parsed.id);
+        if (parsed.error !== undefined) {
+          pending.reject(new Error(JSON.stringify(parsed.error)));
+        } else {
+          pending.resolve(parsed.result);
+        }
+      } catch {
+        // Servers may emit non-JSON diagnostics on stdout; ignore them here.
+      }
+    }
+  });
+
+  child.once("exit", (code) => {
+    if (code !== 0) {
+      failPendingResponses(new Error(`Server exited before completing handshake (code ${code ?? 1}). ${stderr.slice(0, 300)}`));
+    }
+  });
+  child.once("error", (error) => failPendingResponses(error));
+
+  child.stdin.write(JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: {
+      protocolVersion: "2024-11-05",
+      capabilities: {},
+      clientInfo: { name: "umt-conformance", version: CLI_VERSION },
+    },
+  }) + "\n");
+  const initResponse = waitForResponse(1);
+  child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }) + "\n");
+  const toolsResponsePromise = waitForResponse(2);
+
+  await initResponse;
+  const toolsResponse = await toolsResponsePromise;
+  child.kill();
+
+  if (toolsResponse && typeof toolsResponse === "object" && "tools" in toolsResponse) {
+    return (toolsResponse as { tools: unknown[] }).tools.length;
+  }
+
+  throw new Error("tools/list response did not contain a tools array.");
 }
 
 async function runExport(outputPath: string): Promise<void> {
@@ -607,6 +810,14 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .argument("<serverId>", "The server ID to test.")
     .action(async (serverId: string) => {
       await runTest(serverId);
+    });
+
+  program
+    .command("conformance")
+    .description("Check registry config generation and live stdio handshakes where build output exists.")
+    .argument("[serverId]", "Optionally scope the conformance check to one server.")
+    .action(async (serverId?: string) => {
+      await runConformance(serverId);
     });
 
   program
@@ -821,19 +1032,22 @@ async function runUpgrade(allPackages: boolean, serverName?: string): Promise<vo
   try {
     if (serverName) {
       const entry = getRegistryEntry(serverName);
-      const result = execSync(`npm view ${entry.packageName} version`, { encoding: "utf8" }).trim();
+      const { stdout } = await execFileAsync("npm", ["view", entry.packageName, "version"], { windowsHide: true });
+      const result = stdout.trim();
       spinner.succeed(`Current version: ${entry.packageName}`);
       console.log(`Latest version in npm: ${chalk.green(result)}`);
     } else if (allPackages) {
       const packages = SERVER_REGISTRY.map(e => e.packageName);
       for (const pkg of packages) {
-        const result = execSync(`npm view ${pkg} version`, { encoding: "utf8" }).trim();
+        const { stdout } = await execFileAsync("npm", ["view", pkg, "version"], { windowsHide: true });
+        const result = stdout.trim();
         console.log(`${pkg}: ${chalk.green(result)}`);
       }
       spinner.succeed("All packages checked.");
     } else {
       const pkg = "universal-mcp-toolkit";
-      const result = execSync(`npm view ${pkg} version`, { encoding: "utf8" }).trim();
+      const { stdout } = await execFileAsync("npm", ["view", pkg, "version"], { windowsHide: true });
+      const result = stdout.trim();
       spinner.succeed(`CLI version: ${chalk.green(result)}`);
     }
   } catch (error) {
@@ -928,13 +1142,24 @@ async function runLinkMemos(dbPath?: string): Promise<void> {
   }
   
   const configPath = path.join(configDir, "config.json");
+  const mcpConfigPath = path.join(configDir, "memos-mcp.json");
   await mkdir(configDir, { recursive: true });
   
   const config = { memosPath: pathToUse };
   await writeFile(configPath, JSON.stringify(config, null, 2));
+
+  const mcpConfig = {
+    mcpServers: {
+      memos: {
+        command: "npx",
+        args: ["-y", "@mem-os/sdk", "mcp", "--db", pathToUse],
+      },
+    },
+  };
+  await writeFile(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
   
   console.log(chalk.green(`MemOS linked at ${pathToUse}.`));
-  console.log(chalk.gray("MCP servers can now access ContextCore memory."));
+  console.log(chalk.gray(`Wrote MemOS MCP config: ${mcpConfigPath}`));
 }
 
 async function runProfileCreate(name: string): Promise<void> {
@@ -1017,7 +1242,7 @@ async function runProfileImport(profilePath: string): Promise<void> {
   }
 }
 
-if (process.argv[1] && import.meta.url === new URL(process.argv[1], "file:").href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "Unknown CLI failure";
     console.error(chalk.red(message));
