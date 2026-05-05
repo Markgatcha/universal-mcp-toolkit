@@ -45,7 +45,7 @@
   ],
   "dependencies": {
     "@universal-mcp-toolkit/core": "workspace:0.2.0",
-    "fast-xml-parser": "^5.5.1",
+    "fast-xml-parser": "^5.7.3",
     "zod": "^4.3.6"
   },
   "publishConfig": {
