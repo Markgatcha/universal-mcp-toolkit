@@ -40,7 +40,7 @@
     "pino"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "pino": "^10.3.1",
