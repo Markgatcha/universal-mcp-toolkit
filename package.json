@@ -1,6 +1,6 @@
 {
   "name": "universal-mcp-toolkit-monorepo",
-    "version": "1.3.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "description": "The canonical open-source monorepo for production-ready MCP servers.",
@@ -57,7 +57,13 @@
   },
   "pnpm": {
     "overrides": {
-      "axios": "1.15.0"
+      "axios": "1.16.0",
+      "fast-uri": "3.1.2",
+      "follow-redirects": "1.16.0",
+      "hono": "4.12.18",
+      "ip-address": "10.2.0",
+      "postcss": "8.5.14",
+      "proxy-from-env": "2.1.0"
     }
   }
 }
