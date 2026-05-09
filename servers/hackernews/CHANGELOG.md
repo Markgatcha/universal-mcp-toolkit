@@ -1,5 +1,13 @@
 # @universal-mcp-toolkit/server-hackernews
 
+## 0.2.0
+
+### Minor Changes
+
+- Added `get_new_stories` and `get_best_stories` read-only tools for broader Hacker News story discovery.
+- Improved tool descriptions and Zod parameter descriptions for Glama Tool Definition Quality scoring.
+- Added in-memory 60-second GET caching and a 10 requests/second upstream request limiter.
+
 ## 0.1.1
 
 ### Patch Changes
