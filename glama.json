@@ -2,5 +2,14 @@
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "maintainers": [
     "Markgatcha"
-  ]
+  ],
+  "environmentVariables": {
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "placeholderArguments": []
+  }
 }

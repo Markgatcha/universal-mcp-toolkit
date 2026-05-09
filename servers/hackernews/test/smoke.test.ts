@@ -25,6 +25,36 @@ class FakeHackerNewsClient implements HackerNewsClient {
     ];
   }
 
+  public async getNewStories(): Promise<ReadonlyArray<HackerNewsStorySummary>> {
+    return [
+      {
+        id: 4,
+        title: "Fresh HN launch",
+        url: "https://example.com/new",
+        author: "newbie",
+        score: 5,
+        commentCount: 1,
+        publishedAt: "2024-01-03T00:00:00.000Z",
+        text: null,
+      },
+    ];
+  }
+
+  public async getBestStories(): Promise<ReadonlyArray<HackerNewsStorySummary>> {
+    return [
+      {
+        id: 5,
+        title: "Best HN analysis",
+        url: "https://example.com/best",
+        author: "analyst",
+        score: 500,
+        commentCount: 120,
+        publishedAt: "2024-01-04T00:00:00.000Z",
+        text: null,
+      },
+    ];
+  }
+
   public async searchStories(): Promise<ReadonlyArray<HackerNewsStorySummary>> {
     return [
       {
@@ -79,6 +109,27 @@ describe("hackernews smoke", () => {
       );
       expect(topStories.returned).toBe(1);
       expect(topStories.stories[0]?.title).toBe("AI agent ships useful patch");
+
+      const newStories = await server.invokeTool<{ stories: ReadonlyArray<{ title: string }>; returned: number }>(
+        "get_new_stories",
+        { limit: 5 },
+      );
+      expect(newStories.returned).toBe(1);
+      expect(newStories.stories[0]?.title).toBe("Fresh HN launch");
+
+      const bestStories = await server.invokeTool<{ stories: ReadonlyArray<{ title: string }>; returned: number }>(
+        "get_best_stories",
+        { limit: 5 },
+      );
+      expect(bestStories.returned).toBe(1);
+      expect(bestStories.stories[0]?.title).toBe("Best HN analysis");
+
+      const searchResults = await server.invokeTool<{ stories: ReadonlyArray<{ title: string }>; returned: number }>(
+        "search_stories",
+        { query: "agent", limit: 5 },
+      );
+      expect(searchResults.returned).toBe(1);
+      expect(searchResults.stories[0]?.title).toBe("Search result story");
 
       const thread = await server.invokeTool<{ thread: { replies: ReadonlyArray<{ author: string | null }> } }>(
         "get_item_thread",

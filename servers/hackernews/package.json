@@ -1,8 +1,8 @@
 {
   "name": "@universal-mcp-toolkit/server-hackernews",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Trending story and thread tools for Hacker News.",
+  "description": "Read-only Hacker News MCP tools for ranked story lists, keyword search, and discussion threads.",
   "license": "MIT",
   "bin": {
     "umt-hackernews": "./dist/index.js"
@@ -11,7 +11,7 @@
     "type": "git",
     "url": "git+https://github.com/Markgatcha/universal-mcp-toolkit.git"
   },
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
