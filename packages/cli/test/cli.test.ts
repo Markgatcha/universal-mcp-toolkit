@@ -37,7 +37,7 @@ describe("CLI registry", () => {
 
     expect(githubConfig).toBeDefined();
     expect(githubConfig?.command).toBe(process.execPath);
-    expect(githubConfig?.args[0]).toContain("servers\\github\\dist\\index.js");
+    expect(githubConfig?.args[0]?.replaceAll("\\", "/")).toContain("servers/github/dist/index.js");
   });
 
   it("builds the MemOS MCP config with the SDK bin command", () => {
