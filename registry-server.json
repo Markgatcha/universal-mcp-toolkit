@@ -1,0 +1,57 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/schema/server.json",
+  "$schemaUris": {
+    "registry": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/schema/server.json",
+    "server-card": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/schema/server-card.json"
+  },
+  "name": "io.github.markgatcha.universal-mcp-toolkit",
+  "description": "35 prebuilt MCP (Model Context Protocol) servers — unified CLI for discovery, configuration, and runtime. Access GitHub, Slack, Notion, PostgreSQL, Docker, Playwright, and more through one aggregator runtime. Works with Claude Desktop, Cursor, Cline, and any MCP client.",
+  "version": "1.6.26",
+  "authors": [
+    {
+      "name": "Markgatcha",
+      "homepage": "https://github.com/Markgatcha"
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/Markgatcha/universal-mcp-toolkit",
+    "source": "https://github.com/Markgatcha/universal-mcp-toolkit",
+    "dir": "/"
+  },
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "ai-tools",
+    "toolkit",
+    "aggregator"
+  ],
+  "categories": ["aggregators", "developer-tools"],
+  "serverCard": "/.well-known/mcp/server-card.json",
+  "deployments": [
+    {
+      "type": "stdio",
+      "runtime": "node",
+      "command": "npx",
+      "args": ["-y", "universal-mcp-toolkit", "run", "${serverId}", "--transport", "stdio"],
+      "env": {},
+      "configSchema": {
+        "type": "object",
+        "required": ["serverId"],
+        "properties": {
+          "serverId": {
+            "type": "string",
+            "description": "The MCP server to run (e.g. 'github', 'slack', 'filesystem', 'postgresql', 'playwright-mcp'). See the full 35-server registry at https://github.com/Markgatcha/universal-mcp-toolkit"
+          },
+          "envVars": {
+            "type": "object",
+            "description": "Environment variables for the chosen server (e.g. GITHUB_TOKEN, SLACK_BOT_TOKEN).",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      }
+    }
+  ]
+}

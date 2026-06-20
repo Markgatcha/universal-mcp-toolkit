@@ -1,7 +1,7 @@
 {
   "name": "universal-mcp-toolkit",
-  "version": "1.0.0",
-  "description": "The canonical open-source monorepo for production-ready Model Context Protocol servers. 20 integrations, one architecture, one CLI.",
+  "version": "1.6.26",
+  "description": "35 prebuilt MCP (Model Context Protocol) servers — unified CLI for discovery, configuration, and runtime. Use with Claude Desktop, Cursor, Cline, and any MCP client.",
   "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit",
   "repository": "https://github.com/Markgatcha/universal-mcp-toolkit",
   "license": "MIT",
@@ -9,21 +9,138 @@
   "type": "aggregator",
   "category": "aggregators",
   "keywords": [
-    "mcp", "model-context-protocol", "mcp-server", "mcp-aggregator",
-    "typescript", "monorepo", "claude", "cursor", "ai-tools", "llm"
+    "mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "mcp-aggregator",
+    "typescript",
+    "monorepo",
+    "claude",
+    "cursor",
+    "ai-tools",
+    "llm"
   ],
   "npm": "https://www.npmjs.com/package/universal-mcp-toolkit",
   "install": {
     "npx": "npx universal-mcp-toolkit install",
     "global": "npm install -g universal-mcp-toolkit"
   },
-  "transports": ["stdio", "http+sse"],
+  "transports": [
+    "stdio",
+    "streamable-http",
+    "http+sse"
+  ],
+  "registryCounts": {
+    "total": 35,
+    "core": 28,
+    "community": 7,
+    "local": 0,
+    "releaseGated": 27,
+    "experimental": 8,
+    "stub": 6
+  },
+  "registryTiers": [
+    "core",
+    "community",
+    "local"
+  ],
+  "categories": {
+    "AI": [
+      "openai-mcp",
+      "sequential-thinking"
+    ],
+    "Automation": [
+      "playwright-mcp",
+      "zapier"
+    ],
+    "Collaboration": [
+      "discord",
+      "github",
+      "gitlab",
+      "jira",
+      "linear",
+      "notion",
+      "notion-mcp",
+      "slack",
+      "slack-mcp",
+      "trello"
+    ],
+    "Data": [
+      "airtable",
+      "aws-s3",
+      "mongodb",
+      "postgresql",
+      "redis",
+      "sqlite",
+      "supabase"
+    ],
+    "Local": [
+      "filesystem"
+    ],
+    "Media & Commerce": [
+      "spotify",
+      "stripe"
+    ],
+    "Memory": [
+      "memos"
+    ],
+    "Platform": [
+      "cloudflare-workers",
+      "docker",
+      "npm-registry",
+      "vercel"
+    ],
+    "Productivity": [
+      "google-calendar",
+      "google-drive"
+    ],
+    "Research": [
+      "arxiv",
+      "context7",
+      "firecrawl",
+      "hackernews"
+    ]
+  },
   "servers": [
-    "github", "notion", "slack", "linear", "jira",
-    "google-calendar", "google-drive", "spotify", "stripe",
-    "postgresql", "mongodb", "redis", "supabase",
-    "vercel", "cloudflare-workers", "docker", "npm-registry",
-    "hackernews", "arxiv", "filesystem"
+    "airtable",
+    "arxiv",
+    "aws-s3",
+    "cloudflare-workers",
+    "context7",
+    "discord",
+    "docker",
+    "filesystem",
+    "firecrawl",
+    "github",
+    "gitlab",
+    "google-calendar",
+    "google-drive",
+    "hackernews",
+    "jira",
+    "linear",
+    "memos",
+    "mongodb",
+    "notion",
+    "notion-mcp",
+    "npm-registry",
+    "openai-mcp",
+    "playwright-mcp",
+    "postgresql",
+    "redis",
+    "sequential-thinking",
+    "slack",
+    "slack-mcp",
+    "spotify",
+    "sqlite",
+    "stripe",
+    "supabase",
+    "trello",
+    "vercel",
+    "zapier"
+  ],
+  "notes": [
+    "Community and local registry entries are opt-in and are not maintained by Universal MCP Toolkit.",
+    "Experimental or stub entries are visible for discovery but are not promoted as release-gated core integrations."
   ],
   "listings": [
     "https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit",

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/schema/server-card.json",
+  "name": "universal-mcp-toolkit",
+  "description": "35 prebuilt MCP (Model Context Protocol) servers — unified CLI for discovery, configuration, and runtime. Use with Claude Desktop, Cursor, Cline, and any MCP client.",
+  "type": "aggregator",
+  "categories": [
+    "AI",
+    "Automation",
+    "Collaboration",
+    "Data",
+    "Local",
+    "Media & Commerce",
+    "Memory",
+    "Platform",
+    "Productivity",
+    "Research"
+  ],
+  "tags": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "ai-tools",
+    "toolkit",
+    "aggregator",
+    "claude",
+    "cursor",
+    "cline",
+    "windsurf"
+  ],
+  "authors": [
+    {
+      "name": "Markgatcha",
+      "homepage": "https://github.com/Markgatcha"
+    }
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit",
+  "repository": "https://github.com/Markgatcha/universal-mcp-toolkit",
+  "registryCounts": {
+    "total": 35,
+    "core": 28,
+    "community": 7
+  },
+  "runtime": {
+    "command": "npx",
+    "args": ["-y", "universal-mcp-toolkit", "run", "<serverId>", "--transport", "stdio"],
+    "env": {}
+  },
+  "exampleConfig": {
+    "serverId": "github",
+    "envVars": {
+      "GITHUB_TOKEN": "your_token_here"
+    }
+  }
+}

@@ -2,6 +2,7 @@
 [![CI](https://github.com/Markgatcha/universal-mcp-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Markgatcha/universal-mcp-toolkit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg?logo=pnpm)](https://pnpm.io/) [![npm](https://img.shields.io/npm/v/universal-mcp-toolkit?label=npm)](https://www.npmjs.com/package/universal-mcp-toolkit)
 [![npm downloads](https://img.shields.io/npm/dm/universal-mcp-toolkit?label=downloads&color=red)](https://www.npmjs.com/package/universal-mcp-toolkit)
+[![GitHub stars](https://img.shields.io/github/stars/Markgatcha/universal-mcp-toolkit?style=social)](https://github.com/Markgatcha/universal-mcp-toolkit/stargazers)
 [![universal-mcp-toolkit MCP server](https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit/badges/score.svg)](https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 [![Available on CodeGuilds](https://img.shields.io/badge/Available_on-CodeGuilds-6366f1)](https://codeguilds.dev/packages/universal-mcp-toolkit)
@@ -326,6 +327,19 @@ Every server in the toolkit is designed around the same transport story:
 - discovery metadata exposed through `.well-known/mcp-server.json`
 
 The shared core handles runtime bootstrapping, logging, env loading, and tool registration so every server behaves consistently.
+
+## MCP Registry Discovery
+
+UMT is discoverable through three complementary manifest paths so it shows up in registry search, Smithery, and direct well-known lookups:
+
+- **Official MCP Registry** — `registry-server.json` at the repo root uses the reverse-DNS name `io.github.markgatcha.universal-mcp-toolkit` and lists the tool surface, transports, and environment variables. Submit it to the [official registry](https://github.com/modelcontextprotocol/registry) to appear in `mcp-cli search` results.
+- **Smithery auto-discovery** — `.well-known/mcp/server-card.json` is the well-known server card that Smithery (and any RFC-style crawler) fetches to build a live profile. Keep `version` and `description` in sync with `packages/cli/package.json`.
+- **Runtime `.well-known/mcp-server.json`** — the discovery document served by the running server; bumped to `1.6.26` with the updated registry description.
+
+```bash
+# Verify the well-known card is served correctly
+curl http://localhost:3000/.well-known/mcp/server-card.json | jq .name
+```
 
 ## Core package
 
