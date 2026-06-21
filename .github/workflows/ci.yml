@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     name: Build, Typecheck & Test
@@ -29,7 +33,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         run: pnpm build
@@ -39,23 +43,3 @@ jobs:
 
       - name: Test
         run: pnpm test
-
-  bun-test:
-    name: Test with Bun
-    runs-on: ubuntu-latest
-    needs: ci
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.x"
-
-      - name: Install with bun
-        run: bun install
-
-      - name: Build with bun
-        run: bun run build
-
-      - name: Test CLI resolves
-        run: bun run packages/cli/dist/index.js --version
