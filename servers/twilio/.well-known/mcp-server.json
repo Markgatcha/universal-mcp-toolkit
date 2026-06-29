@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "twilio",
+  "title": "Twilio MCP Server",
+  "description": "Send SMS, list messages, place voice calls, and review call history via the Twilio REST API.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-twilio",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit.git",
+  "documentationUrl": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "TWILIO_ACCOUNT_SID",
+      "TWILIO_AUTH_TOKEN",
+      "TWILIO_FROM_NUMBER"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  },
+  "tools": [
+    "twilio_send_sms",
+    "twilio_list_messages",
+    "twilio_get_message",
+    "twilio_make_call",
+    "twilio_list_calls"
+  ],
+  "resources": [],
+  "prompts": [],
+  "toolDetails": [
+    {
+      "name": "twilio_send_sms",
+      "description": "Send an SMS message from the configured Twilio number."
+    },
+    {
+      "name": "twilio_list_messages",
+      "description": "List recent Twilio messages, optionally filtered by sender or recipient."
+    },
+    {
+      "name": "twilio_get_message",
+      "description": "Fetch a single Twilio message resource by SID."
+    },
+    {
+      "name": "twilio_make_call",
+      "description": "Initiate an outbound voice call using a publicly accessible TwiML URL."
+    },
+    {
+      "name": "twilio_list_calls",
+      "description": "List recent Twilio voice calls."
+    }
+  ],
+  "resourceDetails": [],
+  "promptDetails": [],
+  "tags": [
+    "twilio",
+    "sms",
+    "voice",
+    "telephony",
+    "messaging"
+  ]
+}
