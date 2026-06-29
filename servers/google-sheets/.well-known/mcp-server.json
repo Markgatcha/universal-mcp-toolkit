@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "google-sheets",
+  "title": "Google Sheets MCP Server",
+  "description": "List, read, and write Google Sheets data via the Sheets API v4 and Drive API v3.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-google-sheets",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit.git",
+  "documentationUrl": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "SHEETS_CLIENT_ID",
+      "SHEETS_CLIENT_SECRET",
+      "SHEETS_REFRESH_TOKEN"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  },
+  "tools": [
+    "sheets_list_spreadsheets",
+    "sheets_get_values",
+    "sheets_update_values",
+    "sheets_append_values",
+    "sheets_get_metadata"
+  ],
+  "resources": [],
+  "prompts": [],
+  "toolDetails": [
+    {
+      "name": "sheets_list_spreadsheets",
+      "description": "List accessible Google Sheets spreadsheets via the Google Drive API."
+    },
+    {
+      "name": "sheets_get_values",
+      "description": "Read a cell range from a Google Sheets spreadsheet using A1 notation."
+    },
+    {
+      "name": "sheets_update_values",
+      "description": "Overwrite a cell range in a Google Sheets spreadsheet using A1 notation."
+    },
+    {
+      "name": "sheets_append_values",
+      "description": "Append rows to a Google Sheets spreadsheet after the existing data."
+    },
+    {
+      "name": "sheets_get_metadata",
+      "description": "Fetch a spreadsheet's title and per-sheet dimensions (rows, columns)."
+    }
+  ],
+  "resourceDetails": [],
+  "promptDetails": [],
+  "tags": [
+    "google-sheets",
+    "spreadsheet",
+    "google",
+    "drive",
+    "data"
+  ]
+}
