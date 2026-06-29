@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "youtube",
+  "title": "YouTube MCP Server",
+  "description": "Search videos, fetch video/channel details, and read comments via the YouTube Data API v3.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-youtube",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit.git",
+  "documentationUrl": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "YOUTUBE_API_KEY"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  },
+  "tools": [
+    "youtube_search_videos",
+    "youtube_get_video",
+    "youtube_get_channel",
+    "youtube_list_channel_videos",
+    "youtube_get_comments"
+  ],
+  "resources": [],
+  "prompts": [],
+  "toolDetails": [
+    {
+      "name": "youtube_search_videos",
+      "description": "Search YouTube videos by query, with optional ordering."
+    },
+    {
+      "name": "youtube_get_video",
+      "description": "Fetch full details (statistics, duration, tags) for a YouTube video by ID."
+    },
+    {
+      "name": "youtube_get_channel",
+      "description": "Fetch YouTube channel details by channel ID or @handle."
+    },
+    {
+      "name": "youtube_list_channel_videos",
+      "description": "List recent videos uploaded by a YouTube channel."
+    },
+    {
+      "name": "youtube_get_comments",
+      "description": "Fetch top-level comments for a YouTube video."
+    }
+  ],
+  "resourceDetails": [],
+  "promptDetails": [],
+  "tags": [
+    "youtube",
+    "video",
+    "google",
+    "search",
+    "media"
+  ]
+}
