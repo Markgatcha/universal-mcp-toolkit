@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "name": "gmail",
+  "title": "Gmail MCP Server",
+  "description": "Read, search, send, and manage Gmail messages via the Gmail REST API.",
+  "version": "0.1.0",
+  "packageName": "@universal-mcp-toolkit/server-gmail",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit.git",
+  "documentationUrl": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "transports": [
+    "stdio",
+    "sse"
+  ],
+  "authentication": {
+    "mode": "environment-variables",
+    "required": [
+      "GMAIL_CLIENT_ID",
+      "GMAIL_CLIENT_SECRET",
+      "GMAIL_REFRESH_TOKEN"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  },
+  "tools": [
+    "gmail_list_messages",
+    "gmail_get_message",
+    "gmail_send_email",
+    "gmail_search_messages",
+    "gmail_mark_read"
+  ],
+  "resources": [],
+  "prompts": [],
+  "toolDetails": [
+    {
+      "name": "gmail_list_messages",
+      "description": "List recent inbox messages, optionally filtered with Gmail search syntax."
+    },
+    {
+      "name": "gmail_get_message",
+      "description": "Fetch a full Gmail message by ID, including decoded text and HTML bodies."
+    },
+    {
+      "name": "gmail_send_email",
+      "description": "Send an email through Gmail, encoded as RFC 2822 and submitted base64url."
+    },
+    {
+      "name": "gmail_search_messages",
+      "description": "Search Gmail messages using Gmail query syntax (e.g. 'is:unread', 'from:x@y.com')."
+    },
+    {
+      "name": "gmail_mark_read",
+      "description": "Mark a Gmail message as read by removing the UNREAD label."
+    }
+  ],
+  "resourceDetails": [],
+  "promptDetails": [],
+  "tags": [
+    "gmail",
+    "google",
+    "email",
+    "messaging",
+    "search"
+  ]
+}
