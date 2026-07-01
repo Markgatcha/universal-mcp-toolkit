@@ -5,6 +5,19 @@ import { ExternalServiceError } from "./errors.js";
 
 type QueryValue = string | number | boolean | null | undefined;
 
+/**
+ * Remove trailing forward slashes from a URL base. Equivalent to
+ * `value.replace(/\/+$/, "")` but avoids a regex over externally-provided
+ * input (ReDoS / CodeQL `js/polynomial-redos`).
+ */
+export function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47 /* "/" */) {
+    end -= 1;
+  }
+  return end === value.length ? value : value.slice(0, end);
+}
+
 export interface RetryOptions {
   maxRetries: number;
   baseDelayMs: number;
@@ -76,7 +89,7 @@ export class HttpServiceClient {
   private readonly rateLimiter: import("./rate-limiter.js").RateLimiter | undefined;
 
   public constructor(options: HttpServiceClientOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/+$/, "");
+    this.baseUrl = stripTrailingSlashes(options.baseUrl);
     this.logger = options.logger;
     this.serviceName = options.serviceName;
     this.defaultHeaders = options.defaultHeaders;

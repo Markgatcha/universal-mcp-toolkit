@@ -1,7 +1,7 @@
 export { createServerCard } from "./card.js";
 export { loadEnv } from "./env.js";
 export { ConfigurationError, ExternalServiceError, ToolkitError, ToolTimeoutError, ValidationError, normalizeError } from "./errors.js";
-export { HttpServiceClient } from "./http.js";
+export { HttpServiceClient, stripTrailingSlashes } from "./http.js";
 export type { RetryOptions } from "./http.js";
 export { createLogger } from "./logger.js";
 export { RateLimiter } from "./rate-limiter.js";

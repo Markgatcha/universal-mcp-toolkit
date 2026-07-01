@@ -10,6 +10,7 @@ import {
   normalizeError,
   parseRuntimeOptions,
   runToolkitServer,
+  stripTrailingSlashes,
   ToolkitServer,
   type ToolkitServerMetadata,
 } from "@universal-mcp-toolkit/core";
@@ -864,7 +865,7 @@ export class NotionApiClient implements NotionClientLike {
   public constructor(options: NotionApiClientOptions) {
     this.config = options.config;
     this.fetchImplementation = options.fetchImplementation ?? fetch;
-    this.baseUrl = options.config.apiBaseUrl.replace(/\/+$/, "");
+    this.baseUrl = stripTrailingSlashes(options.config.apiBaseUrl);
   }
 
   public async searchPages(input: SearchPagesInput): Promise<SearchPagesOutput> {
