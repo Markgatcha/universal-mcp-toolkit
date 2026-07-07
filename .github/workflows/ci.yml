@@ -14,9 +14,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Lockfile drift: fail fast if pnpm-lock.yaml is out of sync with
+  # package.json (the frozen install errors out clearly before the full
+  # build/typecheck/test matrix wastes time).
+  verify-lockfile:
+    name: Verify lockfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable corepack
+        run: corepack enable
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Verify pnpm-lock.yaml is in sync
+        run: pnpm install --frozen-lockfile --prefer-offline
+
   ci:
     name: Build, Typecheck & Test
     runs-on: ubuntu-latest
+    needs: [verify-lockfile]
     strategy:
       matrix:
         node-version: [20, 22]

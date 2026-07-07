@@ -1,0 +1,27 @@
+#!/bin/sh
+# Pre-commit hook (universal-mcp-toolkit): run the workspace lint on staged
+# files via turbo, then re-stage anything fixed. Non-blocking — CI is the gate.
+#
+# Activate once with: git config core.hooksPath .githooks
+set -e
+
+if [ ! -f package.json ]; then
+  exit 0
+fi
+
+staged=$(git diff --cached --diff-filter=ACMR --name-only -- '*.ts' '*.json' || true)
+if [ -z "$staged" ]; then
+  exit 0
+fi
+
+# Lint the whole workspace (per-package turbo lint). Non-fatal here so the
+# commit proceeds; CI enforces the hard gate.
+node scripts/run-turbo.mjs lint >/dev/null 2>&1 || true
+
+echo "$staged" | while IFS= read -r f; do
+  if [ -n "$f" ]; then
+    git add -- "$f"
+  fi
+done
+
+exit 0
