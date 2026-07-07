@@ -1,7 +1,9 @@
 import { pathToFileURL } from "node:url";
 
 import {
+  ConfigurationError,
   HttpServiceClient,
+  OAuth2TokenProvider,
   ToolkitServer,
   ValidationError,
   createServerCard,
@@ -37,7 +39,10 @@ export const serverCard = createServerCard(metadata);
 const nonEmptyString = z.string().trim().min(1);
 
 const googleCalendarEnvShape = {
-  GOOGLE_CALENDAR_ACCESS_TOKEN: nonEmptyString,
+  GOOGLE_CALENDAR_ACCESS_TOKEN: nonEmptyString.optional(),
+  GOOGLE_CALENDAR_CLIENT_ID: nonEmptyString.optional(),
+  GOOGLE_CALENDAR_CLIENT_SECRET: nonEmptyString.optional(),
+  GOOGLE_CALENDAR_REFRESH_TOKEN: nonEmptyString.optional(),
   GOOGLE_CALENDAR_BASE_URL: z.string().url().default("https://www.googleapis.com/calendar/v3"),
   GOOGLE_CALENDAR_DEFAULT_CALENDAR_ID: nonEmptyString.default("primary"),
   GOOGLE_CALENDAR_DEFAULT_TIME_ZONE: nonEmptyString.default("UTC"),
@@ -46,7 +51,10 @@ const googleCalendarEnvShape = {
 type GoogleCalendarEnv = z.infer<z.ZodObject<typeof googleCalendarEnvShape>>;
 
 export interface GoogleCalendarConfig {
-  accessToken: string;
+  /** Present only when a static access token is configured (no refresh). */
+  accessToken?: string;
+  /** Present only when OAuth 2.0 refresh credentials are configured. */
+  tokenProvider?: OAuth2TokenProvider;
   baseUrl: string;
   defaultCalendarId: string;
   defaultTimeZone: string;
@@ -244,13 +252,40 @@ const rawEventsResponseSchema = z
   })
   .passthrough();
 
+const GOOGLE_CALENDAR_TOKEN_URL = "https://oauth2.googleapis.com/token";
+
 function toGoogleCalendarConfig(env: GoogleCalendarEnv): GoogleCalendarConfig {
-  return {
-    accessToken: env.GOOGLE_CALENDAR_ACCESS_TOKEN,
+  const hasRefresh = Boolean(env.GOOGLE_CALENDAR_CLIENT_ID && env.GOOGLE_CALENDAR_CLIENT_SECRET && env.GOOGLE_CALENDAR_REFRESH_TOKEN);
+  const hasStatic = Boolean(env.GOOGLE_CALENDAR_ACCESS_TOKEN);
+
+  if (!hasRefresh && !hasStatic) {
+    throw new ConfigurationError(
+      "Google Calendar needs either GOOGLE_CALENDAR_ACCESS_TOKEN, or all of GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET, and GOOGLE_CALENDAR_REFRESH_TOKEN.",
+    );
+  }
+
+  const config: GoogleCalendarConfig = {
     baseUrl: env.GOOGLE_CALENDAR_BASE_URL,
     defaultCalendarId: env.GOOGLE_CALENDAR_DEFAULT_CALENDAR_ID,
     defaultTimeZone: env.GOOGLE_CALENDAR_DEFAULT_TIME_ZONE,
   };
+
+  if (hasRefresh) {
+    config.tokenProvider = new OAuth2TokenProvider({
+      serviceName: "Google Calendar",
+      clientId: env.GOOGLE_CALENDAR_CLIENT_ID!,
+      clientSecret: env.GOOGLE_CALENDAR_CLIENT_SECRET!,
+      refreshToken: env.GOOGLE_CALENDAR_REFRESH_TOKEN!,
+      tokenUrl: GOOGLE_CALENDAR_TOKEN_URL,
+    });
+  } else {
+    const staticToken = env.GOOGLE_CALENDAR_ACCESS_TOKEN;
+    if (staticToken) {
+      config.accessToken = staticToken;
+    }
+  }
+
+  return config;
 }
 
 function loadGoogleCalendarConfig(source: NodeJS.ProcessEnv = process.env): GoogleCalendarConfig {
@@ -362,8 +397,8 @@ class GoogleCalendarHttpClient extends HttpServiceClient implements GoogleCalend
       serviceName: "google-calendar",
       baseUrl: config.baseUrl,
       logger,
-      defaultHeaders: () => ({
-        authorization: `Bearer ${config.accessToken}`,
+      defaultHeaders: async () => ({
+        authorization: config.tokenProvider ? await config.tokenProvider.getAuthorizationHeader() : `Bearer ${config.accessToken ?? ""}`,
         accept: "application/json",
       }),
     });

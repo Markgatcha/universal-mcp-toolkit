@@ -1,3 +1,5 @@
+export { OAuth2TokenProvider } from "./auth.js";
+export type { OAuth2TokenProviderOptions } from "./auth.js";
 export { createServerCard } from "./card.js";
 export { loadEnv } from "./env.js";
 export { ConfigurationError, ExternalServiceError, ToolkitError, ToolTimeoutError, ValidationError, normalizeError } from "./errors.js";

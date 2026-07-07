@@ -1,8 +1,10 @@
 import { pathToFileURL } from "node:url";
 
 import {
+  ConfigurationError,
   ExternalServiceError,
   HttpServiceClient,
+  OAuth2TokenProvider,
   ToolkitServer,
   createServerCard,
   defineTool,
@@ -37,14 +39,20 @@ export const serverCard = createServerCard(metadata);
 const nonEmptyString = z.string().trim().min(1);
 
 const spotifyEnvShape = {
-  SPOTIFY_ACCESS_TOKEN: nonEmptyString,
+  SPOTIFY_ACCESS_TOKEN: nonEmptyString.optional(),
+  SPOTIFY_CLIENT_ID: nonEmptyString.optional(),
+  SPOTIFY_CLIENT_SECRET: nonEmptyString.optional(),
+  SPOTIFY_REFRESH_TOKEN: nonEmptyString.optional(),
   SPOTIFY_API_BASE_URL: z.string().url().default("https://api.spotify.com/v1"),
 } satisfies z.ZodRawShape;
 
 type SpotifyEnv = z.infer<z.ZodObject<typeof spotifyEnvShape>>;
 
 export interface SpotifyConfig {
-  accessToken: string;
+  /** Present only when a static access token is configured (no refresh). */
+  accessToken?: string;
+  /** Present only when OAuth 2.0 refresh credentials are configured. */
+  tokenProvider?: OAuth2TokenProvider;
   baseUrl: string;
 }
 
@@ -274,11 +282,38 @@ const rawCurrentPlaybackSchema = z
   })
   .passthrough();
 
+const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
+
 function toSpotifyConfig(env: SpotifyEnv): SpotifyConfig {
-  return {
-    accessToken: env.SPOTIFY_ACCESS_TOKEN,
+  const hasRefresh = Boolean(env.SPOTIFY_CLIENT_ID && env.SPOTIFY_CLIENT_SECRET && env.SPOTIFY_REFRESH_TOKEN);
+  const hasStatic = Boolean(env.SPOTIFY_ACCESS_TOKEN);
+
+  if (!hasRefresh && !hasStatic) {
+    throw new ConfigurationError(
+      "Spotify needs either SPOTIFY_ACCESS_TOKEN, or all of SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REFRESH_TOKEN.",
+    );
+  }
+
+  const config: SpotifyConfig = {
     baseUrl: env.SPOTIFY_API_BASE_URL,
   };
+
+  if (hasRefresh) {
+    config.tokenProvider = new OAuth2TokenProvider({
+      serviceName: "Spotify",
+      clientId: env.SPOTIFY_CLIENT_ID!,
+      clientSecret: env.SPOTIFY_CLIENT_SECRET!,
+      refreshToken: env.SPOTIFY_REFRESH_TOKEN!,
+      tokenUrl: SPOTIFY_TOKEN_URL,
+    });
+  } else {
+    const staticToken = env.SPOTIFY_ACCESS_TOKEN;
+    if (staticToken) {
+      config.accessToken = staticToken;
+    }
+  }
+
+  return config;
 }
 
 function loadSpotifyConfig(source: NodeJS.ProcessEnv = process.env): SpotifyConfig {
@@ -374,8 +409,8 @@ class SpotifyHttpClient extends HttpServiceClient implements SpotifyClient {
       serviceName: "spotify",
       baseUrl: config.baseUrl,
       logger,
-      defaultHeaders: () => ({
-        authorization: `Bearer ${config.accessToken}`,
+      defaultHeaders: async () => ({
+        authorization: config.tokenProvider ? await config.tokenProvider.getAuthorizationHeader() : `Bearer ${config.accessToken ?? ""}`,
         accept: "application/json",
       }),
     });

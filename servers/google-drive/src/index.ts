@@ -1,7 +1,9 @@
 import { pathToFileURL } from "node:url";
 
 import {
+  ConfigurationError,
   HttpServiceClient,
+  OAuth2TokenProvider,
   ToolkitServer,
   createServerCard,
   defineTool,
@@ -35,15 +37,24 @@ export const serverCard = createServerCard(metadata);
 
 const nonEmptyString = z.string().trim().min(1);
 
+// Either a long-lived bare access token, or the OAuth 2.0 refresh triple.
+// A bare token will silently expire; supplying the refresh credentials lets the
+// shared OAuth2TokenProvider keep the Bearer header fresh indefinitely.
 const googleDriveEnvShape = {
-  GOOGLE_DRIVE_ACCESS_TOKEN: nonEmptyString,
+  GOOGLE_DRIVE_ACCESS_TOKEN: nonEmptyString.optional(),
+  GOOGLE_DRIVE_CLIENT_ID: nonEmptyString.optional(),
+  GOOGLE_DRIVE_CLIENT_SECRET: nonEmptyString.optional(),
+  GOOGLE_DRIVE_REFRESH_TOKEN: nonEmptyString.optional(),
   GOOGLE_DRIVE_BASE_URL: z.string().url().default("https://www.googleapis.com/drive/v3"),
 } satisfies z.ZodRawShape;
 
 type GoogleDriveEnv = z.infer<z.ZodObject<typeof googleDriveEnvShape>>;
 
 export interface GoogleDriveConfig {
-  accessToken: string;
+  /** Present only when a static access token is configured (no refresh). */
+  accessToken?: string;
+  /** Present only when OAuth 2.0 refresh credentials are configured. */
+  tokenProvider?: OAuth2TokenProvider;
   baseUrl: string;
 }
 
@@ -184,11 +195,38 @@ const rawDriveOverviewSchema = z
   })
   .passthrough();
 
+const GOOGLE_DRIVE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+
 function toGoogleDriveConfig(env: GoogleDriveEnv): GoogleDriveConfig {
-  return {
-    accessToken: env.GOOGLE_DRIVE_ACCESS_TOKEN,
+  const hasRefresh = Boolean(env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN);
+  const hasStatic = Boolean(env.GOOGLE_DRIVE_ACCESS_TOKEN);
+
+  if (!hasRefresh && !hasStatic) {
+    throw new ConfigurationError(
+      "Google Drive needs either GOOGLE_DRIVE_ACCESS_TOKEN, or all of GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, and GOOGLE_DRIVE_REFRESH_TOKEN.",
+    );
+  }
+
+  const config: GoogleDriveConfig = {
     baseUrl: env.GOOGLE_DRIVE_BASE_URL,
   };
+
+  if (hasRefresh) {
+    config.tokenProvider = new OAuth2TokenProvider({
+      serviceName: "Google Drive",
+      clientId: env.GOOGLE_DRIVE_CLIENT_ID!,
+      clientSecret: env.GOOGLE_DRIVE_CLIENT_SECRET!,
+      refreshToken: env.GOOGLE_DRIVE_REFRESH_TOKEN!,
+      tokenUrl: GOOGLE_DRIVE_TOKEN_URL,
+    });
+  } else {
+    const staticToken = env.GOOGLE_DRIVE_ACCESS_TOKEN;
+    if (staticToken) {
+      config.accessToken = staticToken;
+    }
+  }
+
+  return config;
 }
 
 function loadGoogleDriveConfig(source: NodeJS.ProcessEnv = process.env): GoogleDriveConfig {
@@ -264,8 +302,8 @@ class GoogleDriveHttpClient extends HttpServiceClient implements GoogleDriveClie
       serviceName: "google-drive",
       baseUrl: config.baseUrl,
       logger,
-      defaultHeaders: () => ({
-        authorization: `Bearer ${config.accessToken}`,
+      defaultHeaders: async () => ({
+        authorization: config.tokenProvider ? await config.tokenProvider.getAuthorizationHeader() : `Bearer ${config.accessToken ?? ""}`,
         accept: "application/json",
       }),
     });

@@ -18,6 +18,18 @@ const CLI_VERSION = _pkg.version;
 const { execFile } = await import("node:child_process");
 const execFileAsync = promisify(execFile);
 
+const IS_WINDOWS = process.platform === "win32";
+
+/**
+ * Run `npm` with cross-platform arg resolution. On Windows `npm` is a `.cmd`
+ * shim that `execFile` cannot launch without a shell, so `shell: true` is
+ * required there (ENOENT otherwise). All args are fixed/registry-derived, so
+ * the shell's quoting surface is not a concern here.
+ */
+async function execNpm(args: string[], options: { timeout?: number } = {}): Promise<{ stdout: string; stderr: string }> {
+  return execFileAsync("npm", args, { windowsHide: true, shell: IS_WINDOWS, ...options });
+}
+
 type InquirerQuestion = {
   type: string;
   name: string;
@@ -190,10 +202,11 @@ async function runServer(serverId: string, transport: "sse" | "stdio", host: str
         const child = spawn(process.execPath, [entryFile, "--transport", transport, "--host", host, "--port", String(port)], {
           stdio: "inherit",
           cwd: process.cwd(),
+          windowsHide: IS_WINDOWS,
         });
-        
+
         currentPid = child.pid || null;
-        
+
         const timestamp = new Date().toISOString();
         logStream.write(`[${timestamp}] Starting server (pid ${child.pid})\n`);
         
@@ -243,10 +256,11 @@ async function runServer(serverId: string, transport: "sse" | "stdio", host: str
         const child = spawn(process.execPath, [entryFile, "--transport", transport, "--host", host, "--port", String(port)], {
           stdio: "inherit",
           cwd: process.cwd(),
+          windowsHide: IS_WINDOWS,
         });
-        
+
         currentPid = child.pid || null;
-        
+
         child.on("exit", async (code) => {
           currentPid = null;
           await updateState();
@@ -293,9 +307,8 @@ async function runUpdate(): Promise<void> {
   const spinner = ora("Checking for updates").start();
   try {
     const currentVersion = CLI_VERSION;
-    const { stdout: registryOutput } = await execFileAsync("npm", ["view", "universal-mcp-toolkit", "version", "--registry", "https://registry.npmjs.org"], {
+    const { stdout: registryOutput } = await execNpm(["view", "universal-mcp-toolkit", "version", "--registry", "https://registry.npmjs.org"], {
       timeout: 15000,
-      windowsHide: true,
     });
     const latestVersion = registryOutput.trim();
 
@@ -321,9 +334,8 @@ async function runUpdate(): Promise<void> {
     }
 
     const updateSpinner = ora(`Installing universal-mcp-toolkit@${latestVersion}`).start();
-    await execFileAsync("npm", ["install", "-g", `universal-mcp-toolkit@${latestVersion}`], {
+    await execNpm(["install", "-g", `universal-mcp-toolkit@${latestVersion}`], {
       timeout: 60000,
-      windowsHide: true,
     });
     updateSpinner.succeed(`Updated to v${latestVersion}`);
   } catch (error) {
@@ -361,6 +373,7 @@ async function runTest(serverId: string): Promise<void> {
       stdio: ["pipe", "pipe", "pipe"],
       cwd: process.cwd(),
       env: { ...process.env, NODE_NO_WARNINGS: "1" },
+      windowsHide: IS_WINDOWS,
     });
 
     let stderr = "";
@@ -542,6 +555,7 @@ async function runStdioHandshake(distPath: string, timeoutMs: number): Promise<n
     stdio: ["pipe", "pipe", "pipe"],
     cwd: process.cwd(),
     env: { ...process.env, NODE_NO_WARNINGS: "1" },
+    windowsHide: IS_WINDOWS,
   });
 
   let buffer = "";
@@ -1032,21 +1046,21 @@ async function runUpgrade(allPackages: boolean, serverName?: string): Promise<vo
   try {
     if (serverName) {
       const entry = getRegistryEntry(serverName);
-      const { stdout } = await execFileAsync("npm", ["view", entry.packageName, "version"], { windowsHide: true });
+      const { stdout } = await execNpm(["view", entry.packageName, "version"]);
       const result = stdout.trim();
       spinner.succeed(`Current version: ${entry.packageName}`);
       console.log(`Latest version in npm: ${chalk.green(result)}`);
     } else if (allPackages) {
       const packages = SERVER_REGISTRY.map(e => e.packageName);
       for (const pkg of packages) {
-        const { stdout } = await execFileAsync("npm", ["view", pkg, "version"], { windowsHide: true });
+        const { stdout } = await execNpm(["view", pkg, "version"]);
         const result = stdout.trim();
         console.log(`${pkg}: ${chalk.green(result)}`);
       }
       spinner.succeed("All packages checked.");
     } else {
       const pkg = "universal-mcp-toolkit";
-      const { stdout } = await execFileAsync("npm", ["view", pkg, "version"], { windowsHide: true });
+      const { stdout } = await execNpm(["view", pkg, "version"]);
       const result = stdout.trim();
       spinner.succeed(`CLI version: ${chalk.green(result)}`);
     }

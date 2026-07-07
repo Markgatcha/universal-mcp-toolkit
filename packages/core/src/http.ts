@@ -29,7 +29,8 @@ export interface HttpServiceClientOptions {
   serviceName: string;
   baseUrl: string;
   logger: Logger;
-  defaultHeaders?: HeadersInit | (() => HeadersInit);
+  /** Static headers, or a (possibly async) function producing them per request — useful for refreshing bearer tokens. */
+  defaultHeaders?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
   retryOptions?: Partial<RetryOptions>;
   rateLimiter?: import("./rate-limiter.js").RateLimiter;
 }
@@ -84,7 +85,7 @@ export class HttpServiceClient {
   protected readonly baseUrl: string;
   protected readonly logger: Logger;
   private readonly serviceName: string;
-  private readonly defaultHeaders: HeadersInit | (() => HeadersInit) | undefined;
+  private readonly defaultHeaders: HeadersInit | (() => HeadersInit | Promise<HeadersInit>) | undefined;
   private readonly retryOptions: RetryOptions;
   private readonly rateLimiter: import("./rate-limiter.js").RateLimiter | undefined;
 
@@ -143,10 +144,10 @@ export class HttpServiceClient {
     }
 
     const headers = new Headers();
-    const resolvedDefaultHeaders =
-      typeof this.defaultHeaders === "function" ? this.defaultHeaders() : (this.defaultHeaders ?? {});
+    const defaultHeadersValue =
+      typeof this.defaultHeaders === "function" ? await this.defaultHeaders() : (this.defaultHeaders ?? {});
 
-    new Headers(resolvedDefaultHeaders).forEach((value, key) => headers.set(key, value));
+    new Headers(defaultHeadersValue).forEach((value, key) => headers.set(key, value));
     new Headers(options.headers).forEach((value, key) => headers.set(key, value));
 
     let body: BodyInit | undefined;
