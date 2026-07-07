@@ -143,9 +143,56 @@ Experimental companion packages under the `@contextcore/*` scope currently inclu
 
 Some servers also expose optional tuning variables such as `POSTGRESQL_ALLOW_WRITES`, `REDIS_ALLOW_WRITES`, `MONGODB_ALLOW_WRITE_PIPELINES`, `VERCEL_TEAM_ID`, or `FILESYSTEM_MAX_READ_BYTES`. The root `.env.example` includes the most useful knobs.
 
+## Community opt-in servers
+
+The bundled list above is curated and dependency-pinned. Third-party MCP servers
+can be added as **opt-in** entries using the same `mcpServers` config shape — just
+point `npx` at the external package. They are not part of the default bundle.
+
+### Vynly (`@vynly/mcp`)
+
+[Vynly](https://vynly.co) is a social network purpose-built for AI-generated
+images and short video. Its MCP server ([`@vynly/mcp`](https://github.com/Vovala14/vynly-mcp),
+by [@Vovala14](https://github.com/Vovala14)) exposes a public posting API with a
+free demo token on first call (no signup) and handles provenance verification
+(C2PA / SynthID / generator EXIF) automatically — useful when you want an agent to
+publish output anywhere with provenance baked in.
+
+> Opt-in only: Vynly is **not** bundled in the default config. Add it to your host
+> config (Claude Desktop, Cursor, or any MCP client) as a normal `npx` server:
+
+```json
+{
+  "mcpServers": {
+    "vynly": {
+      "command": "npx",
+      "args": ["-y", "@vynly/mcp"],
+      "env": {
+        "VYNLY_TOKEN": "${VYNLY_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Grab a free demo token (no signup) before first use:
+
+```bash
+curl -X POST https://vynly.co/api/agents/demo-token
+```
+
+Then generate or merge the snippet with:
+
+```bash
+corepack pnpm --filter universal-mcp-toolkit exec umt config --server vynly --target claude-desktop --mode workspace
+```
+
+(If `umt` does not yet know the `vynly` server id, paste the JSON above directly
+into your host config — the runtime is the same `npx -y @vynly/mcp` launch.)
+
 ## Repository layout
 
-```text
+
 universal-mcp-toolkit/
 ├─ packages/
 │  ├─ core/
