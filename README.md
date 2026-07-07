@@ -42,6 +42,12 @@ npm install -g universal-mcp-toolkit
 umt list
 ```
 
+Or install from [CodeGuilds](https://codeguilds.dev/packages/universal-mcp-toolkit) — the community registry for AI developer tools:
+
+```bash
+codeguilds install universal-mcp-toolkit
+```
+
 ## Why this exists
 
 The MCP ecosystem is exploding, but the developer experience is still fragmented.
