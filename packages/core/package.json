@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Shared runtime, validation, logging, transport, and DX primitives for universal-mcp-toolkit.",
   "license": "MIT",
@@ -17,7 +17,9 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
