@@ -1,7 +1,13 @@
 packages:
   - packages/*
   - servers/*
-# Exact security pins for the active advisories live in package.json -> pnpm.overrides.
+# Allow build scripts for native modules that need compilation
+allowBuilds:
+  cpu-features: true
+  esbuild: true
+  protobufjs: true
+  ssh2: true
+# Exact security pins for the active advisories live here in pnpm 11+.
 # The range-based overrides below cover nested/dev dependencies with no direct pin there.
 overrides:
   '@hono/node-server@<1.19.13': '>=1.19.13'
@@ -10,3 +16,23 @@ overrides:
   path-to-regexp@>=8.0.0 <8.4.0: '>=8.4.0'
   picomatch@<2.3.2: '>=2.3.2'
   picomatch@>=4.0.0 <4.0.4: '>=4.0.4'
+  '@grpc/grpc-js': '1.14.4'
+  zod: '4.3.6'
+  axios: '1.16.0'
+  brace-expansion: '>=5.0.6'
+  esbuild: '0.28.1'
+  fast-uri: '3.1.2'
+  follow-redirects: '1.16.0'
+  form-data: '4.0.6'
+  hono: '4.12.25'
+  ip-address: '10.2.0'
+  js-yaml@<3.15.0: '3.15.0'
+  js-yaml@>=4.0.0 <4.2.0: '4.2.0'
+  postcss: '8.5.14'
+  protobufjs: '7.6.3'
+  proxy-from-env: '2.1.0'
+  qs: '6.15.2'
+  uuid: '11.1.1'
+  vite: '7.3.5'
+  ws: '8.21.0'
+  typescript: '5.7.3'

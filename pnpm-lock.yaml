@@ -5,6 +5,12 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@hono/node-server@<1.19.13': '>=1.19.13'
+  fast-xml-parser@>=4.0.0-beta.3 <=5.5.6: '>=5.5.7'
+  fast-xml-parser@>=5.0.0 <5.5.6: '>=5.5.6'
+  path-to-regexp@>=8.0.0 <8.4.0: '>=8.4.0'
+  picomatch@<2.3.2: '>=2.3.2'
+  picomatch@>=4.0.0 <4.0.4: '>=4.0.4'
   '@grpc/grpc-js': 1.14.4
   zod: 4.3.6
   axios: 1.16.0
@@ -338,7 +344,7 @@ importers:
     dependencies:
       '@slack/web-api':
         specifier: ^7.8.0
-        version: 7.15.0
+        version: 7.15.0(debug@4.4.3)
       '@universal-mcp-toolkit/core':
         specifier: workspace:0.2.0
         version: link:../../packages/core
@@ -1914,7 +1920,7 @@ packages:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
     engines: {node: '>=12.0.0'}
     peerDependencies:
-      picomatch: ^3 || ^4
+      picomatch: '>=4.0.4'
     peerDependenciesMeta:
       picomatch:
         optional: true
@@ -4026,13 +4032,13 @@ snapshots:
 
   '@slack/types@2.20.1': {}
 
-  '@slack/web-api@7.15.0':
+  '@slack/web-api@7.15.0(debug@4.4.3)':
     dependencies:
       '@slack/logger': 4.0.1
       '@slack/types': 2.20.1
       '@types/node': 25.4.0
       '@types/retry': 0.12.0
-      axios: 1.16.0
+      axios: 1.16.0(debug@4.4.3)
       eventemitter3: 5.0.4
       form-data: 4.0.6
       is-electron: 2.2.2
@@ -4296,9 +4302,9 @@ snapshots:
 
   atomic-sleep@1.0.0: {}
 
-  axios@1.16.0:
+  axios@1.16.0(debug@4.4.3):
     dependencies:
-      follow-redirects: 1.16.0
+      follow-redirects: 1.16.0(debug@4.4.3)
       form-data: 4.0.6
       proxy-from-env: 2.1.0
     transitivePeerDependencies:
@@ -4702,7 +4708,9 @@ snapshots:
       mlly: 1.8.1
       rollup: 4.59.0
 
-  follow-redirects@1.16.0: {}
+  follow-redirects@1.16.0(debug@4.4.3):
+    optionalDependencies:
+      debug: 4.4.3
 
   form-data-encoder@1.7.2: {}
 
