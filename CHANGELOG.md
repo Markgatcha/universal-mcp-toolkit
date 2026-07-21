@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - **CI minute optimization** — dropped Node 20 from the TypeScript matrix (EOL Apr 2025), reducing the matrix from 9 to 6 jobs (3 OS × 2 Node versions). Added `.github/dependabot.yml` with pnpm/npm/github-actions ecosystems, weekly schedule, auto-rebase, and grouped PRs. Added `.github/workflows/codeql.yml` for javascript-typescript security analysis. Added lockfile verification step to `release.yml`.
 
+### Dependencies Updated
+
+- **pnpm upgraded from 10.32.0 to 11.15.1** (latest). Moved `overrides` from `package.json` (`pnpm.overrides`) to `pnpm-workspace.yaml` — pnpm 11 no longer reads the `pnpm` field in `package.json`. Added `allowBuilds` for native modules (cpu-features, esbuild, protobufjs, ssh2). Regenerated `pnpm-lock.yaml`.
+
 ## [1.6.26] - 2026-06-18
 
 ### Dependencies Updated
