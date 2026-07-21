@@ -21,7 +21,7 @@ jobs:
     name: Verify lockfile
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Enable corepack
         run: corepack enable
       - name: Setup Node 22
@@ -43,7 +43,7 @@ jobs:
         node-version: [20, 22, 24]
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Enable corepack
         run: corepack enable
@@ -66,5 +66,33 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Test
+        run: pnpm test
+
+  # Rolling Node smoke: exercises the LATEST stable Node on every run so
+  # that future breaking changes are caught continuously instead of only
+  # via the pinned LTS matrix. This job is allowed to break on its own
+  # (not in the release-gate chain) so it can't silently rot, but it still
+  # flags drift.
+  ci-rolling:
+    name: CI (rolling Node)
+    runs-on: ubuntu-latest
+    needs: [verify-lockfile]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - name: Enable corepack
+        run: corepack enable
+      - name: Setup latest Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: current
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Typecheck
+        run: pnpm typecheck
       - name: Test
         run: pnpm test
