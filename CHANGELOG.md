@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### CI
+
+- **CI minute optimization** — dropped Node 20 from the TypeScript matrix (EOL Apr 2025), reducing the matrix from 9 to 6 jobs (3 OS × 2 Node versions). Added `.github/dependabot.yml` with pnpm/npm/github-actions ecosystems, weekly schedule, auto-rebase, and grouped PRs. Added `.github/workflows/codeql.yml` for javascript-typescript security analysis. Added lockfile verification step to `release.yml`.
+
 ## [1.6.26] - 2026-06-18
 
 ### Dependencies Updated
