@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Dependencies Updated
 
+- **axios upgraded from 1.16.0 to 1.18.1** — resolves 10 open GitHub Dependabot alerts (1 High, 9 Moderate) including: NO_PROXY bypass for 0.0.0.0 local addresses, prototype pollution in request construction, excessive recursion DoS in formDataToJSON/deep formToJSON, HTTP/2 and ReadableStream uploads bypassing maxBodyLength, maxDepth bypass in form serializer, and inherited proxy usage after interceptor config cloning.
+- **hono upgraded from 4.12.25 to 4.12.31** — resolves 3 moderate vulnerabilities: Server-Side XSS via JSX Escaping Bypass in cx() Utility, API Gateway v1 adapter dropping repeated request header values, and hono/jsx not isolating context per request.
+- **@hono/node-server upgraded from 1.19.13 to 2.0.11** — resolves moderate path traversal in `serve-static` on Windows via encoded backslash (`%5C`).
+- **js-yaml upgraded from 4.2.0 to 4.3.0** — resolves high-severity quadratic CPU consumption via YAML merge-key chains.
+- **fast-uri upgraded from 3.1.2 to 3.1.4** — resolves 2 high-severity host confusion vulnerabilities (literal backslash authority delimiter, failed IDN canonicalization).
+- **protobufjs upgraded from 7.6.3 to 7.6.5** — resolves moderate DoS via infinite loop in .proto option parsing.
+- **body-parser upgraded from 2.2.2 to 2.3.0** — resolves low-severity denial of service when invalid limit value silently disables size enforcement.
 - **pnpm upgraded from 10.32.0 to 11.15.1** (latest). Moved `overrides` from `package.json` (`pnpm.overrides`) to `pnpm-workspace.yaml` — pnpm 11 no longer reads the `pnpm` field in `package.json`. Added `allowBuilds` for native modules (cpu-features, esbuild, protobufjs, ssh2). Regenerated `pnpm-lock.yaml`.
 
 ## [1.6.26] - 2026-06-18
