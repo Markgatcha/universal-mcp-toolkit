@@ -5,7 +5,7 @@
   "type": "module",
   "description": "The canonical open-source monorepo for production-ready MCP servers.",
   "license": "MIT",
-  "packageManager": "pnpm@11.15.1",
+  "packageManager": "pnpm@11.16.0",
   "engines": {
     "node": ">=20.11.0",
     "pnpm": ">=11.0.0",
