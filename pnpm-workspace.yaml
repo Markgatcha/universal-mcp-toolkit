@@ -7,6 +7,9 @@ allowBuilds:
   esbuild: true
   protobufjs: true
   ssh2: true
+minimumReleaseAgeExclude:
+  - tsdown@0.22.14
+  - verkit@0.3.0
 # Exact security pins for the active advisories live here in pnpm 11+.
 # The range-based overrides below cover nested/dev dependencies with no direct pin there.
 overrides:
@@ -36,5 +39,5 @@ overrides:
   uuid: '11.1.1'
   vite: '7.3.5'
   ws: '8.21.0'
-  typescript: '5.7.3'
+  typescript: '7.0.2'
   body-parser: '2.3.0'

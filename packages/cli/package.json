@@ -5,7 +5,7 @@
   "description": "35 prebuilt MCP (Model Context Protocol) servers — unified CLI for discovery, configuration, and runtime. Use with Claude Desktop, Cursor, Cline, and any MCP client.",
   "license": "MIT",
   "bin": {
-    "umt": "./dist/index.js"
+    "umt": "./dist/index.mjs"
   },
   "repository": {
     "type": "git",
@@ -14,8 +14,8 @@
   "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
     },
     "./package.json": "./package.json"
   },
@@ -23,8 +23,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
-    "build:fast": "tsup src/index.ts --format esm --clean",
+    "build": "tsdown src/index.ts --format esm --dts --clean",
+    "build:fast": "tsdown src/index.ts --format esm --clean",
     "dev": "tsx watch src/index.ts",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",

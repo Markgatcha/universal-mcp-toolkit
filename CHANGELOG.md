@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - **CI minute optimization** — dropped Node 20 from the TypeScript matrix (EOL Apr 2025), reducing the matrix from 9 to 6 jobs (3 OS × 2 Node versions). Added `.github/dependabot.yml` with pnpm/npm/github-actions ecosystems, weekly schedule, auto-rebase, and grouped PRs. Added `.github/workflows/codeql.yml` for javascript-typescript security analysis. Added lockfile verification step to `release.yml`.
 
+### Build System
+
+- **Migrated from `tsup` to `tsdown`** — replaced `tsup` (v8.5.1) with `tsdown` (v0.22.14) across all 34 workspace packages. tsdown is the next-generation bundler powered by Rolldown and Oxc, offering faster builds and native TypeScript 7.x support via `rolldown-plugin-dts` (replacing tsup's `rollup-plugin-dts` which was incompatible with TS 7.x). All build scripts (`tsup src/index.ts --format esm --dts --clean` → `tsdown src/index.ts --format esm --dts --clean`) and the `build:fast` variant were updated. Removed `tsup.config.ts`, added `tsdown.config.ts`.
+- **Upgraded TypeScript from 5.7.3 to 7.0.2** — now possible because tsdown's `rolldown-plugin-dts` supports TypeScript 7.x (tsup's `rollup-plugin-dts` crashed on `useCaseSensitiveFileNames`). The `typescript` override in `pnpm-workspace.yaml` and the `typescript` devDependency in `package.json` were both updated. Note: TypeScript 7.0 is currently experimental and emits a warning during DTS generation.
+- **Removed `tsup` devDependency** from root `package.json`. Added `tsdown` as its replacement.
+- **Updated `exports` and `bin` fields** in all 33 package.json files to reference `./dist/index.mjs` and `./dist/index.d.mts` (tsdown's output format) instead of `./dist/index.js` and `./dist/index.d.ts` (tsup's output format).
+
 ### Dependencies Updated
 
 - **Dependency audit — pnpm update --latest (all 34 workspace packages)** — updated all outdated packages to latest compatible versions across the monorepo. Key updates:
@@ -32,7 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - `redis` 5.11.0 → 6.1.0 (major)
   - `stripe` 20.4.1 → 22.3.2 (major)
   - `@supabase/supabase-js` 2.99.0 → 2.110.8
-  - `typescript` override kept at 5.7.3 (tsup 8.5.1 / rollup-plugin-dts incompatibility with TS 7.x)
+  - `typescript` override kept at 5.7.3 (tsup 8.5.1 / rollup-plugin-dts incompatibility with TS 7.x) — **resolved in Unreleased**: migrated to tsdown + TypeScript 7.0.2
 - **pnpm-workspace.yaml overrides updated** — `zod` override bumped from 4.3.6 to 4.4.3. `typescript` override retained at 5.7.3 due to `tsup` 8.5.1 incompatibility with TypeScript 7.x (`rollup-plugin-dts` crashes on `useCaseSensitiveFileNames`).
 - **GitHub Actions `actions/setup-node` updated** from v6 to v7 in CI workflows.
 - **hono upgraded from 4.12.25 to 4.12.31** — resolves 3 moderate vulnerabilities: Server-Side XSS via JSX Escaping Bypass in cx() Utility, API Gateway v1 adapter dropping repeated request header values, and hono/jsx not isolating context per request.

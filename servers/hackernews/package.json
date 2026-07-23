@@ -5,7 +5,7 @@
   "description": "Read-only Hacker News MCP tools for ranked story lists, keyword search, and discussion threads.",
   "license": "MIT",
   "bin": {
-    "umt-hackernews": "./dist/index.js"
+    "umt-hackernews": "./dist/index.mjs"
   },
   "repository": {
     "type": "git",
@@ -14,8 +14,8 @@
   "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
     },
     "./package.json": "./package.json"
   },
@@ -24,7 +24,7 @@
     ".well-known"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
+    "build": "tsdown src/index.ts --format esm --dts --clean",
     "dev": "tsx watch src/index.ts",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
