@@ -12,7 +12,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Dependencies Updated
 
-- **axios upgraded from 1.16.0 to 1.18.1** — resolves 10 open GitHub Dependabot alerts (1 High, 9 Moderate) including: NO_PROXY bypass for 0.0.0.0 local addresses, prototype pollution in request construction, excessive recursion DoS in formDataToJSON/deep formToJSON, HTTP/2 and ReadableStream uploads bypassing maxBodyLength, maxDepth bypass in form serializer, and inherited proxy usage after interceptor config cloning.
+- **Dependency audit — pnpm update --latest (all 34 workspace packages)** — updated all outdated packages to latest compatible versions across the monorepo. Key updates:
+  - `zod` 4.3.6 → 4.4.3 (override updated in `pnpm-workspace.yaml`)
+  - `vitest` 4.1.0 → 4.1.10
+  - `@changesets/cli` 2.30.0 → 2.31.1, `@changesets/changelog-github` 0.5.2 → 0.7.0
+  - `@types/node` 25.4.0 → 26.1.1
+  - `tsx` 4.21.0 → 4.23.1
+  - `turbo` 2.9.14 → 2.10.6
+  - `dotenv` 17.3.1 → 17.4.2
+  - `fast-xml-parser` 5.7.3 → 5.10.1
+  - `mongodb` 7.1.0 → 7.5.0
+  - `pg` 8.20.0 → 8.22.0
+  - `playwright` 1.58.2 → 1.61.1
+  - `ora` 9.4.0 → 9.4.1
+  - `dockerode` 4.0.9 → 5.0.1 (major)
+  - `openai` 4.104.0 → 6.48.0 (major)
+  - `@notionhq/client` 2.3.0 → 5.23.2 (major)
+  - `@slack/web-api` 7.15.0 → 8.0.0 (major)
+  - `redis` 5.11.0 → 6.1.0 (major)
+  - `stripe` 20.4.1 → 22.3.2 (major)
+  - `@supabase/supabase-js` 2.99.0 → 2.110.8
+  - `typescript` override kept at 5.7.3 (tsup 8.5.1 / rollup-plugin-dts incompatibility with TS 7.x)
+- **pnpm-workspace.yaml overrides updated** — `zod` override bumped from 4.3.6 to 4.4.3. `typescript` override retained at 5.7.3 due to `tsup` 8.5.1 incompatibility with TypeScript 7.x (`rollup-plugin-dts` crashes on `useCaseSensitiveFileNames`).
+- **GitHub Actions `actions/setup-node` updated** from v6 to v7 in CI workflows.
 - **hono upgraded from 4.12.25 to 4.12.31** — resolves 3 moderate vulnerabilities: Server-Side XSS via JSX Escaping Bypass in cx() Utility, API Gateway v1 adapter dropping repeated request header values, and hono/jsx not isolating context per request.
 - **@hono/node-server upgraded from 1.19.13 to 2.0.11** — resolves moderate path traversal in `serve-static` on Windows via encoded backslash (`%5C`).
 - **js-yaml upgraded from 4.2.0 to 4.3.0** — resolves high-severity quadratic CPU consumption via YAML merge-key chains.

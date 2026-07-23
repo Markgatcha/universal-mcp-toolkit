@@ -43,9 +43,9 @@
     "schema"
   ],
   "dependencies": {
-    "@universal-mcp-toolkit/core": "workspace:0.2.0",
-    "pg": "^8.20.0",
-    "zod": "^4.3.6"
+    "@universal-mcp-toolkit/core": "workspace:*",
+    "pg": "^8.22.0",
+    "zod": "4.4.3"
   },
   "publishConfig": {
     "access": "public"

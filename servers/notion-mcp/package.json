@@ -43,9 +43,9 @@
     "wiki"
   ],
   "dependencies": {
-    "@notionhq/client": "^2.3.0",
-    "@universal-mcp-toolkit/core": "workspace:0.2.0",
-    "zod": "^4.3.6"
+    "@notionhq/client": "^5.23.2",
+    "@universal-mcp-toolkit/core": "workspace:*",
+    "zod": "4.4.3"
   },
   "publishConfig": {
     "access": "public"

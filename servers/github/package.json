@@ -44,9 +44,9 @@
     "actions"
   ],
   "dependencies": {
-    "@universal-mcp-toolkit/core": "workspace:0.2.0",
+    "@universal-mcp-toolkit/core": "workspace:*",
     "octokit": "^5.0.5",
-    "zod": "^4.3.6"
+    "zod": "4.4.3"
   },
   "publishConfig": {
     "access": "public"
