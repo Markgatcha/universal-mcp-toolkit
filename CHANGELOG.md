@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **protobufjs upgraded from 7.6.3 to 7.6.5** — resolves moderate DoS via infinite loop in .proto option parsing.
 - **body-parser upgraded from 2.2.2 to 2.3.0** — resolves low-severity denial of service when invalid limit value silently disables size enforcement.
 - **pnpm upgraded from 10.32.0 to 11.15.1** (latest). Moved `overrides` from `package.json` (`pnpm.overrides`) to `pnpm-workspace.yaml` — pnpm 11 no longer reads the `pnpm` field in `package.json`. Added `allowBuilds` for native modules (cpu-features, esbuild, protobufjs, ssh2). Regenerated `pnpm-lock.yaml`.
+- **pnpm upgraded from 11.16.0 to 11.17.0** (latest stable). Updated `packageManager` field in `package.json`. Regenerated `pnpm-lock.yaml`.
 
 ## [1.6.26] - 2026-06-18
 

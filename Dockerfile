@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl git \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
-    && npm install -g mcp-proxy@6.4.3 pnpm@10.14.0 \
+    && npm install -g mcp-proxy@6.4.3 pnpm@11.17.0 \
     && node --version \
     && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR="/usr/local/bin" sh \
     && uv python install 3.13 --default \
