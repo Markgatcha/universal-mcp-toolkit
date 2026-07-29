@@ -59,6 +59,7 @@ import {
   type ExportedProfile,
 } from "./config-store.js";
 import { printSection, renderServerTable, renderStatusLabel } from "./output.js";
+import { checkForUpdate } from "./update-notifier.js";
 import { ConfigTarget, type InvocationMode, getRegistryEntry, SERVER_REGISTRY } from "./registry.js";
 
 async function pathExists(targetPath: string): Promise<boolean> {
@@ -825,10 +826,22 @@ async function runProfileDuplicate(source: string, target: string): Promise<void
 export async function main(argv: readonly string[] = process.argv): Promise<void> {
   const program = new Command();
 
+  // Check for updates (non-blocking, best-effort)
+  const updateNotification = await checkForUpdate(CLI_VERSION, argv);
+  if (updateNotification) {
+    console.log(
+      chalk.cyan(
+        `📦 New version available: v${updateNotification.currentVersion} → v${updateNotification.latestVersion}\n` +
+          `   Run \`${chalk.bold(updateNotification.updateCommand)}\` to update.\n`,
+      ),
+    );
+  }
+
   program
     .name("universal-mcp-toolkit")
     .description("A polished control plane for the universal-mcp-toolkit MCP server monorepo.")
-    .version(CLI_VERSION);
+    .version(CLI_VERSION)
+    .option("--no-update-check", "Disable the automatic update check on startup.");
 
   program
     .command("list")
