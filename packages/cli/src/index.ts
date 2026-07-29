@@ -1243,7 +1243,9 @@ async function runLogs(serverName: string, lines: number, follow: boolean, grep?
     // Rotate if the log file is too large
     await rotateLogFile(logFile);
     
-    const grepRegex = grep ? new RegExp(grep, "i") : null;
+    // Escape user input before constructing a regex to prevent ReDoS attacks
+    const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const grepRegex = grep ? new RegExp(escapeRegExp(grep), "i") : null;
     
     if (follow) {
       console.log(chalk.gray(`Following logs for ${serverName}... (Ctrl+C to stop)`));
