@@ -3,7 +3,7 @@ import type { ShapeOutput, ZodRawShapeCompat } from "@modelcontextprotocol/sdk/s
 import type { GetPromptResult, ReadResourceResult, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import type { Logger } from "pino";
 
-export type ToolkitTransport = "stdio" | "sse";
+export type ToolkitTransport = "stdio" | "sse" | "streamable-http";
 
 export type ToolkitLogLevel =
   | "debug"

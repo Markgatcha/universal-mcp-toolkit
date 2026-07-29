@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import chalk from "chalk";
 import { Command } from "commander";
-import { access, readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
+import { access, readFile, writeFile, mkdir, readdir, stat, rename, rm } from "node:fs/promises";
 import { constants as fsConstants, createReadStream, createWriteStream } from "node:fs";
 import { createInterface } from "readline";
 import { existsSync } from "node:fs";
@@ -153,13 +153,33 @@ async function generateConfig(
   console.log(JSON.stringify(generatedConfig, null, 2));
 }
 
-async function runServer(serverId: string, transport: "sse" | "stdio", host: string, port: number, supervise?: boolean): Promise<void> {
+async function runServer(serverId: string, transport: "sse" | "stdio" | "streamable-http", host: string, port: number, supervise?: boolean, logLevel?: string): Promise<void> {
   const entry = getRegistryEntry(serverId);
   const spinner = ora(`Resolving ${entry.title} package`).start();
   const { getStateDirectory } = await import("./config-store.js");
   
+  // Set log level from CLI flag (overrides LOG_LEVEL env var)
+  if (logLevel) {
+    process.env.LOG_LEVEL = logLevel;
+  }
+  
   try {
     const entryFile = resolveWorkspaceEntryFile(entry);
+    
+    // Auto-build: if the workspace dist output is missing, build it first
+    if (!(await pathExists(entryFile))) {
+      spinner.info(`Build output missing for ${entry.title}. Building...`);
+      const { execFile } = await import("node:child_process");
+      const { promisify } = await import("node:util");
+      const execFileAsync = promisify(execFile);
+      await execFileAsync("pnpm", ["build"], {
+        cwd: process.cwd(),
+        shell: IS_WINDOWS,
+        timeout: 120000,
+      });
+      spinner.succeed(`Built ${entry.title}`);
+    }
+    
     spinner.succeed(`Launching ${entry.title}`);
 
     const logDir = path.join(getStateDirectory(), "logs");
@@ -280,7 +300,17 @@ async function runServer(serverId: string, transport: "sse" | "stdio", host: str
   }
 }
 
-async function runDoctor(serverId?: string): Promise<void> {
+/**
+ * Run the doctor command, which checks build outputs and required environment
+ * variables for all (or a single) server. When `fix` is true, it attempts to
+ * auto-heal common issues:
+ *  - Writes missing env vars from `.env.example` as placeholders
+ *  - Runs `pnpm build` when workspace `dist/` output is missing
+ *
+ * @param serverId - Optional server ID to scope checks to one server
+ * @param fix - When true, attempt to auto-heal issues instead of just reporting
+ */
+async function runDoctor(serverId?: string, fix?: boolean): Promise<void> {
   const entries = serverId ? [getRegistryEntry(serverId)] : SERVER_REGISTRY;
 
   printSection("Environment");
@@ -300,6 +330,52 @@ async function runDoctor(serverId?: string): Promise<void> {
         missingEnv.length === 0 ? chalk.green("All set") : chalk.yellow(`Missing ${missingEnv.join(", ")}`)
       }`,
     );
+
+    // Auto-heal: build missing workspace dist output
+    if (fix && !distExists) {
+      const spinner = ora(`Building ${entry.title}...`).start();
+      try {
+        const { execFile } = await import("node:child_process");
+        const { promisify } = await import("node:util");
+        const execFileAsync = promisify(execFile);
+        await execFileAsync("pnpm", ["build"], {
+          cwd: process.cwd(),
+          shell: IS_WINDOWS,
+          timeout: 120000,
+        });
+        spinner.succeed(`Built ${entry.title}`);
+      } catch (error) {
+        spinner.fail(`Failed to build ${entry.title}`);
+        const message = error instanceof Error ? error.message : "Unknown error";
+        console.error(chalk.red(message));
+      }
+    }
+
+    // Auto-heal: write missing env vars from .env.example
+    if (fix && missingEnv.length > 0) {
+      const envExamplePath = path.join(process.cwd(), ".env.example");
+      if (await pathExists(envExamplePath)) {
+        const envExample = await readFile(envExamplePath, "utf8");
+        const envLines = envExample.split("\n");
+        const newEnvLines: string[] = [];
+        for (const name of missingEnv) {
+          const existing = envLines.find((line) => line.startsWith(`${name}=`));
+          if (existing) {
+            newEnvLines.push(existing);
+          } else {
+            newEnvLines.push(`${name}=`);
+          }
+        }
+        const envPath = path.join(process.cwd(), ".env.local");
+        let existingEnv = "";
+        try {
+          existingEnv = await readFile(envPath, "utf8");
+        } catch {}
+        const merged = existingEnv + "\n" + newEnvLines.join("\n");
+        await writeFile(envPath, merged, "utf8");
+        console.log(chalk.green(`  Wrote ${missingEnv.length} missing env var(s) to .env.local`));
+      }
+    }
   }
 }
 
@@ -716,6 +792,36 @@ async function runProfileDelete(name: string): Promise<void> {
   console.log(chalk.green(`Deleted profile '${name}'.`));
 }
 
+/**
+ * Rename an existing profile by loading it, saving under the new name,
+ * and deleting the old one.
+ */
+async function runProfileRename(oldName: string, newName: string): Promise<void> {
+  try {
+    const profile = await loadProfile(oldName);
+    const renamed = { ...profile, name: newName };
+    await saveNamedProfile(renamed);
+    await deleteProfile(oldName);
+    console.log(chalk.green(`Renamed profile '${oldName}' to '${newName}'.`));
+  } catch (error) {
+    console.log(chalk.red(`Error: ${error instanceof Error ? error.message : "Unknown error"}`));
+  }
+}
+
+/**
+ * Duplicate an existing profile under a new name.
+ */
+async function runProfileDuplicate(source: string, target: string): Promise<void> {
+  try {
+    const profile = await loadProfile(source);
+    const duplicated = { ...profile, name: target, createdAt: new Date().toISOString() };
+    await saveNamedProfile(duplicated);
+    console.log(chalk.green(`Duplicated profile '${source}' as '${target}'.`));
+  } catch (error) {
+    console.log(chalk.red(`Error: ${error instanceof Error ? error.message : "Unknown error"}`));
+  }
+}
+
 export async function main(argv: readonly string[] = process.argv): Promise<void> {
   const program = new Command();
 
@@ -741,13 +847,23 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .command("config")
     .description("Generate a host configuration snippet for one or more servers.")
     .option("-s, --server <serverIds...>", "Server IDs to include.")
-    .option("-t, --target <target>", "Config target: claude-desktop, cursor, or json.")
+    .option("-t, --target <targets>", "Config target: claude-desktop, cursor, or json. Supports comma-separated list.")
     .option("-m, --mode <mode>", "Invocation mode: npx or workspace.", "npx")
     .option("-w, --write <path>", "Write the config to a file instead of stdout.")
-    .action(async (options: { mode: InvocationMode; server?: string[]; target?: ConfigTarget; write?: string }) => {
+    .action(async (options: { mode: InvocationMode; server?: string[]; target?: string; write?: string }) => {
       const serverIds = options.server?.length ? options.server : await promptForServers();
-      const target = options.target ?? (await promptForTarget());
-      await generateConfig(serverIds, target, options.mode, options.write);
+      
+      // Support comma-separated targets (e.g. "claude-desktop,cursor")
+      const targets = options.target
+        ? options.target.split(",").map(t => t.trim() as ConfigTarget)
+        : [await promptForTarget()];
+      
+      for (const target of targets) {
+        if (targets.length > 1) {
+          console.log(chalk.bold(`\n=== ${target} ===`));
+        }
+        await generateConfig(serverIds, target, options.mode, options.write);
+      }
     });
 
   program
@@ -795,20 +911,22 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .command("run")
     .description("Run one of the local workspace server packages.")
     .argument("<serverId>", "The server ID to launch.")
-    .option("--transport <transport>", "stdio or sse", "stdio")
+    .option("--transport <transport>", "stdio, sse, or streamable-http", "stdio")
     .option("--host <host>", "Host for SSE mode.", "127.0.0.1")
     .option("--port <port>", "Port for SSE mode.", "3333")
     .option("--supervise", "Enable auto-restart on crash with crash loop detection.")
-    .action(async (serverId: string, options: { host: string; port: string; transport: "sse" | "stdio"; supervise?: boolean }) => {
-      await runServer(serverId, options.transport, options.host, Number.parseInt(options.port, 10), options.supervise);
+    .option("--log-level <level>", "Log level: debug, info, warn, error.", "info")
+    .action(async (serverId: string, options: { host: string; port: string; transport: "sse" | "stdio" | "streamable-http"; supervise?: boolean; logLevel?: string }) => {
+      await runServer(serverId, options.transport, options.host, Number.parseInt(options.port, 10), options.supervise, options.logLevel);
     });
 
   program
     .command("doctor")
     .description("Check build outputs and required environment variables.")
     .argument("[serverId]", "Optionally scope the checks to one server.")
-    .action(async (serverId?: string) => {
-      await runDoctor(serverId);
+    .option("--fix", "Attempt to auto-heal common issues (build missing dist, write env vars).")
+    .action(async (serverId?: string, options?: { fix?: boolean }) => {
+      await runDoctor(serverId, options?.fix);
     });
 
   program
@@ -869,6 +987,24 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       await runProfileDelete(name);
     });
 
+  profileCmd
+    .command("rename")
+    .description("Rename an existing profile.")
+    .argument("<oldName>", "The current profile name.")
+    .argument("<newName>", "The new profile name.")
+    .action(async (oldName: string, newName: string) => {
+      await runProfileRename(oldName, newName);
+    });
+
+  profileCmd
+    .command("duplicate")
+    .description("Duplicate an existing profile under a new name.")
+    .argument("<source>", "The profile name to duplicate.")
+    .argument("<target>", "The new profile name.")
+    .action(async (source: string, target: string) => {
+      await runProfileDuplicate(source, target);
+    });
+
   const statusCmd = program
     .command("status")
     .description("Show currently running umt server processes.");
@@ -883,17 +1019,19 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .argument("<serverName>", "The server name to tail logs for.")
     .option("--lines <n>", "Number of lines to display.", "50")
     .option("--follow", "Stream new lines as they are added.")
-    .action(async (serverName: string, options: { lines: string; follow?: boolean }) => {
-      await runLogs(serverName, parseInt(options.lines, 10), !!options.follow);
+    .option("--grep <pattern>", "Filter log lines matching the given pattern.")
+    .action(async (serverName: string, options: { lines: string; follow?: boolean; grep?: string }) => {
+      await runLogs(serverName, parseInt(options.lines, 10), !!options.follow, options.grep);
     });
 
   program
     .command("upgrade")
     .description("Check npm registry for newer versions and upgrade.")
     .option("--all", "Upgrade all packages without prompting.")
+    .option("--dry-run", "Show what would change without making modifications.")
     .argument("[serverName]", "Specific server to upgrade.")
-    .action(async (serverName: string | undefined, options: { all?: boolean }) => {
-      await runUpgrade(options.all ?? false, serverName);
+    .action(async (serverName: string | undefined, options: { all?: boolean; dryRun?: boolean }) => {
+      await runUpgrade(options.all ?? false, serverName, options.dryRun);
     });
 
   program
@@ -965,6 +1103,28 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
   await program.parseAsync(argv);
 }
 
+/**
+ * Format a duration in milliseconds as a human-readable uptime string.
+ * Examples: "5s", "2m 30s", "1h 15m", "3d 4h"
+ */
+function formatUptime(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    return `${days}d ${hours % 24}h`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  }
+  return `${seconds}s`;
+}
+
 async function runStatus(): Promise<void> {
   try {
     const { getStateDirectory } = await import("./config-store.js");
@@ -986,18 +1146,27 @@ async function runStatus(): Promise<void> {
     }
     
     printSection("Running Servers");
-    console.log(chalk.cyan("Server".padEnd(20)) + chalk.cyan("PID").padEnd(12) + chalk.cyan("Port").padEnd(10) + chalk.cyan("Uptime").padEnd(15) + chalk.cyan("Restarts"));
+    console.log(
+      chalk.cyan("Server".padEnd(18)) +
+      chalk.cyan("PID".padEnd(10)) +
+      chalk.cyan("Port".padEnd(10)) +
+      chalk.cyan("Transport".padEnd(12)) +
+      chalk.cyan("Uptime".padEnd(15)) +
+      chalk.cyan("Restarts"),
+    );
     
     for (const proc of state.processes) {
       const startTime = new Date(proc.startTime);
       const uptime = Date.now() - startTime.getTime();
-      const uptimeStr = uptime < 60000 ? "<1m" : `${Math.floor(uptime / 60000)}m`;
+      const uptimeStr = formatUptime(uptime);
+      const transport = proc.port ? "sse" : "stdio";
       console.log(
-        proc.serverId.padEnd(20) +
-        String(proc.pid).padEnd(12) +
+        proc.serverId.padEnd(18) +
+        String(proc.pid).padEnd(10) +
         String(proc.port || "-").padEnd(10) +
+        transport.padEnd(12) +
         uptimeStr.padEnd(15) +
-        String(proc.restartCount || 0)
+        String(proc.restartCount || 0),
       );
     }
   } catch (error) {
@@ -1006,7 +1175,48 @@ async function runStatus(): Promise<void> {
   }
 }
 
-async function runLogs(serverName: string, lines: number, follow: boolean): Promise<void> {
+/** Maximum log file size before rotation kicks in (10 MB). */
+const MAX_LOG_SIZE_BYTES = 10 * 1024 * 1024;
+/** Number of rotated log files to keep. */
+const MAX_LOG_BACKUPS = 5;
+
+/**
+ * Rotate the log file for a server if it exceeds MAX_LOG_SIZE_BYTES.
+ * Keeps up to MAX_LOG_BACKUPS rotated copies (server.log.1, server.log.2, etc.).
+ */
+async function rotateLogFile(logFile: string): Promise<void> {
+  try {
+    const fileStat = await stat(logFile).catch(() => undefined);
+    if (!fileStat || fileStat.size <= MAX_LOG_SIZE_BYTES) {
+      return;
+    }
+    // Shift existing rotated files: .4 -> .5 (deleted), .3 -> .4, etc.
+    for (let i = MAX_LOG_BACKUPS; i >= 1; i--) {
+      const from = i === 1 ? logFile : `${logFile}.${i - 1}`;
+      const to = `${logFile}.${i}`;
+      try {
+        await rm(to, { force: true });
+        await rename(from, to);
+      } catch {
+        // File may not exist; that's fine
+      }
+    }
+  } catch {
+    // Rotation is best-effort; never fail the logs command because of it
+  }
+}
+
+/**
+ * Tail or display log lines for a specific server.
+ * Supports `--follow` for live tailing, `--grep` for filtering, and
+ * automatic log rotation when files exceed the size limit.
+ *
+ * @param serverName - The server ID to read logs for
+ * @param lines - Number of lines to display (when not following)
+ * @param follow - When true, stream new lines as they are written
+ * @param grep - Optional regex pattern to filter log lines
+ */
+async function runLogs(serverName: string, lines: number, follow: boolean, grep?: string): Promise<void> {
   try {
     const { getStateDirectory } = await import("./config-store.js");
     const logDir = path.join(getStateDirectory(), "logs");
@@ -1016,6 +1226,11 @@ async function runLogs(serverName: string, lines: number, follow: boolean): Prom
       console.log(chalk.red(`No logs found for '${serverName}'.`));
       return;
     }
+    
+    // Rotate if the log file is too large
+    await rotateLogFile(logFile);
+    
+    const grepRegex = grep ? new RegExp(grep, "i") : null;
     
     if (follow) {
       console.log(chalk.gray(`Following logs for ${serverName}... (Ctrl+C to stop)`));
@@ -1027,12 +1242,17 @@ async function runLogs(serverName: string, lines: number, follow: boolean): Prom
       });
       
       rl.on('line', (line) => {
-        console.log(line);
+        if (!grepRegex || grepRegex.test(line)) {
+          console.log(line);
+        }
       });
     } else {
       const contents = await readFile(logFile, "utf8");
       const allLines = contents.split("\n");
-      const lastLines = allLines.slice(-lines);
+      const filteredLines = grepRegex
+        ? allLines.filter((line) => grepRegex.test(line))
+        : allLines;
+      const lastLines = filteredLines.slice(-lines);
       console.log(lastLines.join("\n"));
     }
   } catch (error) {
@@ -1040,8 +1260,15 @@ async function runLogs(serverName: string, lines: number, follow: boolean): Prom
   }
 }
 
-async function runUpgrade(allPackages: boolean, serverName?: string): Promise<void> {
-  const spinner = ora("Checking for updates...").start();
+/**
+ * Check npm registry for newer versions and optionally upgrade.
+ *
+ * @param allPackages - When true, check all server packages
+ * @param serverName - Optional specific server to check
+ * @param dryRun - When true, show what would change without making modifications
+ */
+async function runUpgrade(allPackages: boolean, serverName?: string, dryRun?: boolean): Promise<void> {
+  const spinner = ora(dryRun ? "Checking for updates (dry run)..." : "Checking for updates...").start();
   
   try {
     if (serverName) {
@@ -1050,6 +1277,9 @@ async function runUpgrade(allPackages: boolean, serverName?: string): Promise<vo
       const result = stdout.trim();
       spinner.succeed(`Current version: ${entry.packageName}`);
       console.log(`Latest version in npm: ${chalk.green(result)}`);
+      if (dryRun) {
+        console.log(chalk.gray(`(dry run: no changes made)`));
+      }
     } else if (allPackages) {
       const packages = SERVER_REGISTRY.map(e => e.packageName);
       for (const pkg of packages) {
@@ -1058,11 +1288,17 @@ async function runUpgrade(allPackages: boolean, serverName?: string): Promise<vo
         console.log(`${pkg}: ${chalk.green(result)}`);
       }
       spinner.succeed("All packages checked.");
+      if (dryRun) {
+        console.log(chalk.gray(`(dry run: no changes made)`));
+      }
     } else {
       const pkg = "universal-mcp-toolkit";
       const { stdout } = await execNpm(["view", pkg, "version"]);
       const result = stdout.trim();
       spinner.succeed(`CLI version: ${chalk.green(result)}`);
+      if (dryRun) {
+        console.log(chalk.gray(`(dry run: no changes made)`));
+      }
     }
   } catch (error) {
     spinner.fail("Failed to check for updates");
@@ -1091,10 +1327,11 @@ async function runInit(): Promise<void> {
 
 async function runSearch(query: string): Promise<void> {
   const lowerQuery = query.toLowerCase();
-  const matches = SERVER_REGISTRY.filter(entry => 
+  const matches = SERVER_REGISTRY.filter(entry =>
     entry.id.toLowerCase().includes(lowerQuery) ||
     entry.title.toLowerCase().includes(lowerQuery) ||
-    entry.description.toLowerCase().includes(lowerQuery)
+    entry.description.toLowerCase().includes(lowerQuery) ||
+    entry.toolNames.some(tool => tool.toLowerCase().includes(lowerQuery))
   );
   
   if (matches.length === 0) {

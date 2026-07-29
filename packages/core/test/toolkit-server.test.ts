@@ -19,7 +19,7 @@ const metadata: ToolkitServerMetadata = {
   packageName: "@universal-mcp-toolkit/test-server",
   homepage: "https://example.com",
   envVarNames: ["TEST_TOKEN"],
-  transports: ["stdio", "sse"],
+  transports: ["stdio", "sse", "streamable-http"],
   toolNames: ["echo"],
   resourceNames: ["test-resource"],
   promptNames: ["test-prompt"],
@@ -62,7 +62,7 @@ describe("ToolkitServer", () => {
       version: "0.1.0",
       packageName: "@universal-mcp-toolkit/test-server",
       homepage: "https://example.com",
-      transports: ["stdio", "sse"],
+      transports: ["stdio", "sse", "streamable-http"],
       authentication: {
         mode: "environment-variables",
         required: ["TEST_TOKEN"],
@@ -103,6 +103,11 @@ describe("ToolkitServer", () => {
 
   it("rejects unsupported transports", () => {
     expect(() => parseRuntimeOptions(["--transport", "http"])) .toThrow(ConfigurationError);
+  });
+
+  it("parses streamable-http transport from CLI flags", () => {
+    const parsed = parseRuntimeOptions(["--transport", "streamable-http"]);
+    expect(parsed).toMatchObject({ transport: "streamable-http" });
   });
 
   it("normalizes unknown errors without exposing their message", () => {

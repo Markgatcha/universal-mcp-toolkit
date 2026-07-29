@@ -10,7 +10,14 @@ export interface ServerRegistryEntry {
   packageName: string;
   npxArgs?: readonly string[];
   envVarNames: readonly string[];
-  transports: readonly ("stdio" | "sse")[];
+  transports: readonly ("stdio" | "sse" | "streamable-http")[];
+  /**
+   * The list of tool names exposed by this server.
+   * Populated from the server's well-known/mcp-server.json `tools` array.
+   * Used by `umt list` to show tool counts and by `umt search` to match
+   * tool names in addition to server names and descriptions.
+   */
+  toolNames: readonly string[];
   experimental?: boolean;
 }
 
@@ -23,6 +30,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-github",
     envVarNames: ["GITHUB_TOKEN"],
     transports: ["stdio", "sse"],
+    toolNames: ["get_pull_request", "list_workflow_runs", "search_repositories"],
   },
   {
     id: "notion",
@@ -32,6 +40,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-notion",
     envVarNames: ["NOTION_TOKEN"],
     transports: ["stdio", "sse"],
+    toolNames: ["search-pages", "get-page", "create-page"],
   },
   {
     id: "slack",
@@ -41,6 +50,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-slack",
     envVarNames: ["SLACK_BOT_TOKEN"],
     transports: ["stdio", "sse"],
+    toolNames: ["list_channels", "fetch_channel_history", "post_message"],
   },
   {
     id: "linear",
@@ -50,6 +60,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-linear",
     envVarNames: ["LINEAR_API_KEY"],
     transports: ["stdio", "sse"],
+    toolNames: ["search_issues", "get_issue", "create_issue"],
   },
   {
     id: "jira",
@@ -59,6 +70,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-jira",
     envVarNames: ["JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"],
     transports: ["stdio", "sse"],
+    toolNames: ["get_issue", "search_issues", "transition_issue"],
   },
   {
     id: "google-calendar",
@@ -68,6 +80,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-google-calendar",
     envVarNames: ["GOOGLE_CALENDAR_ACCESS_TOKEN"],
     transports: ["stdio", "sse"],
+    toolNames: ["list-calendars", "list-events", "create-event"],
   },
   {
     id: "google-drive",
@@ -77,6 +90,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-google-drive",
     envVarNames: ["GOOGLE_DRIVE_ACCESS_TOKEN"],
     transports: ["stdio", "sse"],
+    toolNames: ["search-files", "get-file-metadata", "export-file"],
   },
   {
     id: "spotify",
@@ -86,6 +100,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-spotify",
     envVarNames: ["SPOTIFY_ACCESS_TOKEN"],
     transports: ["stdio", "sse"],
+    toolNames: ["currently-playing", "search-tracks", "list-playlists"],
   },
   {
     id: "stripe",
@@ -95,6 +110,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-stripe",
     envVarNames: ["STRIPE_SECRET_KEY"],
     transports: ["stdio", "sse"],
+    toolNames: ["list-customers", "get-invoice", "list-subscriptions"],
   },
   {
     id: "postgresql",
@@ -104,6 +120,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-postgresql",
     envVarNames: ["POSTGRESQL_URL"],
     transports: ["stdio", "sse"],
+    toolNames: ["list-tables", "describe-table", "run-query"],
   },
   {
     id: "mongodb",
@@ -113,6 +130,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-mongodb",
     envVarNames: ["MONGODB_URI"],
     transports: ["stdio", "sse"],
+    toolNames: ["list-collections", "find-documents", "aggregate-documents"],
   },
   {
     id: "redis",
@@ -122,6 +140,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-redis",
     envVarNames: ["REDIS_URL"],
     transports: ["stdio", "sse"],
+    toolNames: ["get-key", "set-key", "inspect-server-info"],
   },
   {
     id: "supabase",
@@ -131,6 +150,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-supabase",
     envVarNames: ["SUPABASE_URL", "SUPABASE_KEY"],
     transports: ["stdio", "sse"],
+    toolNames: ["list-tables", "query-table", "list-storage-buckets"],
   },
   {
     id: "vercel",
@@ -140,6 +160,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-vercel",
     envVarNames: ["VERCEL_TOKEN"],
     transports: ["stdio", "sse"],
+    toolNames: ["list_projects", "list_deployments", "get_deployment"],
   },
   {
     id: "cloudflare-workers",
@@ -149,6 +170,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-cloudflare-workers",
     envVarNames: ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"],
     transports: ["stdio", "sse"],
+    toolNames: ["list_workers", "get_worker", "list_routes"],
   },
   {
     id: "docker",
@@ -158,6 +180,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-docker",
     envVarNames: [],
     transports: ["stdio", "sse"],
+    toolNames: ["list_containers", "inspect_container", "list_images"],
   },
   {
     id: "npm-registry",
@@ -167,6 +190,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-npm-registry",
     envVarNames: [],
     transports: ["stdio", "sse"],
+    toolNames: ["search_packages", "get_package_metadata", "list_package_versions"],
   },
   {
     id: "hackernews",
@@ -176,6 +200,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-hackernews",
     envVarNames: [],
     transports: ["stdio", "sse"],
+    toolNames: ["get_top_stories", "search_stories", "get_item_thread"],
   },
   {
     id: "arxiv",
@@ -185,6 +210,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-arxiv",
     envVarNames: [],
     transports: ["stdio", "sse"],
+    toolNames: ["search_papers", "get_paper", "list_recent_papers"],
     experimental: true,
   },
   {
@@ -195,6 +221,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-filesystem",
     envVarNames: ["FILESYSTEM_ROOTS"],
     transports: ["stdio", "sse"],
+    toolNames: ["list_files", "read_file", "write_file"],
   },
   {
     id: "discord",
@@ -204,6 +231,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-discord",
     envVarNames: ["DISCORD_BOT_TOKEN"],
     transports: ["stdio", "sse"],
+    toolNames: ["discord_list_guilds", "discord_list_channels", "discord_get_messages", "discord_send_message", "discord_get_guild_members"],
   },
   {
     id: "airtable",
@@ -213,6 +241,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-airtable",
     envVarNames: ["AIRTABLE_API_KEY", "AIRTABLE_BASE_ID"],
     transports: ["stdio", "sse"],
+    toolNames: ["airtable_list_tables", "airtable_get_records", "airtable_create_record", "airtable_update_record", "airtable_delete_record"],
   },
   {
     id: "trello",
@@ -222,6 +251,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     packageName: "@universal-mcp-toolkit/server-trello",
     envVarNames: ["TRELLO_API_KEY", "TRELLO_TOKEN"],
     transports: ["stdio", "sse"],
+    toolNames: ["trello_list_boards", "trello_list_lists", "trello_list_cards", "trello_create_card", "trello_update_card", "trello_archive_card"],
   },
   {
     id: "memos",
@@ -232,6 +262,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     npxArgs: ["-y", "@mem-os/sdk", "mcp"],
     envVarNames: [],
     transports: ["stdio"],
+    toolNames: [],
   },
   {
     id: "notion-mcp",
@@ -240,7 +271,8 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     description: "Full Notion workspace integration with search, CRUD on pages and databases.",
     packageName: "@contextcore/mcp-notion",
     envVarNames: ["NOTION_API_KEY"],
-    transports: ["stdio", "sse"]
+    transports: ["stdio", "sse"],
+    toolNames: [],
   },
   {
     id: "playwright-mcp",
@@ -249,7 +281,8 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     description: "Browser automation and web scraping with Playwright.",
     packageName: "@contextcore/mcp-playwright",
     envVarNames: [],
-    transports: ["stdio", "sse"]
+    transports: ["stdio", "sse"],
+    toolNames: [],
   },
   {
     id: "slack-mcp",
@@ -258,7 +291,8 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     description: "Full Slack workspace integration with channels, messages, users, and files.",
     packageName: "@contextcore/mcp-slack",
     envVarNames: ["SLACK_BOT_TOKEN"],
-    transports: ["stdio", "sse"]
+    transports: ["stdio", "sse"],
+    toolNames: [],
   },
   {
     id: "openai-mcp",
@@ -267,7 +301,8 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     description: "OpenAI/Codex API integration with chat, completion, embedding, and more.",
     packageName: "@contextcore/mcp-openai",
     envVarNames: ["OPENAI_API_KEY"],
-    transports: ["stdio", "sse"]
+    transports: ["stdio", "sse"],
+    toolNames: [],
   }
 ];
 export function getRegistryEntry(id: string): ServerRegistryEntry {
