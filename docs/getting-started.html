@@ -4,82 +4,108 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Getting Started | Universal MCP Toolkit</title>
-    <meta name="description" content="Quick setup guide for universal-mcp-toolkit. List servers, install, configure, and validate your MCP setup.">
+    <meta name="description" content="Quick setup guide for universal-mcp-toolkit.">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #010409;
-            --bg-secondary: #0d1117;
-            --text: #c9d1d9;
-            --text-secondary: #8b949e;
-            --accent: #58a6ff;
-            --accent-hover: #79c0ff;
-            --border: #30363d;
-            --radius: 12px;
+            --black: #171717;
+            --white: #ffffff;
+            --gray-900: #171717;
+            --gray-600: #4d4d4d;
+            --gray-500: #666666;
+            --gray-400: #808080;
+            --gray-100: #ebebeb;
+            --gray-50: #fafafa;
+            --border: rgba(0, 0, 0, 0.08);
+            --border-light: rgb(235, 235, 235);
+            --link: #0072f5;
+            --radius: 8px;
+            --radius-lg: 12px;
+            --shadow-ring: rgba(0, 0, 0, 0.08) 0px 0px 0px 1px;
+            --shadow-card: rgba(0, 0, 0, 0.08) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 2px 2px, #fafafa 0px 0px 0px 1px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.7;
+            font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: var(--white);
+            color: var(--gray-900);
+            line-height: 1.6;
             min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
-        main { max-width: 900px; margin: 0 auto; padding: 4rem 1.5rem 4rem; }
+        main { max-width: 800px; margin: 0 auto; padding: 60px 24px 80px; }
         h1 {
-            font-size: clamp(2rem, 4vw, 2.75rem);
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 40px;
+            font-weight: 600;
+            line-height: 1.2;
+            letter-spacing: -2.4px;
+            margin-bottom: 16px;
+        }
+        p.lead {
+            font-size: 18px;
+            font-weight: 400;
+            line-height: 1.8;
+            color: var(--gray-600);
+            margin-bottom: 32px;
         }
         h2 {
-            color: var(--accent);
-            font-size: 1.5rem;
-            margin: 2rem 0 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--border);
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.96px;
+            margin: 40px 0 16px;
+            color: var(--gray-900);
         }
-        h3 { color: var(--text); margin: 1.5rem 0 0.75rem; }
+        h3 {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.64px;
+            margin: 24px 0 8px;
+            color: var(--gray-900);
+        }
         code {
-            font-family: 'Fira Code', 'Courier New', monospace;
-            color: var(--accent);
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
+            font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 13px;
+            font-weight: 400;
+            color: var(--gray-900);
+            background: var(--gray-50);
+            border: 1px solid var(--border-light);
             border-radius: 4px;
-            padding: 0.15rem 0.4rem;
-            font-size: 0.9em;
+            padding: 2px 6px;
         }
         pre {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.25rem;
+            font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 13px;
+            font-weight: 400;
+            line-height: 1.5;
+            color: var(--gray-900);
+            background: var(--gray-50);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 20px;
             overflow-x: auto;
-            margin: 1rem 0;
+            margin: 12px 0;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
-        pre code {
-            background: none;
-            border: none;
-            padding: 0;
-            color: var(--text);
-        }
-        a { color: var(--accent); text-decoration: none; }
+        a { color: var(--link); text-decoration: none; }
         a:hover { text-decoration: underline; }
         .note {
-            border-left: 4px solid var(--accent);
-            padding: 1rem 1.25rem;
-            background: var(--bg-secondary);
+            border-left: 3px solid var(--link);
+            padding: 12px 16px;
+            background: var(--gray-50);
             border-radius: 0 var(--radius) var(--radius) 0;
-            margin: 1.5rem 0;
+            margin: 16px 0;
+            font-size: 14px;
+            color: var(--gray-600);
         }
-        .note code { background: var(--bg); }
+        .note code { background: var(--white); border-color: var(--border-light); }
         .step {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin: 24px 0;
+            box-shadow: var(--shadow-card);
         }
         .step-number {
             display: inline-flex;
@@ -87,42 +113,59 @@
             justify-content: center;
             width: 28px;
             height: 28px;
-            background: var(--accent);
-            color: var(--bg);
+            background: var(--link);
+            color: var(--white);
             border-radius: 50%;
-            font-weight: 700;
-            font-size: 0rem.8rem;
-            margin-right: 0.5rem;
+            font-size: 13px;
+            font-weight: 600;
+            margin-right: 8px;
         }
         .step h3 { display: flex; align-items: center; }
-        .back-link {
-            margin-top: 2rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border);
-            color: var(--text-secondary);
-        }
-        .back-link a { color: var(--accent); }
         .transports {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin: 1.5rem 0;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin: 24px 0;
         }
         .transport-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
+            background: var(--gray-50);
+            border: 1px solid var(--border-light);
             border-radius: var(--radius);
-            padding: 1rem;
+            padding: 16px;
             text-align: center;
+            transition: all 0.2s;
         }
-        .transport-card h4 { color: var(--accent); margin-bottom: 0.5rem; font-size: 1rem; }
-        .transport-card p { color: var(--text-secondary); font-size: 0.85rem; }
+        .transport-card:hover {
+            background: var(--white);
+            border-color: var(--border);
+        }
+        .transport-card h4 {
+            color: var(--link);
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: -0.56px;
+            margin-bottom: 4px;
+        }
+        .transport-card p {
+            color: var(--gray-600);
+            font-size: 12px;
+        }
+        .back-link {
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            color: var(--gray-600);
+        }
+        @media (max-width: 768px) {
+            h1 { font-size: 28px; letter-spacing: -1.4px; }
+            main { padding: 40px 16px; }
+        }
     </style>
 </head>
 <body>
     <main>
         <h1>Getting Started</h1>
-        <p>Set up <code>universal-mcp-toolkit</code> with the smallest possible path first.</p>
+        <p class="lead">Set up <code>universal-mcp-toolkit</code> with the smallest possible path first.</p>
 
         <div class="transports">
             <div class="transport-card">
@@ -141,19 +184,19 @@
 
         <div class="step">
             <h3><span class="step-number">1</span> List Available Servers</h3>
-            <pre><code>npx universal-mcp-toolkit list</code></pre>
-            <p style="color: var(--text-secondary); font-size: 0.9rem;">Browse the 40+ available MCP servers and find what you need.</p>
+            <pre>npx universal-mcp-toolkit list</pre>
+            <p style="color: var(--gray-600); font-size: 13px; margin-top: 8px;">Browse the 40+ available MCP servers and find what you need.</p>
         </div>
 
         <div class="step">
             <h3><span class="step-number">2</span> Interactive Setup</h3>
-            <pre><code>npx universal-mcp-toolkit install</code></pre>
-            <p style="color: var(--text-secondary); font-size: 0.9rem;">Interactive wizard that generates config for Claude Desktop, Cursor, or raw JSON.</p>
+            <pre>npx universal-mcp-toolkit install</pre>
+            <p style="color: var(--gray-600); font-size: 13px; margin-top: 8px;">Interactive wizard that generates config for Claude Desktop, Cursor, or raw JSON.</p>
         </div>
 
         <div class="step">
             <h3><span class="step-number">3</span> Find Your Host Config</h3>
-            <ul style="margin: 0.5rem 0 1rem 1.5rem; color: var(--text-secondary);">
+            <ul style="margin: 8px 0 0 20px; color: var(--gray-600); font-size: 13px;">
                 <li><strong>Windows:</strong> <code>%APPDATA%\Claude\claude_desktop_config.json</code></li>
                 <li><strong>macOS:</strong> <code>~/Library/Application Support/Claude/claude_desktop_config.json</code></li>
                 <li><strong>Linux:</strong> <code>~/.config/Claude/claude_desktop_config.json</code></li>
@@ -163,28 +206,28 @@
 
         <div class="step">
             <h3><span class="step-number">4</span> Generate Config</h3>
-            <pre><code>npx universal-mcp-toolkit config \
+            <pre>npx universal-mcp-toolkit config \
   --server github,slack,filesystem \
   --target claude-desktop \
-  --write ~/claude-mcp-config.json</code></pre>
+  --write ~/claude-mcp-config.json</pre>
             <div class="note">
                 The JSON examples use literal placeholders such as <code>${GITHUB_TOKEN}</code>. Replace them with real values before pasting into your host config.
             </div>
         </div>
 
         <div class="step">
-            <h3><span class="step-number">5</span> Validate & Run</h3>
-            <pre><code>npx universal-mcp-toolkit doctor github
-npx universal-mcp-toolkit run github --transport stdio</code></pre>
-            <p style="color: var(--text-secondary); font-size: 0.9rem;">The <code>doctor</code> command checks build outputs and required environment variables.</p>
+            <h3><span class="step-number">5</span> Validate &amp; Run</h3>
+            <pre>npx universal-mcp-toolkit doctor github
+npx universal-mcp-toolkit run github --transport stdio</pre>
+            <p style="color: var(--gray-600); font-size: 13px; margin-top: 8px;">The <code>doctor</code> command checks build outputs and required environment variables.</p>
         </div>
 
         <div class="step">
             <h3><span class="step-number">6</span> Streamable HTTP (MCP 2026-07-28)</h3>
-            <pre><code>npx universal-mcp-toolkit run github \
+            <pre>npx universal-mcp-toolkit run github \
   --transport streamable-http \
   --host 0.0.0.0 \
-  --port 3333</code></pre>
+  --port 3333</pre>
             <div class="note">
                 The streamable HTTP transport uses the MCP 2026-07-28 stateless protocol — each request gets its own transport instance, enabling serverless and edge deployment without session management.
             </div>

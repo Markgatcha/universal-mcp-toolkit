@@ -4,494 +4,519 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Universal MCP Toolkit | Production-Ready MCP Servers</title>
-    <meta name="description" content="The canonical open-source monorepo for production-ready Model Context Protocol servers. 40+ servers, TypeScript core, dual transport support including MCP 2026-07-28 stateless HTTP.">
+    <meta name="description" content="40+ production-ready MCP servers in one monorepo. Supports stdio, SSE, and MCP 2026-07-28 streamable HTTP transport.">
     <meta name="keywords" content="MCP, Model Context Protocol, AI agents, TypeScript, monorepo, Claude, Cursor, GitHub, Slack, Notion, PostgreSQL">
-    <meta name="author" content="Mark Gatcha">
     <meta property="og:title" content="Universal MCP Toolkit">
     <meta property="og:description" content="40+ production-ready MCP servers in one monorepo. Supports stdio, SSE, and MCP 2026-07-28 streamable HTTP transport.">
-    <meta property="og:image" content="https://universal-mcp-toolkit.com/og-image.png">
+    <meta property="og:image" content="https://markgatcha.github.io/universal-mcp-toolkit/og-image.png">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔌</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #010409;
-            --bg-secondary: #0d1117;
-            --bg-tertiary: #161b22;
-            --text: #c9d1d9;
-            --text-secondary: #8b949e;
-            --text-tertiary: #6e7681;
-            --accent: #58a6ff;
-            --accent-hover: #79c0ff;
-            --accent-purple: #a371f7;
-            --accent-green: #3fb950;
-            --border: #30363d;
-            --border-hover: #58a6ff;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-            --shadow-hover: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-            --radius: 12px;
-            --radius-lg: 16px;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --black: #171717;
+            --white: #ffffff;
+            --gray-900: #171717;
+            --gray-600: #4d4d4d;
+            --gray-500: #666666;
+            --gray-400: #808080;
+            --gray-100: #ebebeb;
+            --gray-50: #fafafa;
+            --border: rgba(0, 0, 0, 0.08);
+            --border-light: rgb(235, 235, 235);
+            --focus: hsla(212, 100%, 48%, 1);
+            --link: #0072f5;
+            --radius: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 64px;
+            --shadow-ring: rgba(0, 0, 0, 0.08) 0px 0px 0px 1px;
+            --shadow-ring-light: rgb(235, 235, 235) 0px 0px 0px 1px;
+            --shadow-card: rgba(0, 0, 0, 0.08) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 2px 2px, #fafafa 0px 0px 0px 1px;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.7;
+            font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: var(--white);
+            color: var(--gray-900);
+            line-height: 1.6;
             min-height: 100vh;
-            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Animated gradient background */
         body::before {
             content: '';
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at 20% 50%, rgba(88, 166, 255, 0.03) 0%, transparent 50%),
-                        radial-gradient(circle at 80% 80%, rgba(163, 113, 247, 0.03) 0%, transparent 50%);
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle at 20% 50%, rgba(0, 114, 245, 0.02) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(114, 172, 255, 0.02) 0%, transparent 50%);
             pointer-events: none;
             z-index: -1;
         }
 
         .container {
-            max-width: 1280px;
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 0 1.5rem;
+            padding: 0 24px;
         }
 
-        /* Header */
-        header {
-            text-align: center;
-            padding: 5rem 0 3rem;
+        /* ===== NAVIGATION ===== */
+        nav {
+            position: sticky;
+            top: 0;
+            background: var(--white);
+            padding: 20px 0;
             border-bottom: 1px solid var(--border);
-            margin-bottom: 4rem;
+            z-index: 100;
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .logo {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .logo-icon {
-            font-size: 2.5rem;
-        }
-
-        h1 {
-            font-size: clamp(2.5rem, 6vw, 4rem);
-            font-weight: 800;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-purple) 50%, var(--accent-hover) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            letter-spacing: -0.02em;
-        }
-
-        .tagline {
-            font-size: 1.25rem;
-            color: var(--text-secondary);
-            margin-bottom: 2rem;
-            font-weight: 400;
-        }
-
-        .badges {
-            display: flex;
-            gap: 0.5rem;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 2.5rem;
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.4rem 0.9rem;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            font-size: 0.85rem;
-            color: var(--text);
+            gap: 8px;
+            font-size: 18px;
             font-weight: 500;
-            transition: var(--transition);
+            letter-spacing: -0.32px;
+            color: var(--gray-900);
+            text-decoration: none;
         }
 
-        .badge:hover {
-            border-color: var(--accent);
-            color: var(--accent);
+        .logo .logo-icon {
+            font-size: 20px;
         }
 
-        .cta-buttons {
+        .nav-links {
             display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .nav-links a {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--gray-600);
+            text-decoration: none;
+            letter-spacing: -0.28px;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover { color: var(--gray-900); }
+
+        .nav-cta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         .btn {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.85rem 1.75rem;
-            border-radius: var(--radius);
-            font-weight: 600;
+            gap: 6px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: -0.28px;
             text-decoration: none;
-            font-size: 1rem;
-            transition: var(--transition);
             border: none;
             cursor: pointer;
-            font-family: inherit;
+            transition: all 0.2s;
+            border-radius: 6px;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
-            color: white;
-            box-shadow: var(--shadow);
+            background: var(--gray-900);
+            color: var(--white);
+            padding: 8px 16px;
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-hover);
+            background: var(--gray-600);
+            transform: translateY(-1px);
         }
 
-        .btn-secondary {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border);
-            color: var(--text);
+        .btn-ghost {
+            background: var(--white);
+            color: var(--gray-900);
+            padding: 8px 16px;
+            box-shadow: var(--shadow-ring);
         }
 
-        .btn-secondary:hover {
-            background: var(--border);
-            transform: translateY(-2px);
+        .btn-ghost:hover {
+            background: var(--gray-50);
+            box-shadow: var(--shadow-ring);
         }
 
-        /* Sections */
-        .section {
-            margin-bottom: 5rem;
+        /* ===== HERO ===== */
+        .hero {
+            padding: 80px 0 60px;
+            text-align: center;
         }
 
-        .section-title {
-            font-size: clamp(1.75rem, 4vw, 2.25rem);
-            margin-bottom: 1.5rem;
-            color: var(--text);
+        .hero h1 {
+            font-size: 48px;
+            font-weight: 600;
+            line-height: 1.0;
+            letter-spacing: -2.4px;
+            margin-bottom: 20px;
+            color: var(--gray-900);
+        }
+
+        .hero p {
+            font-size: 20px;
+            font-weight: 400;
+            line-height: 1.8;
+            color: var(--gray-600);
+            max-width: 640px;
+            margin: 0 auto 32px;
+        }
+
+        .hero-cta {
             display: flex;
-            align-items: center;
-            gap: 0.75rem;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 48px;
         }
 
-        .section-title::before {
-            content: '';
-            width: 4px;
-            height: 2rem;
-            background: linear-gradient(135deg, var(--accent), var(--accent-purple));
-            border-radius: 2px;
-        }
-
-        /* Grid */
-        .grid {
-            display: grid;
-            gap: 1.5rem;
-        }
-
-        .grid-cols-3 {
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        }
-
-        .grid-cols-4 {
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        }
-
-        /* Cards */
-        .card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.75rem;
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--accent), var(--accent-purple), transparent);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .card:hover {
-            border-color: var(--border-hover);
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-hover);
-        }
-
-        .card:hover::before {
-            opacity: 1;
-        }
-
-        .card h3 {
-            font-size: 1.35rem;
-            margin-bottom: 0.5rem;
-            color: var(--text);
+        .hero-badges {
             display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
         }
 
-        .card .card-icon {
-            font-size: 1.5rem;
-        }
-
-        .card p {
-            color: var(--text-secondary);
-            margin-bottom: 1rem;
-            font-size: 0.95rem;
-        }
-
-        .card-link {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 500;
+        .badge {
             display: inline-flex;
             align-items: center;
-            gap: 0.25rem;
-            transition: var(--transition);
+            gap: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--gray-600);
+            background: var(--gray-50);
+            border: 1px solid var(--border-light);
+            border-radius: 9999px;
+            padding: 0 10px;
+            height: 28px;
         }
 
-        .card-link:hover {
-            gap: 0.5rem;
-            text-shadow: 0 0 10px rgba(88, 166, 255, 0.3);
+        /* ===== SECTION HEADINGS ===== */
+        .section-title {
+            font-size: 40px;
+            font-weight: 600;
+            line-height: 1.2;
+            letter-spacing: -2.4px;
+            margin-bottom: 48px;
+            text-align: center;
         }
 
-        /* Features */
+        .section-title.center { text-align: center; }
+
+        .section {
+            padding: 80px 0;
+        }
+
+        .section + .section {
+            border-top: 1px solid var(--border);
+        }
+
+        /* ===== STATS ===== */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 32px;
+            margin: 60px 0;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 48px;
+            font-weight: 600;
+            letter-spacing: -2.4px;
+            line-height: 1.0;
+            color: var(--gray-900);
+        }
+
+        .stat-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--gray-600);
+            letter-spacing: -0.28px;
+            margin-top: 8px;
+        }
+
+        /* ===== FEATURES ===== */
         .features {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 2rem;
-            margin-top: 2.5rem;
+            gap: 32px;
+            margin-top: 48px;
         }
 
         .feature {
             text-align: center;
-            padding: 1.5rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            transition: var(--transition);
-        }
-
-        .feature:hover {
-            border-color: var(--accent);
-            transform: translateY(-4px);
         }
 
         .feature-icon {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
+            font-size: 36px;
+            margin-bottom: 16px;
             display: block;
         }
 
         .feature h3 {
-            font-size: 1.15rem;
-            margin-bottom: 0.5rem;
-            color: var(--text);
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.72px;
+            margin-bottom: 8px;
+            color: var(--gray-900);
         }
 
         .feature p {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--gray-600);
+            line-height: 1.6;
         }
 
-        /* Quick Start */
-        .quick-start {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.75rem;
-            margin: 2rem 0;
+        /* ===== CARDS GRID ===== */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 48px;
         }
 
-        .quick-start pre {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.25rem;
+        .card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            box-shadow: var(--shadow-card);
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .card:hover {
+            box-shadow: rgba(0, 0, 0, 0.08) 0px 0px 0px 1px, rgba(0, 0, 0, 0.06) 0px 4px 8px, #fafafa 0px 0px 0px 1px;
+            transform: translateY(-2px);
+        }
+
+        .card h3 {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.96px;
+            margin-bottom: 12px;
+            color: var(--gray-900);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card .card-icon {
+            font-size: 20px;
+        }
+
+        .card p {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--gray-600);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .card-link {
+            color: var(--link);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: -0.28px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: gap 0.2s;
+        }
+
+        .card-link:hover {
+            gap: 8px;
+        }
+
+        /* ===== CODE BLOCK ===== */
+        .code-block {
+            background: var(--gray-50);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin: 16px 0;
             overflow-x: auto;
-            margin-top: 1rem;
-            font-size: 0.9rem;
         }
 
-        .quick-start code {
-            font-family: 'Fira Code', 'Courier New', monospace;
-            color: var(--accent);
+        .code-block pre {
+            font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 13px;
+            font-weight: 400;
+            line-height: 1.5;
+            color: var(--gray-900);
+            white-space: pre-wrap;
+            word-break: break-word;
         }
 
-        /* Server list */
-        .server-category {
-            margin-bottom: 2rem;
+        .code-block code {
+            color: var(--gray-900);
+            background: none;
+            border: none;
+            padding: 0;
+            font-size: inherit;
+        }
+
+        /* ===== SERVER TAGS ===== */
+        .server-categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
         }
 
         .server-category h3 {
-            color: var(--accent);
-            font-size: 1.1rem;
-            margin-bottom: 0.75rem;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--link);
+            margin-bottom: 12px;
+            letter-spacing: -0.28px;
         }
 
         .server-tags {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
+            gap: 6px;
         }
 
         .server-tag {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--gray-600);
+            background: var(--gray-50);
+            border: 1px solid var(--border-light);
             border-radius: 6px;
-            padding: 0.3rem 0.7rem;
-            font-size: 0.85rem;
-            color: var(--text);
-            transition: var(--transition);
+            padding: 4px 10px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.2s;
         }
 
         .server-tag:hover {
-            background: var(--bg);
-            border-color: var(--accent);
-            color: var(--accent-hover);
+            background: var(--white);
+            color: var(--gray-900);
+            border-color: var(--border);
         }
 
-        /* Stats */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 1.5rem;
-            margin: 3rem 0;
-        }
-
-        .stat {
-            text-align: center;
-            padding: 1.5rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-        }
-
-        .stat .stat-number {
-            font-size: 2rem;
-            font-weight: 800;
-            color: var(--accent);
-            margin-bottom: 0.25rem;
-        }
-
-        .stat .stat-label {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
-        /* Footer */
+        /* ===== FOOTER ===== */
         footer {
-            text-align: center;
-            padding: 3rem 0;
+            padding: 48px 0;
             border-top: 1px solid var(--border);
-            color: var(--text-secondary);
-            margin-top: 4rem;
+            text-align: center;
         }
 
-        .ecosystem-links {
+        .footer-content {
             display: flex;
-            gap: 1.5rem;
-            justify-content: center;
-            margin-top: 1.5rem;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
             flex-wrap: wrap;
+            justify-content: center;
         }
 
-        .ecosystem-links a {
-            color: var(--text-secondary);
+        .footer-links a {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--gray-600);
             text-decoration: none;
-            transition: var(--transition);
-            font-size: 0.9rem;
+            letter-spacing: -0.26px;
+            transition: color 0.2s;
         }
 
-        .ecosystem-links a:hover {
-            color: var(--accent);
+        .footer-links a:hover { color: var(--gray-900); }
+
+        .footer-credit {
+            font-size: 12px;
+            color: var(--gray-500);
+            letter-spacing: -0.24px;
         }
 
-        /* Responsive */
+        /* ===== RESPONSIVE ===== */
         @media (max-width: 768px) {
-            header { padding: 3rem 0 2rem; }
-            h1 { font-size: 2rem; }
-            .tagline { font-size: 1rem; }
-            .cta-buttons { flex-direction: column; }
-            .section { margin-bottom: 3rem; }
-            .features { grid-template-columns: 1fr 1fr; }
+            .hero h1 { font-size: 32px; letter-spacing: -1.6px; }
+            .hero p { font-size: 16px; }
+            .hero-cta { flex-direction: column; }
+            .section-title { font-size: 28px; letter-spacing: -1.4px; }
+            .nav-links { display: none; }
         }
 
         @media (max-width: 480px) {
-            .features { grid-template-columns: 1fr; }
-            .container { padding: 0 1rem; }
+            .hero { padding: 60px 0 40px; }
+            .section { padding: 40px 0; }
         }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--bg);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--accent);
-        }
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--white); }
+        ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border); }
     </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <div class="logo">
-                <span class="logo-icon">🔌</span>
-                <span style="font-size: 1.5rem; font-weight: 700; color: var(--text);">Universal MCP Toolkit</span>
+        <nav>
+            <div class="nav-inner">
+                <a href="/" class="logo">
+                    <span class="logo-icon">🔌</span>
+                    <span>Universal MCP Toolkit</span>
+                </a>
+                <div class="nav-links">
+                    <a href="#features">Features</a>
+                    <a href="#servers">Servers</a>
+                    <a href="#ecosystem">Ecosystem</a>
+                    <a href="./getting-started.html">Docs</a>
+                </div>
+                <div class="nav-cta">
+                    <a href="https://github.com/Markgatcha/universal-mcp-toolkit" class="btn btn-ghost">GitHub</a>
+                    <a href="https://www.npmjs.com/package/universal-mcp-toolkit" class="btn btn-primary">npm</a>
+                </div>
             </div>
+        </nav>
+
+        <section class="hero">
             <h1>Production-Ready MCP Servers</h1>
-            <p class="tagline">40+ servers in one monorepo. Supports stdio, SSE, and MCP 2026-07-28 streamable HTTP transport.</p>
-            <div class="badges">
-                <span class="badge">🚀 40 Active Servers</span>
-                <span class="badge">🔌 MCP 2026-07-28</span>
-                <span class="badge">📘 TypeScript</span>
-                <span class="badge">🔓 MIT License</span>
-                <span class="badge">📦 1.6.28</span>
-            </div>
-            <div class="cta-buttons">
+            <p>40+ servers in one monorepo. Supports stdio, SSE, and MCP 2026-07-28 streamable HTTP transport for serverless deployment.</p>
+            <div class="hero-cta">
                 <a href="https://github.com/Markgatcha/universal-mcp-toolkit" class="btn btn-primary">View on GitHub →</a>
-                <a href="https://www.npmjs.com/package/universal-mcp-toolkit" class="btn btn-secondary">npm Package</a>
-                <a href="./getting-started.html" class="btn btn-secondary">Getting Started →</a>
+                <a href="./getting-started.html" class="btn btn-ghost">Getting Started →</a>
             </div>
-        </header>
+            <div class="hero-badges">
+                <span class="badge">40+ Servers</span>
+                <span class="badge">MCP 2026-07-28</span>
+                <span class="badge">TypeScript</span>
+                <span class="badge">MIT License</span>
+                <span class="badge">v1.6.28</span>
+            </div>
+        </section>
 
         <!-- Stats -->
-        <section class="section">
+        <section class="section" style="padding-top: 0; border-top: none;">
             <div class="stats">
                 <div class="stat">
                     <div class="stat-number">40+</div>
@@ -514,9 +539,9 @@
 
         <!-- Quick Start -->
         <section class="section">
-            <h2 class="section-title">⚡ Quick Start</h2>
-            <div class="quick-start">
-                <pre><code># List all available servers
+            <h2 class="section-title center">⚡ Quick Start</h2>
+            <div class="code-block">
+                <pre># List all available servers
 npx universal-mcp-toolkit list
 
 # Interactive setup for Claude Desktop or Cursor
@@ -526,60 +551,57 @@ npx universal-mcp-toolkit install
 npx universal-mcp-toolkit run github --transport stdio
 
 # Or use streamable HTTP (MCP 2026-07-28 stateless)
-npx universal-mcp-toolkit run github --transport streamable-http --port 3333</code></pre>
+npx universal-mcp-toolkit run github --transport streamable-http --port 3333</pre>
             </div>
-            <p style="margin-top: 1rem; color: var(--text-secondary);">
-                Need a full walkthrough? Open the <a href="./getting-started.html" style="color: var(--accent);">Getting Started guide</a>.
-            </p>
         </section>
 
-        <!-- What Makes This Different -->
-        <section class="section">
-            <h2 class="section-title">✨ What Makes This Different</h2>
+        <!-- Features -->
+        <section class="section" id="features">
+            <h2 class="section-title center">✨ What Makes This Different</h2>
             <div class="features">
                 <div class="feature">
                     <span class="feature-icon">🚀</span>
                     <h3>40 Production Servers</h3>
-                    <p>GitHub, Slack, Notion, PostgreSQL, MongoDB, and 35 more — all in one monorepo with shared architecture</p>
+                    <p>GitHub, Slack, Notion, PostgreSQL, MongoDB, and 35 more — all in one monorepo</p>
                 </div>
                 <div class="feature">
                     <span class="feature-icon">🔌</span>
                     <h3>3 Transport Modes</h3>
-                    <p>stdio for local workflows, HTTP+SSE for remote, and MCP 2026-07-28 streamable HTTP for serverless</p>
+                    <p>stdio, SSE, and MCP 2026-07-28 streamable HTTP for serverless</p>
                 </div>
                 <div class="feature">
                     <span class="feature-icon">🛠️</span>
                     <h3>Polished CLI</h3>
-                    <p>List, config, install, run, doctor, and update commands with automatic update notifications</p>
+                    <p>List, config, install, run, doctor, and update with auto-update notifications</p>
                 </div>
                 <div class="feature">
                     <span class="feature-icon">📦</span>
                     <h3>Shared Core</h3>
-                    <p>One TypeScript core with Zod validation, pino logging, consistent error handling, and rate limiting</p>
+                    <p>One TypeScript core with Zod validation, pino logging, consistent error handling</p>
                 </div>
                 <div class="feature">
                     <span class="feature-icon">🔄</span>
                     <h3>Auto-Updates</h3>
-                    <p>CLI checks npm registry for new versions and prompts you to update — never miss a release</p>
+                    <p>CLI checks npm registry for new versions and prompts you to update</p>
                 </div>
                 <div class="feature">
                     <span class="feature-icon">🧪</span>
                     <h3>Built-in Testing</h3>
-                    <p>Every server includes smoke tests with mocked clients — 50+ tests across the monorepo</p>
+                    <p>Every server includes smoke tests with mocked clients — 50+ tests</p>
                 </div>
             </div>
         </section>
 
         <!-- Ecosystem -->
-        <section class="section">
-            <h2 class="section-title">🌐 Ecosystem</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 2rem; font-size: 1.1rem;">
+        <section class="section" id="ecosystem">
+            <h2 class="section-title center">🌐 Ecosystem</h2>
+            <p style="text-align: center; color: var(--gray-600); font-size: 18px; line-height: 1.8; max-width: 720px; margin: 0 auto 48px;">
                 UMT is part of the <strong>AI Trio</strong> — three sibling projects that compose into a complete agent memory + tooling stack:
             </p>
-            <div class="grid grid-cols-3">
+            <div class="cards-grid">
                 <div class="card">
                     <h3><span class="card-icon">🔌</span> Universal MCP Toolkit</h3>
-                    <p>The toolkit you're on right now. 40+ production-ready MCP servers covering GitHub, Slack, Notion, databases, cloud platforms, research sources, and local files. Includes a polished CLI with list, config, install, run, and doctor commands.</p>
+                    <p>The toolkit you're on right now. 40+ production-ready MCP servers covering GitHub, Slack, Notion, databases, cloud platforms, research sources, and local files.</p>
                     <a href="https://github.com/Markgatcha/universal-mcp-toolkit" class="card-link">Explore →</a>
                 </div>
                 <div class="card">
@@ -596,10 +618,10 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</co
         </section>
 
         <!-- Servers -->
-        <section class="section">
-            <h2 class="section-title">📚 Supported Servers (40)</h2>
-            <div class="grid grid-cols-4">
-                <div class="server-category">
+        <section class="section" id="servers">
+            <h2 class="section-title center">📚 Supported Servers (40)</h2>
+            <div class="server-categories">
+                <div>
                     <h3>Collaboration</h3>
                     <div class="server-tags">
                         <span class="server-tag">GitHub</span>
@@ -612,7 +634,7 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</co
                         <span class="server-tag">Trello</span>
                     </div>
                 </div>
-                <div class="server-category">
+                <div>
                     <h3>Productivity</h3>
                     <div class="server-tags">
                         <span class="server-tag">Google Calendar</span>
@@ -621,7 +643,7 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</co
                         <span class="server-tag">Gmail</span>
                     </div>
                 </div>
-                <div class="server-category">
+                <div>
                     <h3>Data & Databases</h3>
                     <div class="server-tags">
                         <span class="server-tag">PostgreSQL</span>
@@ -632,7 +654,7 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</co
                         <span class="server-tag">SQLite</span>
                     </div>
                 </div>
-                <div class="server-category">
+                <div>
                     <h3>Platform & Research</h3>
                     <div class="server-tags">
                         <span class="server-tag">Vercel</span>
@@ -645,7 +667,7 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</co
                         <span class="server-tag">Context7</span>
                     </div>
                 </div>
-                <div class="server-category">
+                <div>
                     <h3>Media & Commerce</h3>
                     <div class="server-tags">
                         <span class="server-tag">Spotify</span>
@@ -655,7 +677,7 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</co
                         <span class="server-tag">Sentry</span>
                     </div>
                 </div>
-                <div class="server-category">
+                <div>
                     <h3>Local & Automation</h3>
                     <div class="server-tags">
                         <span class="server-tag">FileSystem</span>
@@ -665,7 +687,7 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</co
                         <span class="server-tag">AWS S3</span>
                     </div>
                 </div>
-                <div class="server-category">
+                <div>
                     <h3>Third-Party MCP</h3>
                     <div class="server-tags">
                         <span class="server-tag">Notion (MCP)</span>
@@ -679,7 +701,7 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</co
 
         <!-- Perfect For -->
         <section class="section">
-            <h2 class="section-title">🎯 Perfect For</h2>
+            <h2 class="section-title center">🎯 Perfect For</h2>
             <div class="features">
                 <div class="feature">
                     <span class="feature-icon">💻</span>
@@ -694,28 +716,28 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</co
                 <div class="feature">
                     <span class="feature-icon">🏗️</span>
                     <h3>Custom Integrations</h3>
-                    <p>Reference implementation for building your own MCP servers with shared architecture</p>
+                    <p>Reference implementation for building your own MCP servers</p>
                 </div>
                 <div class="feature">
                     <span class="feature-icon">☁️</span>
                     <h3>Serverless</h3>
-                    <p>MCP 2026-07-28 streamable HTTP transport for edge and serverless deployment</p>
+                    <p>MCP 2026-07-28 streamable HTTP transport for edge deployment</p>
                 </div>
             </div>
         </section>
 
         <!-- Footer -->
         <footer>
-            <p>Built by <a href="https://github.com/Markgatcha" style="color: var(--accent);">Mark Gatcha</a></p>
-            <div class="ecosystem-links">
-                <a href="https://github.com/Markgatcha/universal-mcp-toolkit">GitHub</a>
-                <a href="https://www.npmjs.com/package/universal-mcp-toolkit">npm</a>
-                <a href="https://github.com/Markgatcha/universal-mcp-toolkit/issues">Issues</a>
-                <a href="https://github.com/Markgatcha/universal-mcp-toolkit/blob/main/CHANGELOG.md">Changelog</a>
+            <div class="footer-content">
+                <p>Built by <a href="https://github.com/Markgatcha" style="color: var(--link);">Mark Gatcha</a></p>
+                <div class="footer-links">
+                    <a href="https://github.com/Markgatcha/universal-mcp-toolkit">GitHub</a>
+                    <a href="https://www.npmjs.com/package/universal-mcp-toolkit">npm</a>
+                    <a href="https://github.com/Markgatcha/universal-mcp-toolkit/issues">Issues</a>
+                    <a href="https://github.com/Markgatcha/universal-mcp-toolkit/blob/main/CHANGELOG.md">Changelog</a>
+                </div>
+                <p class="footer-credit">MIT License © 2026 · Part of the <a href="https://github.com/Markgatcha/memos" style="color: var(--gray-500);">AI Trio</a></p>
             </div>
-            <p style="margin-top: 1.5rem; font-size: 0.875rem; color: var(--text-tertiary);">
-                MIT License © 2026 · Part of the <a href="https://github.com/Markgatcha/memos" style="color: var(--text-tertiary);">AI Trio</a>
-            </p>
         </footer>
     </div>
 </body>
