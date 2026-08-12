@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-airtable",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Table listing, record CRUD, and filtering for Airtable bases.",
   "license": "MIT",

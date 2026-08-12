@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-google-drive",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "File discovery, metadata, and export tools for Google Drive.",
   "license": "MIT",

@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-trello",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Board and list discovery, card CRUD, and archiving for Trello workspaces.",
   "license": "MIT",

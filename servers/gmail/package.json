@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-gmail",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Read, search, send, and manage Gmail messages via the Gmail REST API.",
   "license": "MIT",

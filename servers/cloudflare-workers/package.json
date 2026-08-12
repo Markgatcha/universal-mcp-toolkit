@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-cloudflare-workers",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Worker, route, and deployment tools for Cloudflare Workers.",
   "license": "MIT",

@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-mongodb",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Database, collection, and document tools for MongoDB.",
   "license": "MIT",

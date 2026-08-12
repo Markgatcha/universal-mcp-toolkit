@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-hackernews",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Read-only Hacker News MCP tools for ranked story lists, keyword search, and discussion threads.",
   "license": "MIT",

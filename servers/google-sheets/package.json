@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-google-sheets",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "List, read, and write Google Sheets data via the Sheets API v4 and Drive API v3.",
   "license": "MIT",

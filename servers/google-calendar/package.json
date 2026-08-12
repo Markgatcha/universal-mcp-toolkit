@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-google-calendar",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Calendar and event planning tools for Google Calendar.",
   "license": "MIT",

@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-github",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Repository search, pull request lookup, workflow run inspection, repository resources, and triage prompts for GitHub.",
   "license": "MIT",
