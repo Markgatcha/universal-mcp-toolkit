@@ -29,7 +29,7 @@ Together they cover transport + tools (UMT), memory + persistence (MemOS), and L
 The fastest way to get going:
 
 ```bash
-# See all 28 available servers
+# See all 27 available servers
 npx universal-mcp-toolkit list
 
 # Interactive setup — pick your servers, choose transport, write config
@@ -43,9 +43,12 @@ npx universal-mcp-toolkit run github --transport stdio
 
 # Check your environment before debugging
 npx universal-mcp-toolkit doctor github
+
+# Validate a reviewable cross-server workflow
+npx universal-mcp-toolkit workflow validate examples/workflows/github-search-to-slack.json
 ```
 
-For a guided setup walkthrough, open [docs/getting-started.html](./docs/getting-started.html).
+For a guided setup walkthrough, open [docs/getting-started.html](./docs/getting-started.html). For deterministic composition, see [docs/workflows.md](./docs/workflows.md).
 
 Or install globally:
 
@@ -80,6 +83,19 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 
 ## What makes this worth starring
 
+- **Tool discovery** — `umt tools list` finds any MCP tool across 27+ servers by name or category
+- **Deterministic workflows** — `umt workflow validate|run` executes reviewable, versioned JSON workflows with strict input and step references
+- **Server composition** — `umt compose` remains available for quick two-step output piping
+- **Standards-aligned discovery** — `umt discover --registry` reads official MCP Registry-compatible endpoints alongside local and well-known discovery
+- **Enforced tool boundaries** — bridge allowlists and RBAC policies are checked before cache lookup, reconnect, or remote execution
+- **TTL + LRU caching** — `MCPFunctionCallingBridge` caches results by tool+args, avoiding redundant API calls
+- **Health monitoring** — transport failures feed the circuit breaker without treating ordinary tool validation errors as connection failures
+- **Buffered result chunks** — `callToolStreaming()` exposes completed results through an async chunk iterator; it does not claim protocol-level streaming
+- **Multi-server sessions** — `Session` class orchestrates tools across multiple MCP servers with parallel calls
+- **Lazy plugin loading** — server packages loaded on-demand, not statically bundled
+- **Lazy tool registration** — `registerLazyTool` defers expensive initialization until a tool is actually called
+- **Structured error context** — bridge errors include tool name, args, and error type for easier debugging
+- **Type-safe chaining** — `callToolChain` with `ToolChain` types enables compile-time-checked tool pipelines
 - Real developer utility right now
 - Great default ergonomics for Claude Desktop, Cursor, and local workflows
 - A single architecture you can learn once and extend everywhere
@@ -90,8 +106,8 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 
 | Category | What you get |
 | --- | --- |
-| Core runtime | `@universal-mcp-toolkit/core` with typed tool registration, env loading, Zod validation, pino logging, stdio and HTTP+SSE runtime bootstrapping |
-| Unified CLI | `universal-mcp-toolkit` with `list`, `config`, `install`, `run`, and `doctor` |
+| Core runtime | `@universal-mcp-toolkit/core` with typed tool registration, env loading, Zod validation, integration manifests, pino logging, stdio and HTTP runtime bootstrapping |
+| Unified CLI | `universal-mcp-toolkit` with `list`, `config`, `install`, `run`, `tools list`, `workflow`, `compose`, `discover`, and `doctor` |
 | Collaboration servers | GitHub, Notion, Slack, Linear, Jira, Discord, Trello |
 | Productivity servers | Google Calendar, Google Drive |
 | Media and commerce servers | Spotify, Stripe |
@@ -104,11 +120,11 @@ Experimental companion packages under the `@contextcore/*` scope currently inclu
 
 ## Comparison
 
-| Option | Breadth | DX quality | Shared architecture | Host config help | Documentation polish |
-| --- | --- | --- | --- | --- | --- |
-| `universal-mcp-toolkit` | 27 servers in one monorepo | High | Yes | Yes | High |
-| Single-service MCP repos | Narrow | Varies | No | Rarely | Varies |
-| Personal one-off scripts | Very narrow | Low | No | No | Usually none |
+| Option | Breadth | DX quality | Shared architecture | Host config help | Documentation polish | Tool discovery | Server composition | Caching | Lazy loading | Remote MCP discovery | Resilient transport | Token budgeting |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `universal-mcp-toolkit` | 27 servers in one monorepo | High | Yes | Yes | Yes | ✅ `umt tools list` | ✅ `umt compose` | ✅ TTL+LRU | ✅ `registerLazyTool` | ✅ `umt discover --remote` | ✅ Auto-reconnect + circuit breaker | ✅ `TokenBudgetManager` |
+| Single-service MCP repos | Narrow | Varies | No | Rarely | Usually none | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Personal one-off scripts | Very narrow | Low | No | No | No | Usually none | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 ## Supported servers
 
@@ -196,6 +212,7 @@ into your host config — the runtime is the same `npx -y @vynly/mcp` launch.)
 universal-mcp-toolkit/
 ├─ packages/
 │  ├─ core/
+│  ├─ bridge/
 │  └─ cli/
 ├─ docs/
 │  ├─ index.html
@@ -309,6 +326,9 @@ Check build output, config state, and required environment variables before you 
 | `umt logs <server>` | Tail the log file for a specific server |
 | `umt test <server>` | Run a live end-to-end MCP handshake test against a server |
 | `umt conformance [server]` | Check registry config and live stdio handshakes where local build output exists |
+| `umt workflow validate <file>` | Validate a versioned JSON workflow without starting any server |
+| `umt workflow run <file> --input <json>` | Execute a validated workflow sequentially and disconnect every step safely |
+| `umt discover --registry [url]` | Include official or private MCP Registry-compatible entries in discovery |
 | `umt search <query>` | Search available servers by name, description, and tags |
 | `umt init` | Interactive setup wizard for new users |
 | `umt update` | Check npm for a newer version of the CLI and optionally install it |
@@ -388,8 +408,9 @@ Generate the same `mcpServers` snippet and place it into the MCP config file you
 Every server in the toolkit is designed around the same transport story:
 
 - `stdio` for local child-process integrations
-- `HTTP+SSE` for remote or browser-adjacent integrations
-- discovery metadata exposed through `.well-known/mcp-server.json`
+- Streamable HTTP for current remote MCP integrations
+- HTTP+SSE retained as a legacy compatibility transport
+- discovery metadata exposed through package cards and Registry-compatible metadata
 
 The shared core handles runtime bootstrapping, logging, env loading, and tool registration so every server behaves consistently.
 
@@ -399,9 +420,15 @@ UMT is discoverable through three complementary manifest paths so it shows up in
 
 - **Official MCP Registry** — `registry-server.json` at the repo root uses the reverse-DNS name `io.github.markgatcha.universal-mcp-toolkit` and lists the tool surface, transports, and environment variables. Submit it to the [official registry](https://github.com/modelcontextprotocol/registry) to appear in `mcp-cli search` results.
 - **Smithery auto-discovery** — `.well-known/mcp/server-card.json` is the well-known server card that Smithery (and any RFC-style crawler) fetches to build a live profile. Keep `version` and `description` in sync with `packages/cli/package.json`.
-- **Runtime `.well-known/mcp-server.json`** — the discovery document served by the running server; bumped to `1.6.26` with the updated registry description.
+- Runtime `.well-known/mcp-server.json` — the discovery document served by the running server; bumped to `1.6.28` with the updated registry description.
 
 ```bash
+# Search the official MCP Registry together with local discoveries
+umt discover --registry
+
+# Use a private or alternate Registry-compatible endpoint
+umt discover --registry https://registry.example.com/v0.1/servers
+
 # Verify the well-known card is served correctly
 curl http://localhost:3000/.well-known/mcp/server-card.json | jq .name
 ```
@@ -417,8 +444,11 @@ It includes:
 - `loadEnv()` for strict configuration validation
 - `HttpServiceClient` for typed fetch-based integrations
 - `createServerCard()` for discovery metadata
-- `parseRuntimeOptions()` and `runToolkitServer()` for stdio and HTTP+SSE launch flows
+- `validateIntegrationManifest()` and `summarizeIntegrationReadiness()` for versioned integration evidence
+- `parseRuntimeOptions()` and `runToolkitServer()` for stdio and HTTP launch flows
 - pino logging configured for stderr-safe server operation
+
+See [docs/integration-contract.md](./docs/integration-contract.md) for the additive integration contract and readiness model.
 
 ## Engineering standards
 
@@ -471,6 +501,14 @@ If you only want the onboarding path, start with [docs/getting-started.html](./d
 ### `packages/core`
 
 Shared runtime primitives and strict abstractions for server authors.
+
+### `packages/bridge`
+
+Connect any MCP server to any LLM provider — OpenAI, Anthropic, or Ollama function-calling format. Includes health monitoring, circuit breakers, RBAC, audit logging, TTL+LRU caching, and a full agent conversation loop. Use with the Vercel AI SDK via `@universal-mcp-toolkit/ai-sdk`.
+
+### `packages/ai-sdk`
+
+Adapter that lets you use UMT's MCP tools directly with the Vercel AI SDK's `streamText()` and `generateText()` functions. Zero boilerplate — turn any MCP server into AI SDK tools in one line.
 
 ### `packages/cli`
 

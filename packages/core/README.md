@@ -412,7 +412,7 @@ curl http://localhost:3000/.well-known/mcp/server-card.json | jq .name
 
 It includes:
 
-- `ToolkitServer` base class
+- `ToolkitServer` base class with lazy tool registration via `registerLazyTool()`
 - `defineTool<TInput, TOutput>` helper
 - `loadEnv()` for strict configuration validation
 - `HttpServiceClient` for typed fetch-based integrations
@@ -472,9 +472,13 @@ If you only want the onboarding path, start with [docs/getting-started.html](./d
 
 Shared runtime primitives and strict abstractions for server authors.
 
+### `packages/bridge`
+
+MCP-to-function-calling bridge: connects any MCP server to OpenAI, Anthropic, and Ollama. Includes result caching, structured error wrapping, type-safe tool chaining, health monitoring with circuit breaker, streaming tool results, and multi-server sessions.
+
 ### `packages/cli`
 
-The operator console for listing, configuring, installing, running, and diagnosing the entire toolkit.
+The operator console for listing, configuring, installing, running, and diagnosing the entire toolkit. Includes tool discovery, server composition, and lazy plugin loading.
 
 ### `servers/*`
 

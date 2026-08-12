@@ -5,11 +5,49 @@ export { loadEnv } from "./env.js";
 export { ConfigurationError, ExternalServiceError, ToolkitError, ToolTimeoutError, ValidationError, normalizeError } from "./errors.js";
 export { HttpServiceClient, stripTrailingSlashes } from "./http.js";
 export type { RetryOptions } from "./http.js";
+export {
+  UMT_INTEGRATION_SCHEMA_VERSION,
+  integrationConformanceSchema,
+  integrationMaintainershipSchema,
+  integrationManifestSchema,
+  integrationMaturitySchema,
+  integrationToolSchema,
+  integrationTransportSchema,
+  summarizeIntegrationReadiness,
+  validateIntegrationManifest,
+  type IntegrationConformance,
+  type IntegrationMaintainership,
+  type IntegrationManifest,
+  type IntegrationMaturity,
+  type IntegrationReadinessRequirement,
+  type IntegrationReadinessSummary,
+  type IntegrationTool,
+  type IntegrationTransport,
+} from "./integration-manifest.js";
 export { createLogger } from "./logger.js";
 export { RateLimiter } from "./rate-limiter.js";
 export { parseRuntimeOptions, runToolkitServer } from "./runtime.js";
 export { ToolkitServer } from "./server.js";
 export { defineTool } from "./tool.js";
+export {
+  ToolResultCache,
+  compressOutput,
+  estimateTokens,
+  executeToolsInParallel,
+  executeWithFallback,
+  orderTools,
+  processToolResult,
+  summarizeToolResult,
+  truncateToTokenBudget,
+  type CacheOptions,
+} from "./token-efficient.js";
+export {
+  TokenBudgetManager,
+  computeToolResultBudget,
+  getTokenInfo,
+  type BudgetOptions,
+  type ModelTokenInfo,
+} from "./token-manager.js";
 export type {
   InferShape,
   ToolkitLogLevel,

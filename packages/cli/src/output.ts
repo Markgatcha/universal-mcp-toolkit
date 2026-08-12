@@ -40,3 +40,37 @@ export function renderStatusLabel(ok: boolean): string {
 export function printSection(title: string): void {
   console.log(chalk.bold.blue(`\n${title}`));
 }
+
+// ---------------------------------------------------------------------------
+// Tool listing renderer
+// ---------------------------------------------------------------------------
+
+/**
+ * Render a table of all tools exposed by one or more servers.
+ * Each row shows the server ID, tool name, and (if available) the tool's
+ * human-readable title or description.  When a tool has no title the
+ * description is shown inline; when neither is present a dash is rendered.
+ */
+export function renderToolTable(
+  entries: readonly { serverId: string; toolName: string; title?: string; description?: string }[],
+): string {
+  const table = new Table({
+    head: [chalk.cyan("Server"), chalk.cyan("Tool"), chalk.cyan("Title")],
+    colWidths: [20, 35, 65],
+    wordWrap: true,
+    style: {
+      head: [],
+      border: ["gray"],
+    },
+  });
+
+  for (const entry of entries) {
+    table.push([
+      chalk.white(entry.serverId),
+      chalk.cyan(entry.toolName),
+      entry.title || entry.description || chalk.gray("—"),
+    ]);
+  }
+
+  return table.toString();
+}

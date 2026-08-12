@@ -1,7 +1,7 @@
 {
   "name": "universal-mcp-toolkit",
-  "version": "1.6.26",
-  "description": "35 prebuilt MCP (Model Context Protocol) servers — unified CLI for discovery, configuration, and runtime. Use with Claude Desktop, Cursor, Cline, and any MCP client.",
+  "version": "1.6.28",
+  "description": "27 production-ready MCP (Model Context Protocol) servers — unified CLI for discovery, configuration, and runtime. Use with Claude Desktop, Cursor, Cline, and any MCP client.",
   "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit",
   "repository": "https://github.com/Markgatcha/universal-mcp-toolkit",
   "license": "MIT",
@@ -32,12 +32,12 @@
   ],
   "registryCounts": {
     "total": 35,
-    "core": 28,
+    "core": 27,
     "community": 7,
     "local": 0,
     "releaseGated": 27,
     "experimental": 8,
-    "stub": 6
+    "stub": 0
   },
   "registryTiers": [
     "core",
@@ -46,17 +46,14 @@
   ],
   "categories": {
     "AI": [
-      "openai-mcp",
-      "sequential-thinking"
+      "openai-mcp"
     ],
     "Automation": [
-      "playwright-mcp",
-      "zapier"
+      "playwright-mcp"
     ],
     "Collaboration": [
       "discord",
       "github",
-      "gitlab",
       "jira",
       "linear",
       "notion",
@@ -67,11 +64,9 @@
     ],
     "Data": [
       "airtable",
-      "aws-s3",
       "mongodb",
       "postgresql",
       "redis",
-      "sqlite",
       "supabase"
     ],
     "Local": [
@@ -96,51 +91,28 @@
     ],
     "Research": [
       "arxiv",
-      "context7",
-      "firecrawl",
       "hackernews"
     ]
   },
-  "servers": [
-    "airtable",
-    "arxiv",
+  "experimental": [
     "aws-s3",
-    "cloudflare-workers",
     "context7",
-    "discord",
-    "docker",
-    "filesystem",
+    "elasticsearch",
     "firecrawl",
-    "github",
     "gitlab",
-    "google-calendar",
-    "google-drive",
-    "hackernews",
-    "jira",
-    "linear",
-    "memos",
-    "mongodb",
-    "notion",
-    "notion-mcp",
-    "npm-registry",
-    "openai-mcp",
-    "playwright-mcp",
-    "postgresql",
-    "redis",
+    "qdrant",
     "sequential-thinking",
-    "slack",
-    "slack-mcp",
-    "spotify",
-    "sqlite",
-    "stripe",
-    "supabase",
-    "trello",
-    "vercel",
-    "zapier"
+    "sqlite"
+  ],
+  "disabled": [
+    "kubernetes"
   ],
   "notes": [
+    "27 production-ready servers (release-gated) with full source code, tests, and published packages.",
+    "8 experimental servers (listed for discovery but not yet production-ready — source code may be incomplete or missing).",
+    "1 disabled server (kubernetes.disabled).",
     "Community and local registry entries are opt-in and are not maintained by Universal MCP Toolkit.",
-    "Experimental or stub entries are visible for discovery but are not promoted as release-gated core integrations."
+    "Experimental entries are visible for discovery but are not promoted as release-gated core integrations."
   ],
   "listings": [
     "https://glama.ai/mcp/servers/Markgatcha/universal-mcp-toolkit",

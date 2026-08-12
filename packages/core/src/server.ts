@@ -47,6 +47,29 @@ interface StoredTool {
   invoke: (input: unknown, sessionId?: string) => Promise<unknown>;
 }
 
+/**
+ * A lazily-registered tool: the registration (handler, schemas, etc.) is
+ * deferred until the tool is first called. This avoids startup cost for
+ * tools that may never be used during a session.
+ */
+interface LazyStoredTool {
+  name: string;
+  definition: {
+    description: string;
+    title?: string | undefined;
+    inputSchema: ZodShape;
+    outputSchema: ZodShape;
+    annotations?: NonNullable<ToolkitToolDefinition<ZodShape, ZodShape>["annotations"]> | undefined;
+    timeoutMs?: number | undefined;
+    experimental_streamingResponse?: boolean | undefined;
+    renderText?: ((output: unknown) => string) | undefined;
+  };
+  loader: () => Promise<{
+    handler: (input: unknown, context: ToolkitToolExecutionContext) => Promise<unknown>;
+  }>;
+  registered: boolean;
+}
+
 export abstract class ToolkitServer {
   public readonly metadata: ToolkitServerMetadata;
   public readonly logger: Logger;
@@ -54,6 +77,9 @@ export abstract class ToolkitServer {
   private readonly tools = new Map<string, StoredTool>();
   private readonly resources = new Set<string>();
   private readonly prompts = new Set<string>();
+
+  // Lazily-registered tools: deferred until first invocation.
+  private readonly lazyTools = new Map<string, LazyStoredTool>();
 
   protected constructor(metadata: ToolkitServerMetadata, logger?: Logger) {
     this.metadata = metadata;
@@ -77,7 +103,7 @@ export abstract class ToolkitServer {
   }
 
   public getToolNames(): readonly string[] {
-    return [...this.tools.keys()].sort();
+    return [...this.tools.keys(), ...this.lazyTools.keys()].sort();
   }
 
   public getResourceNames(): readonly string[] {
@@ -88,12 +114,102 @@ export abstract class ToolkitServer {
     return [...this.prompts].sort();
   }
 
+  /**
+   * Invoke a tool by name. If the tool was registered lazily, it is
+   * fully registered on first invocation.
+   */
   public async invokeTool<TOutput>(name: string, input: unknown, sessionId?: string): Promise<TOutput> {
+    // Check if this is a lazy tool that hasn't been registered yet.
+    const lazy = this.lazyTools.get(name);
+    if (lazy && !lazy.registered) {
+      await this.materializeLazyTool(lazy);
+    }
+
     const tool = this.tools.get(name);
     if (!tool) {
       throw new Error(`Tool '${name}' is not registered.`);
     }
     return (await tool.invoke(input, sessionId)) as TOutput;
+  }
+
+  /**
+   * Register a tool lazily — the tool definition and handler are not
+   * loaded or registered with the MCP server until the tool is first
+   * invoked. This defers expensive initialization (e.g., building a
+   * large Zod schema, connecting to a dependency, downloading ML
+   * models) until actually needed.
+   *
+   * @param definition - The tool definition (name, description, schemas, etc.)
+   * @param loader - An async factory that returns the handler and/or
+   *                 the full definition. The loader runs at first call.
+   */
+  protected registerLazyTool<TInputShape extends ZodShape, TOutputShape extends ZodShape>(
+    definition: {
+      name: string;
+      description: string;
+      title?: string | undefined;
+      inputSchema: TInputShape;
+      outputSchema: TOutputShape;
+      annotations?: NonNullable<ToolkitToolDefinition<TInputShape, TOutputShape>["annotations"]> | undefined;
+      timeoutMs?: number | undefined;
+      experimental_streamingResponse?: boolean | undefined;
+      renderText?: ((output: unknown) => string) | undefined;
+    },
+    loader: () => Promise<{
+      handler: (input: InferShape<TInputShape>, context: ToolkitToolExecutionContext) => Promise<unknown> | AsyncIterable<string>;
+    }>,
+  ): void {
+    this.lazyTools.set(definition.name, {
+      name: definition.name,
+      definition: {
+        description: definition.description,
+        title: definition.title,
+        inputSchema: definition.inputSchema as ZodShape,
+        outputSchema: definition.outputSchema as ZodShape,
+        annotations: definition.annotations,
+        timeoutMs: definition.timeoutMs,
+        experimental_streamingResponse: definition.experimental_streamingResponse,
+        renderText: definition.renderText,
+      },
+      loader: loader as LazyStoredTool["loader"],
+      registered: false,
+    });
+  }
+
+  /**
+   * Materialise a lazy tool: load the handler and register it with the
+   * MCP server so subsequent calls skip the loader.
+   */
+  private async materializeLazyTool(lazy: LazyStoredTool): Promise<void> {
+    const loaded = await lazy.loader();
+    // Build the definition object incrementally, only setting optional
+    // fields when they have a value. This satisfies exactOptionalPropertyTypes.
+    const fullDefinition: Partial<ToolkitToolDefinition<ZodShape, ZodShape>> = {
+      name: lazy.name,
+      description: lazy.definition.description,
+      inputSchema: lazy.definition.inputSchema,
+      outputSchema: lazy.definition.outputSchema,
+      handler: loaded.handler as unknown as ToolkitToolDefinition<ZodShape, ZodShape>["handler"],
+    };
+    if (lazy.definition.title) {
+      fullDefinition.title = lazy.definition.title;
+    }
+    if (lazy.definition.annotations) {
+      fullDefinition.annotations = lazy.definition.annotations;
+    }
+    if (lazy.definition.timeoutMs !== undefined) {
+      fullDefinition.timeoutMs = lazy.definition.timeoutMs;
+    }
+    if (lazy.definition.experimental_streamingResponse !== undefined) {
+      fullDefinition.experimental_streamingResponse = lazy.definition.experimental_streamingResponse;
+    }
+    if (lazy.definition.renderText) {
+      fullDefinition.renderText = lazy.definition.renderText;
+    }
+    // Clear the lazy entry and register eagerly.
+    this.lazyTools.delete(lazy.name);
+    this.registerTool(fullDefinition as ToolkitToolDefinition<ZodShape, ZodShape>);
+    lazy.registered = true;
   }
 
   protected registerTool<TInputShape extends ZodShape, TOutputShape extends ZodShape>(

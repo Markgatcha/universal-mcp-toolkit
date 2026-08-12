@@ -1,0 +1,24 @@
+{
+  "version": "umt.dev/workflow/v1",
+  "name": "github-search-to-slack",
+  "inputs": ["query", "channelId"],
+  "steps": [
+    {
+      "id": "search",
+      "server": "github",
+      "tool": "search_repositories",
+      "args": {
+        "query": "$inputs.query"
+      }
+    },
+    {
+      "id": "notify",
+      "server": "slack",
+      "tool": "post_message",
+      "args": {
+        "channelId": "$inputs.channelId",
+        "text": "$steps.search.output"
+      }
+    }
+  ]
+}
