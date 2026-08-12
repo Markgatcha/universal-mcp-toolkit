@@ -1,0 +1,68 @@
+{
+  "name": "@universal-mcp-toolkit/bridge",
+  "version": "1.1.0",
+  "description": "Bridge any MCP server to OpenAI, Anthropic, or Ollama function-calling format — use 27+ MCP servers with any LLM SDK.",
+  "type": "module",
+  "main": "dist/index.mjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "bin": {
+    "umt-bridge": "dist/cli.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown src/index.ts src/cli.ts --format esm --dts --clean",
+    "dev": "tsx watch src/index.ts",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "openai",
+    "anthropic",
+    "function-calling",
+    "bridge",
+    "adapter",
+    "llm",
+    "ai-sdk",
+    "openai-sdk",
+    "function-tools"
+  ],
+  "author": "Mark Gatcha",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@universal-mcp-toolkit/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": ">=1.0.0",
+    "@opentelemetry/api": ">=0.45.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "tsdown": "^0.22.14",
+    "tsx": "^4.23.6",
+    "typescript": "7.0.2",
+    "vitest": "^4.1.10",
+    "zod": "4.4.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

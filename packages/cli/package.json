@@ -1,6 +1,6 @@
 {
   "name": "universal-mcp-toolkit",
-  "version": "1.6.26",
+  "version": "1.6.27",
   "type": "module",
   "description": "35 prebuilt MCP (Model Context Protocol) servers — unified CLI for discovery, configuration, and runtime. Use with Claude Desktop, Cursor, Cline, and any MCP client.",
   "license": "MIT",
@@ -55,6 +55,7 @@
   ],
   "sideEffects": false,
   "dependencies": {
+    "@universal-mcp-toolkit/bridge": "workspace:*",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",
     "commander": "^15.0.0",

@@ -51,6 +51,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **pnpm upgraded from 10.32.0 to 11.15.1** (latest). Moved `overrides` from `package.json` (`pnpm.overrides`) to `pnpm-workspace.yaml` — pnpm 11 no longer reads the `pnpm` field in `package.json`. Added `allowBuilds` for native modules (cpu-features, esbuild, protobufjs, ssh2). Regenerated `pnpm-lock.yaml`.
 - **pnpm upgraded from 11.16.0 to 11.17.0** (latest stable). Updated `packageManager` field in `package.json`. Regenerated `pnpm-lock.yaml`.
 
+### Security
+
+- **Bridge authorization boundaries hardened** — `allowedTools` now blocks direct `callTool()` invocation before reconnect, cache lookup, or remote execution. RBAC and OpenTelemetry options are preserved during bridge initialization, policy denials are auditable, timeout timers are released after calls settle, and only likely transport failures affect connection health.
+- **hono upgraded from 4.12.31 to 4.12.34** — resolves CVE-2025-XXXX (ReDoS in CORS middleware via Access-Control-Request-Headers).
+- **hono upgraded from 4.12.34 to 4.13.0** — resolves 4 vulnerabilities: Algorithmic Complexity DoS in Language Middleware (GHSA), ReDoS in CORS middleware via Access-Control-Request-Headers, data leakage via memo() retaining SSR output across requests, and response header leakage in Proxy Helper Connection header handling. Snyk confirms 4.13.0 has 0 vulnerabilities.
+- **fast-uri upgraded from 3.1.5 to 4.1.2** — resolves high-severity host confusion vulnerabilities: CVE-2026-6322 (percent-encoded authority delimiters), CVE-2026-16221 (literal backslash authority delimiter), and CVE-2026-18446 (backslash authority introducer). 4.1.2 is the clean upstream release per Snyk advisory data.
+- **ip-address upgraded from 10.3.1 to 10.4.0** — 10.3.1 was the initial fix for CVE-2026-69192 (SSRF bypass via leading-zero octet decoding); 10.4.0 is the latest clean release with 0 vulnerabilities per Snyk.
+- **fast-uri upgraded from 3.1.4 to 3.1.5** — resolves high-severity host confusion via backslash authority introducer (GHSA-7p8r-x3mc-p8w7).
+- **ip-address upgraded from 10.2.0 to 10.3.1** — resolves 2 high-severity vulnerabilities: SSRF/trust-boundary bypass via leading-zero octet decoding (GHSA-mwp4-54f8-5fhr, GHSA-4xrf-jv44-h6hh).
+- **brace-expansion upgraded to >=5.0.9** — resolves 2 high-severity DoS vulnerabilities via unbounded expansion length and intermediate arrays (GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895).
+- **pnpm audit: 0 vulnerabilities after updating security pins** in `pnpm-workspace.yaml` — bumped `hono` 4.12.34→4.13.0, `fast-uri` 3.1.5→4.1.2, `ip-address` 10.3.1→10.4.0, `nanoid` 3.3.16→3.3.18, and `js-yaml` range overrides to 3.15.1/4.3.1.
+- **js-yaml upgraded via pnpm overrides** (3.15.0→3.15.1, 4.3.0→4.3.1) — resolves CVE-2026-59870 (Quadratic CPU consumption in !!omap resolution). All 2 high-severity js-yaml vulnerabilities resolved.
+- **pnpm upgraded from 11.17.0 to 11.20.0** (latest stable). Updated `packageManager` field in root `package.json`. Regenerated `pnpm-lock.yaml`.
+
+### Improvements
+
+- **Deterministic workflow v1** — added strict JSON workflow validation and sequential execution through `umt workflow validate|run`, including exact typed references, duplicate/forward-reference checks, fail-fast tool errors, and guaranteed bridge cleanup. An executable GitHub-to-Slack example is included under `examples/workflows/`.
+- **Versioned integration contract** — `@universal-mcp-toolkit/core` now exports a strict Zod manifest for maturity, maintainership, transports, auth scopes, tool behavior annotations, and conformance evidence, plus a readiness summary helper.
+- **Official MCP Registry discovery** — `umt discover --registry [url]` consumes Registry-compatible endpoints with cursor pagination while preserving local and well-known discovery when a registry is unavailable.
+- **New `umt tools list` command** — discover all MCP tools exposed by servers in the toolkit. Supports `--server` filtering (e.g. `--server github,slack`) and `--query` substring search (e.g. `--query issue`). Outputs a table or JSON with server ID, tool name, and description. Shows total count across matched servers.
+- **New `umt compose` command** — pipe the output of one MCP server's tool into another server's tool. Useful for chaining workflows (e.g., search GitHub → create a Notion page from results). Supports `__PIPE__` placeholder for auto-substituting source output into destination args.
+- **Structured error wrapping in `MCPFunctionCallingBridge.callTool()`** — errors now include the tool name, original error type, and truncated args in the `data` field, making debugging MCP integrations significantly easier. When `suppressErrors` is false, thrown errors include the tool name and args context.
+- **TTL + LRU result caching in `MCPFunctionCallingBridge`** — enable with `{ cache: { ttlMs, maxSize } }` in bridge options. Repeated identical tool calls return instantly from cache, avoiding redundant MCP server round-trips. Cache stats available via `getCacheStats()`.
+- **Type-safe tool chaining via `ToolChain` / `callToolChain()`** — define multi-step tool pipelines where each step's output feeds into the next step's args. Steps can use static args or a function that receives the previous step's output.
+- **Lazy tool registration via `ToolkitServer.registerLazyTool()`** — defer expensive tool initialization (large Zod schemas, dependency imports, ML model loading) until the tool is first invoked. Improves startup time for servers with many tools.
+- **`hono upgraded from 4.12.33 to 4.13.0** — resolves ReDoS vulnerability in CORS middleware (GHSA-8j4g-w8fx-2239).
+- **Auto-reconnect + circuit breaker wired into `MCPFunctionCallingBridge`** — `HealthMonitor` is now enabled by default on every bridge instance (pass `{ health: false }` to disable). The bridge registers `onerror`/`onclose` handlers on the MCP client, calls `onError()` on tool-call failures, and auto-reconnects with exponential backoff when the connection drops (e.g. remote SSE server restarts). The circuit breaker prevents reconnect storms — after `failureThreshold` consecutive failures, the circuit opens and further reconnect attempts are suspended until the timeout expires. Pass `{ health: false }` to disable, or `{ health: { onEvent: (e) => ... } }` to receive real-time events.
+- **Tool audit logging in `MCPFunctionCallingBridge`** — new `auditLog` option accepts a `ToolAuditLogger` implementation. Every `callTool()` invocation (success or failure) generates an `AuditLogEntry` with the tool name, redacted args, duration, result size, and success/error status. Sensitive argument keys (tokens, passwords, secrets, API keys) are automatically redacted via `redactSensitiveArgs()`. Entries can be streamed to files, databases, or observability systems for enterprise governance and compliance. Pass `{ auditLog: false }` to disable.
+| **OpenTelemetry observability in `MCPFunctionCallingBridge`** — new `observability` option emits distributed traces following the OpenTelemetry GenAI semantic conventions (gen_ai.*) for every `callTool()` invocation. Spans include tool name, redacted args, duration, token estimates, and cost estimates (per-provider pricing for 14 major models). Integrates with any OTEL-compatible backend (LangFuse, LangSmith, Datadog, Arize Phoenix). Added `@opentelemetry/api` as optional peer dependency; gracefully no-ops when not installed.
+| **A2A Protocol server adapter** — new `A2AServerAdapter` class wraps the bridge and exposes MCP tools via Google's Agent2Agent Protocol (v1.0) JSON-RPC 2.0. Implements all 6 A2A methods (`message/send`, `message/stream`, `tasks/get`, `tasks/cancel`, `tasks/resubscribe`, push notification config), agent card discovery with auto-populated skills, bearer token auth validation, subscriber-based streaming, and task lifecycle management.
+| **Policy-based RBAC (`PolicyEngine`)** — new `policies` option on `BridgeOptions` enables per-tool allow/deny rules with condition functions, wildcard matching, first-match-wins evaluation, and configurable default actions. `setPrincipal()` sets caller identity for per-request authorization. Exported `PolicyEngine` and all RBAC types.
+| **Transport-level auth** — new `auth` field on `BridgeServerConfig` injects OAuth 2.1 bearer tokens (`Authorization: Bearer <token>`) and API keys into SSE/HTTP transport headers for remote MCP server authentication.
+| **`TokenBudgetManager` — dynamic context window management** — new `packages/core/src/token-manager.ts` module that maps model names (OpenAI, Anthropic, Google, Ollama) to their context window sizes and provides per-call token budget allocation. `getTokenInfo()` resolves a model name to its window size + pre-allocated output/system budgets. `computeToolResultBudget()` calculates available tokens for tool results given current conversation state. `TokenBudgetManager` class tracks consumption across multiple allocations within a single turn. Integrates with existing `compressOutput()` and `truncateToTokenBudget()` from `token-efficient.ts`. Critical for agents operating near 200k-token windows with reasoning models that consume large portions for `reasoning_content`.
+- **Extended `umt discover` with `--remote` and `--url` flags** — discover remote MCP servers over HTTP by fetching `.well-known/mcp-server.json` manifests from any URL. Supports comma-separated URL lists and 10-second timeouts per fetch. Remote discoveries are tagged with `_source: "remote"` in the output. Merged with local node_modules discovery so a single command shows both local and remote servers.
+
+### Developer Experience
+
+- **Detailed error context** — error results now include structured debug data (tool name, args preview, error name) in the `data` field, enabling programmatic error inspection in LLM agent loops.
+
 ## [1.6.26] - 2026-06-18
 
 ### Dependencies Updated
@@ -107,6 +146,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Removed
 
 - Removed server-startup streaming async iterable abort bug (previously aborted consumers before iteration completed).
+
+## [1.6.28] - 2026-08-07
+
+### New Commands
+
+- **`umt tools list`** — discover all MCP tools exposed by servers in the toolkit. Supports `--server` filtering and `--query` substring search. Outputs a table or `--json` with server ID, tool name, and description.
+- **`umt compose`** — pipe output from one MCP server's tool into another server's tool call, enabling multi-server workflows (e.g., search GitHub issues → create a Notion page from results). Uses `__PIPE__` placeholder for auto-substituting source output.
+- **`umt discover`** — scan local `node_modules` and npx-installed packages for MCP servers that publish `.well-known/mcp-server.json` manifests. Finds third-party MCP servers not in the built-in registry. Supports `--json` output.
+
+### Engineering
+
+- **Lazy plugin loader** (`packages/cli/src/plugin-loader.ts`) — server packages are now resolved dynamically at runtime instead of being statically bundled. Supports `npx`, `workspace`, and `auto` load modes with caching.
+- **Bridge package added as CLI dependency** — `@universal-mcp-toolkit/bridge` v1.1.0 now provides the `compose` command with tool chaining, caching, health monitoring, and streaming.
 
 ## [1.2.0-stable] - 2026-03-27
 

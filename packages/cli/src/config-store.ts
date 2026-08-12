@@ -95,10 +95,14 @@ export async function saveInstallProfile(profile: InstallProfile): Promise<void>
   });
 }
 
+export function isLocalWorkspaceServer(entry: ServerRegistryEntry): boolean {
+  return existsSync(path.join(repoRoot, "servers", entry.id, "package.json"));
+}
+
 export function resolveWorkspaceEntryFile(entry: ServerRegistryEntry): string {
-  const repoPath = path.join(repoRoot, "servers", entry.id, "dist", "index.js");
+  const repoPath = path.join(repoRoot, "servers", entry.id, "dist", "index.mjs");
   try {
-    return existsSync(repoPath) ? repoPath : path.join(path.dirname(require.resolve(`${entry.packageName}/package.json`)), "dist", "index.js");
+    return existsSync(repoPath) ? repoPath : path.join(path.dirname(require.resolve(`${entry.packageName}/package.json`)), "dist", "index.mjs");
   } catch {
     return repoPath;
   }

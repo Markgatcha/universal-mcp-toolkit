@@ -86,6 +86,17 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 - Strong package hygiene with exports maps, keywords, build scripts, and test hooks
 - A repo designed to be both a product and a reference implementation
 
+## Why this stands out
+
+| Feature | universal-mcp-toolkit | Single-service repos |
+| --- | --- | --- |
+| Tool discovery (`umt tools list`) | Discover all MCP tools across 27+ servers by name or category | Each repo only knows its own tools |
+| Server composition (`umt compose`) | Pipe one server's tool output into another | No cross-server integration |
+| Server discovery (`umt discover`) | Automatically find third-party MCP servers via well-known manifests | Not available |
+| Lazy plugin loading | Servers loaded on-demand, not bundled | Static imports only |
+| LLM provider bridge | `@universal-mcp-toolkit/bridge` connects any MCP server to OpenAI, Anthropic, Ollama | MCP-compatible providers only |
+| Caching + circuit breaker | Built into the bridge with TTL+LRU, auto-reconnect, health events | Manual error handling required |
+
 ## The short version
 
 | Category | What you get |
@@ -196,6 +207,7 @@ into your host config — the runtime is the same `npx -y @vynly/mcp` launch.)
 universal-mcp-toolkit/
 ├─ packages/
 │  ├─ core/
+│  ├─ bridge/
 │  └─ cli/
 ├─ docs/
 │  ├─ index.html
@@ -319,7 +331,8 @@ Check build output, config state, and required environment variables before you 
 | `umt profile create <name>` | Create a new named profile with interactive wizard |
 | `umt profile show [name]` | Show profile configuration details |
 | `umt profile export <name>` | Export a named profile to a JSON file |
-| `umt profile import <path>` | Import a profile from a JSON file |
+| `umt tools list` | Discover all MCP tools across servers, with `--server` and `--query` filtering |
+| `umt compose` | Pipe one server's tool output into another server's tool call |
 
 ## Configuration examples
 
@@ -412,7 +425,7 @@ curl http://localhost:3000/.well-known/mcp/server-card.json | jq .name
 
 It includes:
 
-- `ToolkitServer` base class
+- `ToolkitServer` base class with lazy tool registration via `registerLazyTool()`
 - `defineTool<TInput, TOutput>` helper
 - `loadEnv()` for strict configuration validation
 - `HttpServiceClient` for typed fetch-based integrations
@@ -453,7 +466,7 @@ corepack pnpm test
 ```sh
 bun install
 bun run build
-bun run packages/cli/dist/index.js --version
+bun run packages/cli/dist/index.mjs --version
 ```
 
 Use Turbo filters when you only want to work on one package:

@@ -50,6 +50,7 @@ import {
   deleteProfile,
   getGeneratedConfigPath,
   getStateFilePath,
+  isLocalWorkspaceServer,
   listProfiles,
   loadProfile,
   resolveWorkspaceEntryFile,
@@ -58,9 +59,13 @@ import {
   writeGeneratedConfig,
   type ExportedProfile,
 } from "./config-store.js";
-import { printSection, renderServerTable, renderStatusLabel } from "./output.js";
+import { printSection, renderServerTable, renderStatusLabel, renderToolTable } from "./output.js";
 import { checkForUpdate } from "./update-notifier.js";
-import { ConfigTarget, type InvocationMode, getRegistryEntry, SERVER_REGISTRY } from "./registry.js";
+import { ConfigTarget, type InvocationMode, type ServerRegistryEntry, getRegistryEntry, SERVER_REGISTRY } from "./registry.js";
+import { loadPlugin, checkPluginAvailability, getSpawnConfig, clearPluginCache, type PluginLoadMode } from "./plugin-loader.js";
+import { DEFAULT_MCP_REGISTRY_URL, fetchRegistryServers } from "./registry-discovery.js";
+import { executeWorkflow, parseWorkflowJson } from "./workflow.js";
+import { createWorkspaceBuildArgs } from "./workspace-build.js";
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
@@ -69,6 +74,17 @@ async function pathExists(targetPath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function buildWorkspacePackages(packageNames: readonly string[]): Promise<void> {
+  const args = createWorkspaceBuildArgs(packageNames);
+  if (args.length === 0) return;
+
+  await execFileAsync("pnpm", args, {
+    cwd: process.cwd(),
+    shell: IS_WINDOWS,
+    timeout: 120000,
+  });
 }
 
 async function promptForServers(): Promise<string[]> {
@@ -104,6 +120,45 @@ async function promptForTarget(): Promise<ConfigTarget> {
   ]);
 
   return answers.target;
+}
+
+/**
+ * Recursively walk a parsed JSON value and replace any string equal to
+ * "__PIPE__" with the piped source output. This is more robust than
+ * string-replace on JSON because it only replaces exact string matches,
+ * never partial substrings inside other strings.
+ */
+function substitutePipe(obj: unknown, pipeValue: string): unknown {
+  if (typeof obj === "string") {
+    return obj === "__PIPE__" ? pipeValue : obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map((item) => substitutePipe(item, pipeValue));
+  }
+  if (obj !== null && typeof obj === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
+      result[key] = substitutePipe(val, pipeValue);
+    }
+    return result;
+  }
+  return obj;
+}
+
+/**
+ * Resolve a ServerRegistryEntry into a BridgeServerConfig that the
+ * MCPFunctionCallingBridge can use to connect via stdio.
+ * For npx-based servers, we spawn \`npx -y <packageName> <npxArgs>\`.
+ */
+async function resolveBridgeConfig(entry: ServerRegistryEntry) {
+  // Companion packages may provide their complete npx invocation. Otherwise,
+  // use the standard package launch shape shared by first-party servers.
+  const args = entry.npxArgs ? [...entry.npxArgs] : ["-y", entry.packageName];
+  return {
+    transport: "stdio" as const,
+    commandOrUrl: "npx",
+    args,
+  };
 }
 
 async function promptForMode(): Promise<InvocationMode> {
@@ -167,17 +222,10 @@ async function runServer(serverId: string, transport: "sse" | "stdio" | "streama
   try {
     const entryFile = resolveWorkspaceEntryFile(entry);
     
-    // Auto-build: if the workspace dist output is missing, build it first
-    if (!(await pathExists(entryFile))) {
+    // Auto-build only the local workspace package when its output is missing.
+    if (!(await pathExists(entryFile)) && isLocalWorkspaceServer(entry)) {
       spinner.info(`Build output missing for ${entry.title}. Building...`);
-      const { execFile } = await import("node:child_process");
-      const { promisify } = await import("node:util");
-      const execFileAsync = promisify(execFile);
-      await execFileAsync("pnpm", ["build"], {
-        cwd: process.cwd(),
-        shell: IS_WINDOWS,
-        timeout: 120000,
-      });
+      await buildWorkspacePackages([entry.packageName]);
       spinner.succeed(`Built ${entry.title}`);
     }
     
@@ -306,13 +354,14 @@ async function runServer(serverId: string, transport: "sse" | "stdio" | "streama
  * variables for all (or a single) server. When `fix` is true, it attempts to
  * auto-heal common issues:
  *  - Writes missing env vars from `.env.example` as placeholders
- *  - Runs `pnpm build` when workspace `dist/` output is missing
+ *  - Builds missing local workspace packages when their `dist/` output is missing
  *
  * @param serverId - Optional server ID to scope checks to one server
  * @param fix - When true, attempt to auto-heal issues instead of just reporting
  */
 async function runDoctor(serverId?: string, fix?: boolean): Promise<void> {
   const entries = serverId ? [getRegistryEntry(serverId)] : SERVER_REGISTRY;
+  const missingLocalEntries: ServerRegistryEntry[] = [];
 
   printSection("Environment");
   console.log(`Node version: ${chalk.bold(process.version)}`);
@@ -332,24 +381,9 @@ async function runDoctor(serverId?: string, fix?: boolean): Promise<void> {
       }`,
     );
 
-    // Auto-heal: build missing workspace dist output
-    if (fix && !distExists) {
-      const spinner = ora(`Building ${entry.title}...`).start();
-      try {
-        const { execFile } = await import("node:child_process");
-        const { promisify } = await import("node:util");
-        const execFileAsync = promisify(execFile);
-        await execFileAsync("pnpm", ["build"], {
-          cwd: process.cwd(),
-          shell: IS_WINDOWS,
-          timeout: 120000,
-        });
-        spinner.succeed(`Built ${entry.title}`);
-      } catch (error) {
-        spinner.fail(`Failed to build ${entry.title}`);
-        const message = error instanceof Error ? error.message : "Unknown error";
-        console.error(chalk.red(message));
-      }
+    // Collect missing local packages so doctor can build them in one targeted command.
+    if (fix && !distExists && isLocalWorkspaceServer(entry)) {
+      missingLocalEntries.push(entry);
     }
 
     // Auto-heal: write missing env vars from .env.example
@@ -376,6 +410,19 @@ async function runDoctor(serverId?: string, fix?: boolean): Promise<void> {
         await writeFile(envPath, merged, "utf8");
         console.log(chalk.green(`  Wrote ${missingEnv.length} missing env var(s) to .env.local`));
       }
+    }
+  }
+
+  if (fix && missingLocalEntries.length > 0) {
+    const titles = missingLocalEntries.map((entry) => entry.title).join(", ");
+    const spinner = ora(`Building ${titles}...`).start();
+    try {
+      await buildWorkspacePackages(missingLocalEntries.map((entry) => entry.packageName));
+      spinner.succeed(`Built ${titles}`);
+    } catch (error) {
+      spinner.fail(`Failed to build ${titles}`);
+      const message = error instanceof Error ? error.message : "Unknown error";
+      console.error(chalk.red(message));
     }
   }
 }
@@ -855,6 +902,385 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
 
       console.log(renderServerTable(SERVER_REGISTRY));
     });
+
+  // --- `umt tools` subcommand group -----------------------------------------
+
+  const toolsCmd = program
+    .command("tools")
+    .description("Discover and inspect MCP tools exposed by servers in the toolkit.");
+
+  toolsCmd
+    .command("list")
+    .description("List all tools exposed by one or more servers, with optional filtering.")
+    .option("-s, --server <serverIds...>", "Filter to specific server IDs.")
+    .option("-q, --query <query>", "Filter tools by name or description (case-insensitive substring).")
+    .option("--json", "Print the tool listing as JSON instead of a table.")
+    .action(async (options: { server?: string[]; query?: string; json?: boolean }) => {
+      // Start with the full registry, optionally filtered by server IDs.
+      let filtered = SERVER_REGISTRY;
+      if (options.server?.length) {
+        filtered = SERVER_REGISTRY.filter((e) => options.server!.includes(e.id));
+      }
+
+      // Build a flat list of { serverId, toolName, title?, description? } rows.
+      // Only servers that declare toolNames contribute rows; servers with an
+      // empty toolNames array (e.g. remote MCP servers) are skipped here
+      // because we can't know their tools without connecting.
+      const rows: Array<{ serverId: string; toolName: string; title?: string; description?: string }> = [];
+      for (const entry of filtered) {
+        for (const toolName of entry.toolNames) {
+          rows.push({ serverId: entry.id, toolName });
+        }
+      }
+
+      // Apply the query filter (case-insensitive substring on tool name).
+      if (options.query) {
+        const lower = options.query.toLowerCase();
+        // Only filter if there are rows to filter
+        const queryRows = rows.filter((r) => r.toolName.toLowerCase().includes(lower));
+        if (queryRows.length > 0) {
+          // Replace rows with filtered set
+          rows.length = 0;
+          rows.push(...queryRows);
+        }
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(rows, null, 2));
+        return;
+      }
+
+      if (rows.length === 0) {
+        console.log(chalk.yellow("No tools found matching the given criteria."));
+        return;
+      }
+
+      console.log(`Found ${chalk.bold(rows.length)} tool(s) across ${filtered.length} server(s).\n`);
+      console.log(renderToolTable(rows));
+    });
+
+  // --- `umt workflow` — validate and run deterministic workflows ------------
+
+  const workflowCmd = program
+    .command("workflow")
+    .description("Validate and run sequential JSON MCP workflows.");
+
+  workflowCmd
+    .command("validate")
+    .description("Validate a workflow JSON file without running it.")
+    .argument("<file>", "Path to the workflow JSON file.")
+    .action(async (file: string) => {
+      const workflowPath = path.resolve(file);
+      let source: string;
+      try {
+        source = await readFile(workflowPath, "utf8");
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(`Unable to read workflow file '${workflowPath}': ${detail}`);
+      }
+
+      const workflow = parseWorkflowJson(source, workflowPath);
+      console.log(chalk.green(`Valid workflow '${workflow.name}' (${workflow.steps.length} step(s)).`));
+    });
+
+  workflowCmd
+    .command("run")
+    .description("Run a validated workflow sequentially.")
+    .argument("<file>", "Path to the workflow JSON file.")
+    .option("--input <json>", "Workflow input values as a JSON object.", "{}")
+    .action(async (file: string, options: { input: string }) => {
+      const workflowPath = path.resolve(file);
+      let source: string;
+      try {
+        source = await readFile(workflowPath, "utf8");
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(`Unable to read workflow file '${workflowPath}': ${detail}`);
+      }
+
+      const workflow = parseWorkflowJson(source, workflowPath);
+      let inputs: unknown;
+      try {
+        inputs = JSON.parse(options.input) as unknown;
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(`--input must be valid JSON: ${detail}`);
+      }
+      if (inputs === null || typeof inputs !== "object" || Array.isArray(inputs)) {
+        throw new Error("--input must be a JSON object.");
+      }
+
+      const { MCPFunctionCallingBridge } = await import("@universal-mcp-toolkit/bridge");
+      const result = await executeWorkflow(workflow, inputs as Record<string, unknown>, {
+        createBridge: async (serverId) => {
+          const entry = getRegistryEntry(serverId);
+          const config = await resolveBridgeConfig(entry);
+          return new MCPFunctionCallingBridge(config);
+        },
+      });
+      console.log(JSON.stringify(result, null, 2));
+    });
+
+  // --- `umt compose` — pipe tool outputs between MCP servers -----------------
+
+  program
+    .command("compose")
+    .description(
+      "Call a tool on one MCP server and pipe its output into a tool on another " +
+      "server. Specify as: --from <server1:tool1> --to <server2:tool2> --args '{\"param\": \"value\"}'.",
+    )
+    .option("-f, --from <spec>", "Source tool as 'serverId:toolName'.", (v: string) => v)
+    .option("-t, --to <spec>", "Destination tool as 'serverId:toolName'.", (v: string) => v)
+    .option("-a, --args <json>", "JSON arguments for the source tool.", (v: string) => v)
+    .option("--from-args <json>", "JSON arguments specifically for the source tool.")
+    .option("--to-args <json>", "JSON arguments for the destination tool. Use \"__PIPE__\" to receive the source output.")
+    .action(async (options: {
+      from?: string;
+      to?: string;
+      args?: string;
+      fromArgs?: string;
+      toArgs?: string;
+    }) => {
+      if (!options.from || !options.to) {
+        console.error(chalk.red("Both --from and --to are required."));
+        console.log(chalk.gray("  Example:"));
+        console.log(chalk.gray("    umt compose \\"));
+        console.log(chalk.gray("      --from github:search_repositories --args '{\"query\":\"mcp\"}' \\"));
+        console.log(chalk.gray("      --to notion:get_page --to-args '{\"page_id\":\"__PIPE__\"}'"));
+        process.exit(1);
+      }
+
+      // Parse "serverId:toolName" specs.
+      const [fromServerId, fromTool] = options.from.split(":");
+      const [toServerId, toTool] = options.to.split(":");
+
+      if (!fromServerId || !fromTool || !toServerId || !toTool) {
+        console.error(chalk.red("Invalid format. Use 'serverId:toolName' (e.g. github:search_repositories)."));
+        process.exit(1);
+      }
+
+      // Gather configs for both servers.
+      const fromEntry = getRegistryEntry(fromServerId);
+      const toEntry = getRegistryEntry(toServerId);
+
+      const { MCPFunctionCallingBridge } = await import("@universal-mcp-toolkit/bridge");
+
+      // Build configs from the registry entries.
+      const fromConfig = await resolveBridgeConfig(fromEntry);
+      const toConfig = await resolveBridgeConfig(toEntry);
+
+      // Connect to the source server.
+      const fromBridge = new MCPFunctionCallingBridge(fromConfig);
+      await fromBridge.connect();
+
+      const fromArgs = options.fromArgs ? JSON.parse(options.fromArgs) :
+                       options.args ? JSON.parse(options.args) : {};
+
+      console.log(chalk.cyan(`→ Calling ${fromServerId}:${fromTool} ...`));
+      const fromResult = await fromBridge.callTool(fromTool, fromArgs);
+      await fromBridge.disconnect();
+
+      if (fromResult.error) {
+        console.error(chalk.red(`Source tool failed: ${fromResult.output}`));
+        process.exit(1);
+      }
+
+      console.log(chalk.green(`✓ Source returned ${fromResult.output.length} characters`));
+
+      // Connect to the destination server.
+      const toBridge = new MCPFunctionCallingBridge(toConfig);
+      await toBridge.connect();
+
+      // Parse the destination args, substituting __PIPE__ with the source output.
+      let toArgs: Record<string, unknown>;
+      if (options.toArgs) {
+        const raw = JSON.parse(options.toArgs) as Record<string, unknown>;
+        toArgs = substitutePipe(raw, fromResult.output) as Record<string, unknown>;
+      } else if (options.args) {
+        toArgs = JSON.parse(options.args);
+      } else {
+        toArgs = {};
+      }
+
+      console.log(chalk.cyan(`→ Calling ${toServerId}:${toTool} with piped input ...`));
+      const toResult = await toBridge.callTool(toTool, toArgs);
+      await toBridge.disconnect();
+
+      console.log(chalk.bold("\n=== Result ==="));
+      console.log(toResult.output);
+    });
+
+  // --- `umt discover` — scan for MCP servers with well-known manifests -----
+
+  program
+    .command("discover")
+    .description(
+      "Scan local node_modules and npx for MCP servers with well-known manifests " +
+      "(.well-known/mcp-server.json). Lists discovered servers not in the built-in registry. " +
+      "Use --remote + --url for direct HTTP discovery or --registry for an MCP Registry endpoint.",
+    )
+    .option("-d, --dir <path>", "Directory to scan for installed packages (default: current directory).")
+    .option("--json", "Print discovered servers as JSON.")
+    .option("--remote", "Discover remote MCP servers over HTTP by fetching .well-known/mcp-server.json from URLs.")
+    .option("--url <urls...>", "Comma-separated list of URLs to check for remote MCP server manifests (requires --remote).")
+    .option("--registry [url]", `Include MCP Registry entries (default: ${DEFAULT_MCP_REGISTRY_URL}).`)
+    .action(async (options: {
+      dir?: string;
+      json?: boolean;
+      remote?: boolean;
+      url?: string | string[];
+      registry?: boolean | string;
+    }) => {
+      // --- Local discovery (existing behavior) ---
+      const scanDir = path.resolve(options.dir ?? process.cwd());
+      const nodeModulesDir = path.join(scanDir, "node_modules");
+      const discovered: Array<{ name: string; path: string; manifest: any }> = [];
+
+      if (existsSync(nodeModulesDir)) {
+        try {
+          const packages = await readdir(nodeModulesDir);
+          for (const pkg of packages) {
+            if (pkg.startsWith("@")) {
+              const scopeDir = path.join(nodeModulesDir, pkg);
+              const scopedPkgs = await readdir(scopeDir).catch(() => []);
+              for (const subPkg of scopedPkgs) {
+                const pkgPath = path.join(scopeDir, subPkg);
+                await checkPackage(pkgPath, pkg, subPkg, discovered);
+              }
+              continue;
+            }
+            const pkgPath = path.join(nodeModulesDir, pkg);
+            await checkPackage(pkgPath, "", pkg, discovered);
+          }
+        } catch (error) {
+          console.error(chalk.red(`Error scanning for MCP servers: ${error instanceof Error ? error.message : error}`));
+          process.exit(1);
+        }
+      } else {
+        console.log(chalk.gray(`No node_modules found at ${nodeModulesDir}. Nothing to discover locally.`));
+      }
+
+      // --- Remote discovery (new behavior) ---
+      if (options.remote) {
+        const urls = options.url
+          ? (Array.isArray(options.url) ? options.url : [options.url])
+              .flatMap((value) => value.split(","))
+              .map((url) => url.trim())
+              .filter(Boolean)
+          : [];
+
+        if (urls.length === 0) {
+          console.log(chalk.yellow("--remote was set but no --url values provided. Skipping remote discovery."));
+        } else {
+          console.log(chalk.gray(`Checking ${urls.length} remote URL(s) for MCP server manifests...`));
+          for (const url of urls) {
+            const manifestUrl = url.replace(/\/+$/, "") + "/.well-known/mcp-server.json";
+            try {
+              const res = await fetch(manifestUrl, { signal: AbortSignal.timeout(10_000) });
+              if (res.ok) {
+                const manifest = await res.json();
+                const name = manifest.name ?? new URL(url).hostname;
+                // Mark remote discoveries distinctly so they can be merged
+                // with local results without confusion.
+                discovered.push({
+                  name: name,
+                  path: url,
+                  manifest: { ...manifest, _remote: url, _source: "remote" },
+                });
+                if (!options.json) {
+                  console.log(chalk.green(`  ✓ Found remote MCP server: ${name} (${url})`));
+                }
+              } else if (!options.json) {
+                console.log(chalk.gray(`  ✗ No manifest at ${manifestUrl} (HTTP ${res.status})`));
+              }
+            } catch (error) {
+              if (!options.json) {
+                console.log(chalk.gray(`  ✗ Failed to fetch ${manifestUrl}: ${error instanceof Error ? error.message : error}`));
+              }
+            }
+          }
+        }
+      }
+
+      // --- MCP Registry discovery ---
+      if (options.registry) {
+        const registryUrl = typeof options.registry === "string"
+          ? options.registry
+          : DEFAULT_MCP_REGISTRY_URL;
+        try {
+          const registryServers = await fetchRegistryServers(registryUrl);
+          for (const entry of registryServers) {
+            discovered.push({
+              name: entry.server.name,
+              path: registryUrl,
+              manifest: {
+                ...entry.server,
+                _meta: entry._meta,
+                _registry: registryUrl,
+                _source: "registry",
+              },
+            });
+          }
+          if (!options.json) {
+            console.log(chalk.green(`  ✓ Found ${registryServers.length} MCP Registry server entr${registryServers.length === 1 ? "y" : "ies"}.`));
+          }
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error);
+          console.error(chalk.yellow(`MCP Registry discovery failed: ${detail} Local and remote results are still available.`));
+        }
+      }
+
+      // --- Output ---
+      if (discovered.length === 0) {
+        console.log(chalk.yellow("No MCP servers with .well-known/mcp-server.json discovered."));
+        return;
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(discovered, null, 2));
+        return;
+      }
+
+      console.log(chalk.bold(`\nDiscovered ${discovered.length} MCP server(s):\n`));
+      for (const item of discovered) {
+        const source = item.manifest?._source;
+        const label = source === "remote"
+          ? `${chalk.cyan(item.name)} ${chalk.gray("(remote")}`
+          : source === "registry"
+            ? `${chalk.cyan(item.name)} ${chalk.gray("(registry")}`
+            : `${chalk.cyan(item.name)} ${chalk.gray("→")}`;
+        console.log(`${label} ${source === "remote" || source === "registry" ? `${item.path})` : item.path}`);
+        if (item.manifest?.description) {
+          console.log(`  ${chalk.gray(item.manifest.description)}`);
+        }
+        if (Array.isArray(item.manifest?.tools)) {
+          console.log(`  ${chalk.magenta("Tools:")} ${item.manifest.tools.map((t: any) => t.name).join(", ")}`);
+        }
+        console.log("");
+      }
+    });
+
+  /**
+   * Check a package directory for a .well-known/mcp-server.json manifest.
+   */
+  async function checkPackage(
+    pkgPath: string,
+    scope: string,
+    pkgName: string,
+    discovered: Array<{ name: string; path: string; manifest: any }>,
+  ): Promise<void> {
+    const manifestPath = path.join(pkgPath, ".well-known", "mcp-server.json");
+    if (await pathExists(manifestPath)) {
+      try {
+        const manifestContent = await readFile(manifestPath, "utf-8");
+        const manifest = JSON.parse(manifestContent);
+        const fullName = scope ? `${scope}/${pkgName}` : pkgName;
+        discovered.push({ name: fullName, path: pkgPath, manifest });
+      } catch {
+        // Malformed JSON — skip.
+      }
+    }
+  }
 
   program
     .command("config")
