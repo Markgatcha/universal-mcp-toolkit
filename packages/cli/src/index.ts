@@ -1174,7 +1174,12 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         } else {
           console.log(chalk.gray(`Checking ${urls.length} remote URL(s) for MCP server manifests...`));
           for (const url of urls) {
-            const manifestUrl = url.replace(/\/+$/, "") + "/.well-known/mcp-server.json";
+            // Strip trailing slashes without regex to avoid polynomial ReDoS (CodeQL alert #7)
+            let trimmedUrl = url;
+            while (trimmedUrl.endsWith("/")) {
+              trimmedUrl = trimmedUrl.slice(0, -1);
+            }
+            const manifestUrl = trimmedUrl + "/.well-known/mcp-server.json";
             try {
               const res = await fetch(manifestUrl, { signal: AbortSignal.timeout(10_000) });
               if (res.ok) {
