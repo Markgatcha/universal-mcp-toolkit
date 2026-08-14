@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Dependencies Updated
+
+- `turbo` 2.10.6 → 2.10.10 (latest)
+- `tsx` 4.23.1 → 4.23.12 (latest)
+- `@types/node` 26.1.1 → 26.2.0 (latest)
+- `@changesets/cli` 2.31.1 → 3.0.0 (major)
+- `@changesets/changelog-github` 0.7.0 → 1.0.0 (major)
+- `postcss` 8.5.23 → 8.5.26 (pinned override updated in `pnpm-workspace.yaml`)
+
+### CI
+
+- Bumped `actions/setup-node` from v6 to v7 in CI workflows.
+- `pnpm` version pinned to 11.20.0 in CI workflows.
+
 ### CI
 
 - **CI minute optimization** — dropped Node 20 from the TypeScript matrix (EOL Apr 2025), reducing the matrix from 9 to 6 jobs (3 OS × 2 Node versions). Added `.github/dependabot.yml` with pnpm/npm/github-actions ecosystems, weekly schedule, auto-rebase, and grouped PRs. Added `.github/workflows/codeql.yml` for javascript-typescript security analysis. Added lockfile verification step to `release.yml`.

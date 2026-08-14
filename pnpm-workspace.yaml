@@ -11,6 +11,13 @@ minimumReleaseAgeExclude:
   - tsdown@0.22.14
   - verkit@0.3.0
   - js-yaml@3.15.1 || 4.3.1
+  - '@turbo/darwin-64@2.10.10'
+  - '@turbo/darwin-arm64@2.10.10'
+  - '@turbo/linux-64@2.10.10'
+  - '@turbo/linux-arm64@2.10.10'
+  - '@turbo/windows-64@2.10.10'
+  - '@turbo/windows-arm64@2.10.10'
+  - turbo@2.10.10
 # Exact security pins for the active advisories live here in pnpm 11+.
 # The range-based overrides below cover nested/dev dependencies with no direct pin there.
 overrides:
@@ -33,7 +40,7 @@ overrides:
   ip-address: '10.4.0'
   js-yaml@<3.15.0: '3.15.1'
   js-yaml@>=4.0.0 <4.3.0: '4.3.1'
-  postcss: '8.5.23'
+  postcss: '8.5.26'
   protobufjs: '7.6.5'
   proxy-from-env: '2.1.0'
   qs: '6.15.2'
