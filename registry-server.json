@@ -5,7 +5,7 @@
     "server-card": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/schema/server-card.json"
   },
   "name": "io.github.markgatcha.universal-mcp-toolkit",
-  "description": "27 production-ready MCP (Model Context Protocol) servers — unified CLI for discovery, configuration, and runtime. Access GitHub, Slack, Notion, PostgreSQL, Docker, Playwright, and more through one aggregator runtime. Works with Claude Desktop, Cursor, Cline, and any MCP client.",
+  "description": "28 production-ready MCP (Model Context Protocol) servers — unified CLI for discovery, configuration, and runtime. Access GitHub, Slack, Notion, PostgreSQL, Docker, Playwright, and more through one aggregator runtime. Works with Claude Desktop, Cursor, Cline, and any MCP client.",
   "version": "1.6.28",
   "authors": [
     {

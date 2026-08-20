@@ -71,7 +71,7 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 
 `universal-mcp-toolkit` fixes that with one opinionated, high-quality Turborepo:
 
-- 27 production-focused MCP servers
+- 28 production-focused MCP servers
 - One shared strict-mode TypeScript core
 - One polished CLI for install, config, run, and diagnostics
 - Consistent Zod validation, structured errors, and pino logging
@@ -106,7 +106,7 @@ Experimental companion packages under the `@contextcore/*` scope currently inclu
 
 | Option | Breadth | DX quality | Shared architecture | Host config help | Documentation polish |
 | --- | --- | --- | --- | --- | --- |
-| `universal-mcp-toolkit` | 27 servers in one monorepo | High | Yes | Yes | High |
+| `universal-mcp-toolkit` | 28 servers in one monorepo | High | Yes | Yes | High |
 | Single-service MCP repos | Narrow | Varies | No | Rarely | Varies |
 | Personal one-off scripts | Very narrow | Low | No | No | Usually none |
 

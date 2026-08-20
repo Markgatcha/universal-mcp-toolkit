@@ -7,6 +7,9 @@
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 [![Available on CodeGuilds](https://img.shields.io/badge/Available_on-CodeGuilds-6366f1)](https://codeguilds.dev/packages/universal-mcp-toolkit)
 
+<p align="center">
+  <b>English</b> · <a href="translations/README.zh-CN.md">简体中文</a> · <a href="translations/README.es.md">Español</a> · <a href="translations/README.ja.md">日本語</a> · <a href="translations/README.ko.md">한국어</a> · <a href="translations/README.fr.md">Français</a> · <a href="translations/README.de.md">Deutsch</a> · <a href="translations/README.pt-BR.md">Português</a> · <a href="translations/README.ru.md">Русский</a> · <a href="translations/README.hi.md">हिन्दी</a> · <a href="translations/README.ar.md">العربية</a>
+</p>
 
 The canonical open-source monorepo for production-ready Model Context Protocol servers.
 
@@ -74,7 +77,7 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 
 `universal-mcp-toolkit` fixes that with one opinionated, high-quality Turborepo:
 
-- 27 production-focused MCP servers
+- 28 production-focused MCP servers
 - One shared strict-mode TypeScript core
 - One polished CLI for install, config, run, and diagnostics
 - Consistent Zod validation, structured errors, and pino logging
@@ -122,7 +125,7 @@ Experimental companion packages under the `@contextcore/*` scope currently inclu
 
 | Option | Breadth | DX quality | Shared architecture | Host config help | Documentation polish | Tool discovery | Server composition | Caching | Lazy loading | Remote MCP discovery | Resilient transport | Token budgeting |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `universal-mcp-toolkit` | 27 servers in one monorepo | High | Yes | Yes | Yes | ✅ `umt tools list` | ✅ `umt compose` | ✅ TTL+LRU | ✅ `registerLazyTool` | ✅ `umt discover --remote` | ✅ Auto-reconnect + circuit breaker | ✅ `TokenBudgetManager` |
+| `universal-mcp-toolkit` | 28 servers in one monorepo | High | Yes | Yes | Yes | ✅ `umt tools list` | ✅ `umt compose` | ✅ TTL+LRU | ✅ `registerLazyTool` | ✅ `umt discover --remote` | ✅ Auto-reconnect + circuit breaker | ✅ `TokenBudgetManager` |
 | Single-service MCP repos | Narrow | Varies | No | Rarely | Usually none | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Personal one-off scripts | Very narrow | Low | No | No | No | Usually none | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
@@ -583,6 +586,26 @@ You might get featured here.
 ## 📦 Show & Tell
 
 If you've created a custom server, workflow, or integration using this toolkit as a base, open a PR to add it to the [Wiki](https://github.com/Markgatcha/universal-mcp-toolkit/wiki) or start a [Discussion](https://github.com/Markgatcha/universal-mcp-toolkit/discussions/new?category=show-and-tell). The best examples will be highlighted in the README.
+
+---
+
+## 🌐 Community
+
+- **Website:** [context-core.dev/umt](https://context-core.dev/umt/)
+- **Discord:** [discord.gg/DyQGgPuueu](https://discord.gg/DyQGgPuueu) — real-time help and release chatter
+- **Twitter/X:** [@Context_Core](https://x.com/Context_Core)
+
+---
+
+## ⭐ Star history
+
+If UMT saves you from stitching together a dozen half-finished MCP repos, consider the star — it keeps the project visible.
+
+<p align="center">
+  <a href="https://star-history.com/#Markgatcha/universal-mcp-toolkit&Date">
+    <img src="https://api.star-history.com/svg?repos=Markgatcha/universal-mcp-toolkit&type=Date" alt="Star History Chart" width="640" />
+  </a>
+</p>
 
 ---
 

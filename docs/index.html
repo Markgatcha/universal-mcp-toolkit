@@ -4,14 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Universal MCP Toolkit | Production-Ready MCP Servers</title>
-    <meta name="description" content="27 production-ready MCP servers in one monorepo. Supports stdio, SSE, and MCP 2026-07-28 streamable HTTP transport.">
+    <meta name="description" content="28 production-ready MCP servers in one monorepo. Supports stdio, SSE, and MCP 2026-07-28 streamable HTTP transport.">
     <meta name="keywords" content="MCP, Model Context Protocol, AI agents, TypeScript, monorepo, Claude, Cursor, GitHub, Slack, Notion, PostgreSQL">
     <meta property="og:title" content="Universal MCP Toolkit">
-    <meta property="og:description" content="27 production-ready MCP servers in one monorepo. Supports stdio, SSE, and MCP 2026-07-28 streamable HTTP transport.">
+    <meta property="og:description" content="28 production-ready MCP servers in one monorepo. Supports stdio, SSE, and MCP 2026-07-28 streamable HTTP transport.">
     <meta property="og:image" content="https://markgatcha.github.io/universal-mcp-toolkit/og-image.png">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        // Apply saved theme before first paint to avoid a flash of the wrong theme.
+        (function () {
+            try {
+                var saved = localStorage.getItem("umt-theme");
+                var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+                if (saved === "dark" || (!saved && prefersDark)) {
+                    document.documentElement.setAttribute("data-theme", "dark");
+                }
+            } catch (e) { /* storage unavailable — stay light */ }
+        })();
+    </script>
     <style>
         :root {
             --black: #171717;
@@ -33,6 +45,49 @@
             --shadow-ring-light: rgb(235, 235, 235) 0px 0px 0px 1px;
             --shadow-card: rgba(0, 0, 0, 0.08) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 2px 2px, #fafafa 0px 0px 0px 1px;
         }
+
+        /* ===== DARK THEME ===== */
+        [data-theme="dark"] {
+            --black: #fafafa;
+            --white: #0a0a0a;
+            --gray-900: #ededed;
+            --gray-600: #b4b4b4;
+            --gray-500: #9a9a9a;
+            --gray-400: #7a7a7a;
+            --gray-100: #1f1f1f;
+            --gray-50: #111111;
+            --border: rgba(255, 255, 255, 0.1);
+            --border-light: rgb(31, 31, 31);
+            --link: #4da3ff;
+            --shadow-ring: rgba(255, 255, 255, 0.1) 0px 0px 0px 1px;
+            --shadow-ring-light: rgb(31, 31, 31) 0px 0px 0px 1px;
+            --shadow-card: rgba(255, 255, 255, 0.08) 0px 0px 0px 1px, rgba(0, 0, 0, 0.4) 0px 2px 2px, #0a0a0a 0px 0px 0px 1px;
+        }
+
+        [data-theme="dark"] body::before {
+            background: radial-gradient(circle at 20% 50%, rgba(77, 163, 255, 0.04) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(114, 172, 255, 0.03) 0%, transparent 50%);
+        }
+
+        /* Theme toggle button */
+        .theme-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--gray-600);
+            cursor: pointer;
+            font-size: 16px;
+            transition: border-color 0.15s ease, color 0.15s ease;
+        }
+        .theme-toggle:hover { border-color: var(--gray-400); color: var(--gray-900); }
+        [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+        .theme-toggle .icon-sun { display: none; }
+        [data-theme="dark"] .theme-toggle .icon-sun { display: inline; }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -493,6 +548,10 @@
                     <a href="./getting-started.html">Docs</a>
                 </div>
                 <div class="nav-cta">
+                    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+                        <span class="icon-moon">🌙</span>
+                        <span class="icon-sun">☀️</span>
+                    </button>
                     <a href="https://github.com/Markgatcha/universal-mcp-toolkit" class="btn btn-ghost">GitHub</a>
                     <a href="https://www.npmjs.com/package/universal-mcp-toolkit" class="btn btn-primary">npm</a>
                 </div>
@@ -501,13 +560,13 @@
 
         <section class="hero">
             <h1>Production-Ready MCP Servers</h1>
-            <p>27 servers in one monorepo. Supports stdio, SSE, and MCP 2026-07-28 streamable HTTP transport for serverless deployment.</p>
+            <p>28 servers in one monorepo. Supports stdio, SSE, and MCP 2026-07-28 streamable HTTP transport for serverless deployment.</p>
             <div class="hero-cta">
                 <a href="https://github.com/Markgatcha/universal-mcp-toolkit" class="btn btn-primary">View on GitHub →</a>
                 <a href="./getting-started.html" class="btn btn-ghost">Getting Started →</a>
             </div>
             <div class="hero-badges">
-                <span class="badge">27 Servers</span>
+                <span class="badge">28 Servers</span>
                 <span class="badge">MCP 2026-07-28</span>
                 <span class="badge">TypeScript</span>
                 <span class="badge">MIT License</span>
@@ -519,7 +578,7 @@
         <section class="section" style="padding-top: 0; border-top: none;">
             <div class="stats">
                 <div class="stat">
-                    <div class="stat-number">27</div>
+                    <div class="stat-number">28</div>
                     <div class="stat-label">Active Servers</div>
                 </div>
                 <div class="stat">
@@ -561,8 +620,8 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</pr
             <div class="features">
                 <div class="feature">
                     <span class="feature-icon">🚀</span>
-                    <h3>27 Production Servers</h3>
-                    <p>GitHub, Slack, Notion, PostgreSQL, MongoDB, and 35 more — all in one monorepo</p>
+                    <h3>28 Production Servers</h3>
+                    <p>GitHub, Slack, Notion, PostgreSQL, MongoDB, and 23 more — all in one monorepo</p>
                 </div>
                 <div class="feature">
                     <span class="feature-icon">🔌</span>
@@ -601,7 +660,7 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</pr
             <div class="cards-grid">
                 <div class="card">
                     <h3><span class="card-icon">🔌</span> Universal MCP Toolkit</h3>
-                    <p>The toolkit you're on right now. 27 production-ready MCP servers covering GitHub, Slack, Notion, databases, cloud platforms, research sources, and local files.</p>
+                    <p>The toolkit you're on right now. 28 production-ready MCP servers covering GitHub, Slack, Notion, databases, cloud platforms, research sources, and local files.</p>
                     <a href="https://github.com/Markgatcha/universal-mcp-toolkit" class="card-link">Explore →</a>
                 </div>
                 <div class="card">
@@ -619,7 +678,7 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</pr
 
         <!-- Servers -->
         <section class="section" id="servers">
-            <h2 class="section-title center">📚 Supported Servers (27)</h2>
+            <h2 class="section-title center">📚 Supported Servers (28)</h2>
             <div class="server-categories">
                 <div>
                     <h3>Collaboration</h3>
@@ -733,6 +792,8 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</pr
                 <div class="footer-links">
                     <a href="https://github.com/Markgatcha/universal-mcp-toolkit">GitHub</a>
                     <a href="https://www.npmjs.com/package/universal-mcp-toolkit">npm</a>
+                    <a href="https://discord.gg/DyQGgPuueu">Discord</a>
+                    <a href="https://x.com/Context_Core">Twitter</a>
                     <a href="https://github.com/Markgatcha/universal-mcp-toolkit/issues">Issues</a>
                     <a href="https://github.com/Markgatcha/universal-mcp-toolkit/blob/main/CHANGELOG.md">Changelog</a>
                 </div>
@@ -740,5 +801,23 @@ npx universal-mcp-toolkit run github --transport streamable-http --port 3333</pr
             </div>
         </footer>
     </div>
+    <script>
+        // Dark mode toggle — persists to localStorage, respects OS preference on first visit.
+        (function () {
+            var btn = document.getElementById("theme-toggle");
+            if (!btn) return;
+            btn.addEventListener("click", function () {
+                var root = document.documentElement;
+                var isDark = root.getAttribute("data-theme") === "dark";
+                if (isDark) {
+                    root.removeAttribute("data-theme");
+                    try { localStorage.setItem("umt-theme", "light"); } catch (e) {}
+                } else {
+                    root.setAttribute("data-theme", "dark");
+                    try { localStorage.setItem("umt-theme", "dark"); } catch (e) {}
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

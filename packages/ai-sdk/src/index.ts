@@ -2,7 +2,7 @@
  * @universal-mcp-toolkit/ai-sdk — Connect UMT's MCP servers to the Vercel AI SDK.
  *
  * This package provides a single `umtTools()` function that returns
- * AI SDK-compatible tool objects, so you can use any of UMT's 27 MCP servers
+ * AI SDK-compatible tool objects, so you can use any of UMT's 28 MCP servers
  * with `streamText()`, `generateText()`, and the AI SDK agent APIs —
  * zero boilerplate, zero provider lock-in.
  *

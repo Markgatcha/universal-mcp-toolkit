@@ -1,7 +1,7 @@
 {
   "name": "@universal-mcp-toolkit/ai-sdk",
   "version": "1.0.0",
-  "description": "Use 27 MCP servers from universal-mcp-toolkit with the Vercel AI SDK — streamText, generateText, and agent workflows in one line.",
+  "description": "Use 28 MCP servers from universal-mcp-toolkit with the Vercel AI SDK — streamText, generateText, and agent workflows in one line.",
   "type": "module",
   "main": "dist/index.mjs",
   "module": "dist/index.mjs",
