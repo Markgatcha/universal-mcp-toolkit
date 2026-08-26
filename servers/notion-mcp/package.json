@@ -43,7 +43,7 @@
     "wiki"
   ],
   "dependencies": {
-    "@notionhq/client": "^5.23.2",
+    "@notionhq/client": "^5.26.0",
     "@universal-mcp-toolkit/core": "workspace:*",
     "zod": "4.4.3"
   },

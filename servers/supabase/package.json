@@ -43,7 +43,7 @@
     "storage"
   ],
   "dependencies": {
-    "@supabase/supabase-js": "^2.110.8",
+    "@supabase/supabase-js": "^2.112.4",
     "@universal-mcp-toolkit/core": "workspace:*",
     "zod": "4.4.3"
   },
