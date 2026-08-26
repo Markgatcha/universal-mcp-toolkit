@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Build System
+
+- **pnpm upgraded from 11.20.0 to 12.0.0** — pnpm 12 is the Rust-rewrite release (faster installs, canonical cycle-breaking for deterministic lockfiles, strict `pnpm-workspace.yaml` validation). Updated the `packageManager` field and `engines.pnpm` in `package.json`, and the `Dockerfile` global install from `pnpm@11.20.0` to `pnpm@12.0.0`. CI workflows use corepack and follow the `packageManager` pin automatically. `pnpm-lock.yaml` gained the new `packageManagerDependencies` section recording the pnpm pin; the existing `lockfileVersion: '9.0'` format is unchanged and frozen installs pass.
+- **`scripts/run-turbo.mjs` hardened** — the turbo wrapper now probes for a working `pnpm` on PATH before generating a fallback shim (corepack when available, `npx -y pnpm@<pinned>` as a last resort). Previously it unconditionally prepended a `corepack pnpm` shim that broke every root script on machines without corepack, and on Windows + npm 12 the npx fallback shadowed a working standalone pnpm.
+
 ### Dependencies Updated
 
 - `turbo` 2.10.6 → 2.10.10 (latest)
