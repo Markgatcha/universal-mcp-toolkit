@@ -21,7 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - `pg` 8.22.0 → 8.23.0, `redis` 6.1.0 → 6.2.1, `stripe` 22.3.2 → 22.5.0, `@supabase/supabase-js` 2.110.8 → 2.112.4
   - `fast-xml-parser` 5.10.1 → 5.11.0, `inquirer` 14.0.2 → 14.1.0
   - Root devDeps: `@changesets/cli` 3.0.0 → 3.0.1, `@types/node` 26.2.0 → 26.3.0, `turbo` 2.10.10 → 2.10.12, `vitest` 4.1.10 → 4.1.11
-- **Security override pins refreshed** in `pnpm-workspace.yaml` (patch/minor only): `axios` 1.18.1 → 1.20.0, `hono` 4.13.0 → 4.13.5, `@hono/node-server` 2.0.11 → 2.1.1, `esbuild` 0.28.1 → 0.28.2, `fast-uri` 4.1.2 → 4.1.3, `ip-address` 10.4.0 → 10.5.0, `qs` 6.15.2 → 6.15.3, `ws` 8.21.0 → 8.21.3, plus the `turbo`/`@turbo/*` release-age excludes bumped to 2.10.12. Major-crossing transitive pins (`protobufjs` 7, `uuid` 11, `nanoid` 3, `vite` 7) were intentionally left as-is to avoid breaking dependents.
+- **Security override pins refreshed** in `pnpm-workspace.yaml` (patch/minor only): `axios` 1.18.1 → 1.20.0, `hono` 4.13.0 → 4.13.5, `@hono/node-server` 2.0.11 → 2.1.1, `esbuild` 0.28.1 → 0.28.2, `fast-uri` 4.1.2 → 4.1.3, `ip-address` 10.4.0 → 10.5.0, `qs` 6.15.2 → 6.15.3, `ws` 8.21.0 → 8.21.3, plus the `turbo`/`@turbo/*` release-age excludes bumped to 2.10.12.
+- **`vite` override bumped 7.3.5 → 8.2.2 (major)** — safe because its only consumer is `vitest` 4.1.11, which declares `vite: ^6 || ^7 || ^8`. **`protobufjs` override bumped 7.6.5 → 7.6.6** — the latest 7.x; 8.x was intentionally NOT taken because every dependent (`dockerode`, `@grpc/proto-loader` 0.7/0.8) declares `^7.x` ranges, and forcing 8.x would install a version outside what those packages test against. Major-crossing transitive pins `uuid` 11 and `nanoid` 3 remain as-is for the same reason.
 - Full gate verified green after the update: build 35/35, typecheck 35/35, tests 37/37.
 
 - `turbo` 2.10.6 → 2.10.10 (latest)
