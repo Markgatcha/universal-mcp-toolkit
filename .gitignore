@@ -10,3 +10,4 @@ coverage
 # Local-only tooling/config that may contain secrets or machine-specific state
 .private/
 .antigravitycli/
+.hermes/
