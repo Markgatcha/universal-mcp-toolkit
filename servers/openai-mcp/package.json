@@ -44,7 +44,7 @@
   ],
   "dependencies": {
     "@universal-mcp-toolkit/core": "workspace:*",
-    "openai": "^7.5.0",
+    "openai": "^7.8.0",
     "zod": "4.4.3"
   },
   "publishConfig": {

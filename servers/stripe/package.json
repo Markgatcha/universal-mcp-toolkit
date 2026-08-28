@@ -44,7 +44,7 @@
   ],
   "dependencies": {
     "@universal-mcp-toolkit/core": "workspace:*",
-    "stripe": "^22.5.0",
+    "stripe": "^22.6.0",
     "zod": "4.4.3"
   },
   "publishConfig": {

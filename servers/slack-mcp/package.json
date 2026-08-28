@@ -42,7 +42,7 @@
     "messaging"
   ],
   "dependencies": {
-    "@slack/web-api": "^8.0.0",
+    "@slack/web-api": "^8.1.1",
     "@universal-mcp-toolkit/core": "workspace:*",
     "zod": "4.4.3"
   },

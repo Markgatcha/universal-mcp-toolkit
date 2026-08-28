@@ -20,6 +20,10 @@ minimumReleaseAgeExclude:
   - turbo@2.10.12
   - hono@4.13.5
   - protobufjs@7.6.6
+  - '@slack/types@3.1.0'
+  - '@slack/web-api@8.1.1'
+  - openai@7.8.0
+  - stripe@22.6.0
 # Exact security pins for the active advisories live here in pnpm 11+.
 # The range-based overrides below cover nested/dev dependencies with no direct pin there.
 overrides:

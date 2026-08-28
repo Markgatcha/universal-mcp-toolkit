@@ -158,7 +158,7 @@ importers:
         specifier: ^26.3.0
         version: 26.3.0
       oxlint:
-        specifier: ^1.78.0
+        specifier: ^1.80.0
         version: 1.80.0
       postcss:
         specifier: 8.5.26
@@ -466,8 +466,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       openai:
-        specifier: ^7.5.0
-        version: 7.5.0(zod@4.4.3)
+        specifier: ^7.8.0
+        version: 7.8.0(undici@7.29.0)(zod@4.4.3)
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -520,8 +520,8 @@ importers:
   servers/slack-mcp:
     dependencies:
       '@slack/web-api':
-        specifier: ^8.0.0
-        version: 8.0.0
+        specifier: ^8.1.1
+        version: 8.1.1
       '@universal-mcp-toolkit/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -544,8 +544,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       stripe:
-        specifier: ^22.5.0
-        version: 22.5.0(@types/node@26.3.0)
+        specifier: ^22.6.0
+        version: 22.6.0(@types/node@26.3.0)
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -1472,12 +1472,12 @@ packages:
     resolution: {integrity: sha512-VGXhmmgsAo9shdQYh4tFDndd+7nsgp0Y5h0UPDaUp8K359pBasI6YdkMqFW3mCOxLQkq09qj7o7cq6f3DuXcJQ==}
     engines: {node: '>= 20', npm: '>=9.6.4'}
 
-  '@slack/types@3.0.0':
-    resolution: {integrity: sha512-KNOqpnNAlsFt5Jk9XBclslQ0lobRIg/0tnhpmvZJAglHJx9E8oceN8hC3gaBzkR6UzQ9Wzq4rLsJ98wUcxWPfw==}
+  '@slack/types@3.1.0':
+    resolution: {integrity: sha512-bTzqrO3lxJ5iWedo1eJKNAs1koyEhaTwKLJUkD3KETnPeQvD978AAE4jvWstUws8Gbbc4JR6iYE6F7XjE8UGmw==}
     engines: {node: '>= 20', npm: '>=9.6.4'}
 
-  '@slack/web-api@8.0.0':
-    resolution: {integrity: sha512-ORx3XQryQPq2Jnxv5giSKXVoQRUeylrrymIR2S9fPzLjPcCts8RayMeBSZMcpfpAqp6fnBRuPW2UB6dUPUTEZA==}
+  '@slack/web-api@8.1.1':
+    resolution: {integrity: sha512-am/z/LLbEC7gNQp6FpaGT0l4XnWqcXetpwdgZHzS7Nbb96q9R9QwWA3lo0ZXGuAHDkct0MvFnouzuc2Y4XNmow==}
     engines: {node: '>= 20', npm: '>=9.6.4'}
 
   '@standard-schema/spec@1.1.0':
@@ -1592,6 +1592,9 @@ packages:
 
   '@types/retry@0.12.0':
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
+
+  '@types/retry@0.12.5':
+    resolution: {integrity: sha512-3xSjTp3v03X/lSQLkczaN9UIEwJMoMCA1+Nb5HfbJEQWogdeQIyVtTvxPXDQjZ5zws8rFQfVfRdz03ARihPJgw==}
 
   '@types/send@1.2.1':
     resolution: {integrity: sha512-arsCikDvlU99zl1g69TcAB3mzZPpxgw0UQnaHeC1Nwb015xp8bknZv5rIfri9xTOcMuaVgvabfIRA7PSZVuZIQ==}
@@ -2626,13 +2629,14 @@ packages:
     resolution: {integrity: sha512-VXJjc87FScF88uafS3JllDgvAm+c/Slfz06lorj2uAY34rlUu0Nt+v8wreiImcrgAjjIHp1rXpTDlLOGw29WwQ==}
     engines: {node: '>=18'}
 
-  openai@7.5.0:
-    resolution: {integrity: sha512-ZbDBz8FSB8Mv8fFYIUvzTFMdV5vl93/octp1MdtK2lfYepSpfv/ewmeugpKz/cwGtFSx+YuUM4NwpZ2P55YiPA==}
+  openai@7.8.0:
+    resolution: {integrity: sha512-/2g9JzdnXNcjX1W/UlSNu+OdSFDAaAVt0n9Onom0kPenH54o59G2WrX/xjTnr26UHNSh6hxcAf58doGYRme2rw==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
       '@smithy/hash-node': '>=4.3.0 <5'
       '@smithy/signature-v4': '>=5.4.0 <6'
+      undici: '>=5 <9'
       ws: 8.21.3
       zod: 4.4.3
     peerDependenciesMeta:
@@ -2641,6 +2645,8 @@ packages:
       '@smithy/hash-node':
         optional: true
       '@smithy/signature-v4':
+        optional: true
+      undici:
         optional: true
       ws:
         optional: true
@@ -3018,8 +3024,8 @@ packages:
     resolution: {integrity: sha512-yDPMNjp4WyfYBkHnjIRLfca1i6KMyGCtsVgoKe/z1+6vukgaENdgGBZt+ZmKPc4gavvEZ5OgHfHdrazhgNyG7w==}
     engines: {node: '>=12'}
 
-  stripe@22.5.0:
-    resolution: {integrity: sha512-QVwMwriC0bbySx6R4dpsvJ0W//GojC1kwWVS6rPSoVqDUIZX4Hy3TaUrd2AZeXEAaKbfWIjQjvo3vKAReHZ0vQ==}
+  stripe@22.6.0:
+    resolution: {integrity: sha512-Ezk+WYEEwX2DLxFrKfb6coznlCMZvCaCYMNPXNHFSZkBIEzF5Hgm7RLb38q/0h9Ol5jsUJGJRorvhzAvckgfhw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@types/node': '>=18'
@@ -4062,14 +4068,14 @@ snapshots:
     dependencies:
       '@types/node': 26.3.0
 
-  '@slack/types@3.0.0': {}
+  '@slack/types@3.1.0': {}
 
-  '@slack/web-api@8.0.0':
+  '@slack/web-api@8.1.1':
     dependencies:
       '@slack/logger': 5.0.0
-      '@slack/types': 3.0.0
+      '@slack/types': 3.1.0
       '@types/node': 26.3.0
-      '@types/retry': 0.12.0
+      '@types/retry': 0.12.5
       eventemitter3: 5.0.4
       p-queue: 6.6.2
       p-retry: 4.6.2
@@ -4188,6 +4194,8 @@ snapshots:
   '@types/range-parser@1.2.7': {}
 
   '@types/retry@0.12.0': {}
+
+  '@types/retry@0.12.5': {}
 
   '@types/send@1.2.1':
     dependencies:
@@ -5034,8 +5042,9 @@ snapshots:
     dependencies:
       mimic-function: 5.0.1
 
-  openai@7.5.0(zod@4.4.3):
+  openai@7.8.0(undici@7.29.0)(zod@4.4.3):
     optionalDependencies:
+      undici: 7.29.0
       zod: 4.4.3
 
   ora@9.4.1:
@@ -5453,7 +5462,7 @@ snapshots:
     dependencies:
       ansi-regex: 6.3.0
 
-  stripe@22.5.0(@types/node@26.3.0):
+  stripe@22.6.0(@types/node@26.3.0):
     optionalDependencies:
       '@types/node': 26.3.0
 
@@ -5584,7 +5593,8 @@ snapshots:
 
   undici-types@8.3.0: {}
 
-  undici@7.29.0: {}
+  undici@7.29.0:
+    optional: true
 
   universal-github-app-jwt@2.2.2: {}
 
