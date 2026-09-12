@@ -5,7 +5,7 @@
   "type": "module",
   "description": "The canonical open-source monorepo for production-ready MCP servers.",
   "license": "MIT",
-  "packageManager": "pnpm@12.0.0",
+  "packageManager": "pnpm@12.4.1",
   "engines": {
     "node": ">=20.11.0",
     "pnpm": ">=12.0.0",
@@ -42,7 +42,8 @@
     "umt": "bunx umt",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "corepack pnpm build && corepack pnpm test && changeset publish"
+    "release": "corepack pnpm build && corepack pnpm test && changeset publish",
+    "check:plugin": "node scripts/check-plugin-version.mjs"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.0",
