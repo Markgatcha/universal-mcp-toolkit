@@ -59,5 +59,8 @@
     "turbo": "^2.10.12",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
   }
 }
