@@ -1,0 +1,35 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "umt-hackernews": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@universal-mcp-toolkit/server-hackernews@0.2.0",
+        "--transport",
+        "stdio"
+      ]
+    },
+    "umt-arxiv": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@universal-mcp-toolkit/server-arxiv@0.1.1",
+        "--transport",
+        "stdio"
+      ]
+    },
+    "umt-npm-registry": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@universal-mcp-toolkit/server-npm-registry@0.2.0",
+        "--transport",
+        "stdio"
+      ]
+    }
+  }
+}

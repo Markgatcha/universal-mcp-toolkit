@@ -1,0 +1,12 @@
+{
+  "name": "umt",
+  "displayName": "Universal MCP Toolkit",
+  "version": "1.6.27",
+  "description": "28 production-ready MCP servers for coding agents — filesystem, GitHub, npm, research, and more. Ships zero-config servers out of the box and the `umt` CLI to connect any harness.",
+  "keywords": ["mcp", "tools", "agents", "automation"],
+  "author": {
+    "name": "Markgatcha"
+  },
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit",
+  "license": "MIT"
+}

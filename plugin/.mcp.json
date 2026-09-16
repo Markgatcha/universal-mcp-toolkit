@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "umt-hackernews": {
+      "command": "npx",
+      "args": ["-y", "@universal-mcp-toolkit/server-hackernews", "--transport", "stdio"]
+    },
+    "umt-arxiv": {
+      "command": "npx",
+      "args": ["-y", "@universal-mcp-toolkit/server-arxiv", "--transport", "stdio"]
+    },
+    "umt-npm-registry": {
+      "command": "npx",
+      "args": ["-y", "@universal-mcp-toolkit/server-npm-registry", "--transport", "stdio"]
+    }
+  }
+}
