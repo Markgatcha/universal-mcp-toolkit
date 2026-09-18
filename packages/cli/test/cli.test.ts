@@ -15,14 +15,14 @@ describe("CLI registry", () => {
       mcpServers: {
         github: {
           command: "npx",
-          args: ["-y", "@universal-mcp-toolkit/server-github", "--transport", "stdio"],
+          args: ["-y", "@universal-mcp-toolkit/server-github@0.1.1", "--transport", "stdio"],
           env: {
             GITHUB_TOKEN: "${GITHUB_TOKEN}",
           },
         },
         filesystem: {
           command: "npx",
-          args: ["-y", "@universal-mcp-toolkit/server-filesystem", "--transport", "stdio"],
+          args: ["-y", "@universal-mcp-toolkit/server-filesystem@0.1.1", "--transport", "stdio"],
           env: {
             FILESYSTEM_ROOTS: "${FILESYSTEM_ROOTS}",
           },
@@ -40,14 +40,14 @@ describe("CLI registry", () => {
     expect(githubConfig?.args[0]?.replaceAll("\\", "/")).toContain("servers/github/dist/index.mjs");
   });
 
-  it("builds the MemOS MCP config with the SDK bin command", () => {
+  it("builds the MemOS MCP config with the pinned SDK bin command", () => {
     const generated = createGeneratedConfig([getRegistryEntry("memos")], "npx");
 
     expect(generated).toEqual({
       mcpServers: {
         memos: {
           command: "npx",
-          args: ["-y", "@mem-os/sdk", "mcp"],
+          args: ["-y", "@mem-os/sdk@1.6.26", "mcp"],
         },
       },
     });

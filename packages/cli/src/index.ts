@@ -54,6 +54,7 @@ import {
   isLocalWorkspaceServer,
   listProfiles,
   loadProfile,
+  resolvePinnedNpxPackage,
   resolveWorkspaceEntryFile,
   saveInstallProfile,
   saveNamedProfile,
@@ -149,12 +150,12 @@ function substitutePipe(obj: unknown, pipeValue: string): unknown {
 /**
  * Resolve a ServerRegistryEntry into a BridgeServerConfig that the
  * MCPFunctionCallingBridge can use to connect via stdio.
- * For npx-based servers, we spawn \`npx -y <packageName> <npxArgs>\`.
+ * For npx-based servers, we spawn \`npx -y <pinned package> <npxArgs>\`.
  */
-async function resolveBridgeConfig(entry: ServerRegistryEntry) {
+export async function resolveBridgeConfig(entry: ServerRegistryEntry) {
   // Companion packages may provide their complete npx invocation. Otherwise,
   // use the standard package launch shape shared by first-party servers.
-  const args = entry.npxArgs ? [...entry.npxArgs] : ["-y", entry.packageName];
+  const args = entry.npxArgs ? [...entry.npxArgs] : ["-y", resolvePinnedNpxPackage(entry)];
   return {
     transport: "stdio" as const,
     commandOrUrl: "npx",
@@ -1871,7 +1872,7 @@ async function runLinkMemos(dbPath?: string): Promise<void> {
     mcpServers: {
       memos: {
         command: "npx",
-        args: ["-y", "@mem-os/sdk", "mcp", "--db", pathToUse],
+        args: ["-y", resolvePinnedNpxPackage(getRegistryEntry("memos")), "mcp", "--db", pathToUse],
       },
     },
   };

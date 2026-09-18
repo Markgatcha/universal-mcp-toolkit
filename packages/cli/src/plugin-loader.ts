@@ -12,6 +12,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
+import { resolvePinnedNpxPackage } from "./config-store.js";
 import type { ServerRegistryEntry } from "./registry.js";
 
 /** Whether we're running on Windows (affects how npx is invoked). */
@@ -57,8 +58,8 @@ export async function loadPlugin(
   }
 
   const npxArgs = entry.npxArgs
-    ? [...entry.npxArgs, entry.packageName]
-    : ["-y", entry.packageName];
+    ? [...entry.npxArgs, resolvePinnedNpxPackage(entry)]
+    : ["-y", resolvePinnedNpxPackage(entry)];
 
   // Try to locate the package locally in node_modules.
   // This works for both workspace installs and global installs.
@@ -144,8 +145,8 @@ export function getSpawnConfig(entry: ServerRegistryEntry): {
   // On Windows, npx may need to be invoked as npx.cmd
   const command = IS_WINDOWS ? "npx" : "npx";
   const args = entry.npxArgs
-    ? [...entry.npxArgs, entry.packageName, "--transport", "stdio"]
-    : ["-y", entry.packageName, "--transport", "stdio"];
+    ? [...entry.npxArgs, resolvePinnedNpxPackage(entry), "--transport", "stdio"]
+    : ["-y", resolvePinnedNpxPackage(entry), "--transport", "stdio"];
 
   return { command, args };
 }

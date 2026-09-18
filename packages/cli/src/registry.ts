@@ -351,7 +351,7 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     category: "Memory",
     description: "Local-first persistent memory over MCP, backed by a MemOS SQLite database.",
     packageName: "@mem-os/sdk",
-    npxArgs: ["-y", "@mem-os/sdk", "mcp"],
+    npxArgs: ["-y", "@mem-os/sdk@1.6.26", "mcp"],
     envVarNames: [],
     transports: ["stdio"],
     toolNames: [],
@@ -365,6 +365,9 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     envVarNames: ["NOTION_API_KEY"],
     transports: ["stdio", "sse"],
     toolNames: [],
+    // Never published to npm (404, verified 2026-09-18): not installable, so
+    // it is exempt from the runtime npx pin map.
+    experimental: true,
   },
   {
     id: "playwright-mcp",
@@ -375,6 +378,9 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     envVarNames: [],
     transports: ["stdio", "sse"],
     toolNames: [],
+    // Never published to npm (404, verified 2026-09-18): not installable, so
+    // it is exempt from the runtime npx pin map.
+    experimental: true,
   },
   {
     id: "slack-mcp",
@@ -385,6 +391,9 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     envVarNames: ["SLACK_BOT_TOKEN"],
     transports: ["stdio", "sse"],
     toolNames: [],
+    // Never published to npm (404, verified 2026-09-18): not installable, so
+    // it is exempt from the runtime npx pin map.
+    experimental: true,
   },
   {
     id: "openai-mcp",
@@ -395,6 +404,9 @@ export const SERVER_REGISTRY: readonly ServerRegistryEntry[] = [
     envVarNames: ["OPENAI_API_KEY"],
     transports: ["stdio", "sse"],
     toolNames: [],
+    // Never published to npm (404, verified 2026-09-18): not installable, so
+    // it is exempt from the runtime npx pin map.
+    experimental: true,
   }
 ];
 export function getRegistryEntry(id: string): ServerRegistryEntry {

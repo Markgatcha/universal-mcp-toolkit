@@ -134,21 +134,56 @@ export function createPlaceholderEnv(entry: ServerRegistryEntry): Record<string,
  * First-party servers ship in the catalog's `plugin/mcp.json` pinned to exact
  * npm versions. The CLI's generated configs must resolve the same immutable
  * version (never a floating `latest`), so the per-server pin lives here.
- * Packages not listed fall back to the unpinned package name.
+ *
+ * Every installable (non-experimental) registry entry has a pin. The four
+ * experimental `@contextcore/*` entries are exempt: their packages were never
+ * published to npm (404, verified 2026-09-18), so there is no version to pin
+ * and they are never installed via npx. Third-party pins are snapshots
+ * verified against the npm registry on 2026-09-18.
  */
-const SERVER_NPM_VERSIONS: Readonly<Record<string, string>> = {
-  "umt-hackernews": "0.2.0",
-  "umt-arxiv": "0.1.1",
-  "umt-npm-registry": "0.2.0",
+export const SERVER_NPM_VERSIONS: Readonly<Record<string, string>> = {
+  // First-party — must match the catalog's plugin/mcp.json.
   hackernews: "0.2.0",
   arxiv: "0.1.1",
   "npm-registry": "0.2.0",
+  // First-party — npm-verified snapshots.
+  github: "0.1.1",
+  notion: "0.2.0",
+  slack: "0.2.0",
+  linear: "0.1.1",
+  jira: "0.1.1",
+  "google-calendar": "0.1.1",
+  "google-drive": "0.1.1",
+  spotify: "0.1.1",
+  stripe: "0.1.1",
+  postgresql: "0.1.1",
+  mongodb: "0.1.1",
+  redis: "0.1.1",
+  supabase: "0.1.1",
+  vercel: "0.1.1",
+  "cloudflare-workers": "0.1.1",
+  docker: "0.1.1",
+  filesystem: "0.1.1",
+  discord: "0.1.1",
+  airtable: "0.1.1",
+  trello: "0.1.1",
+  // Third-party.
+  memos: "1.6.26",
 };
 
-function defaultNpxArgs(entry: ServerRegistryEntry): string[] {
+/**
+ * The pinned `packageName@x.y.z` token an npx invocation should install for
+ * `entry`. Entries without a pin (the experimental, never-published
+ * `@contextcore/*` servers) resolve to the bare package name: they are never
+ * installed via npx, so no call site needs a version for them.
+ */
+export function resolvePinnedNpxPackage(entry: ServerRegistryEntry): string {
   const version = SERVER_NPM_VERSIONS[entry.id];
-  const pkg = version ? `${entry.packageName}@${version}` : entry.packageName;
-  return ["-y", pkg, "--transport", "stdio"];
+  return version ? `${entry.packageName}@${version}` : entry.packageName;
+}
+
+function defaultNpxArgs(entry: ServerRegistryEntry): string[] {
+  return ["-y", resolvePinnedNpxPackage(entry), "--transport", "stdio"];
 }
 
 
