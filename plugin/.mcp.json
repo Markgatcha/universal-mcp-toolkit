@@ -2,15 +2,15 @@
   "mcpServers": {
     "umt-hackernews": {
       "command": "npx",
-      "args": ["-y", "@universal-mcp-toolkit/server-hackernews", "--transport", "stdio"]
+      "args": ["-y", "@universal-mcp-toolkit/server-hackernews@0.2.0", "--transport", "stdio"]
     },
     "umt-arxiv": {
       "command": "npx",
-      "args": ["-y", "@universal-mcp-toolkit/server-arxiv", "--transport", "stdio"]
+      "args": ["-y", "@universal-mcp-toolkit/server-arxiv@0.1.1", "--transport", "stdio"]
     },
     "umt-npm-registry": {
       "command": "npx",
-      "args": ["-y", "@universal-mcp-toolkit/server-npm-registry", "--transport", "stdio"]
+      "args": ["-y", "@universal-mcp-toolkit/server-npm-registry@0.2.0", "--transport", "stdio"]
     }
   }
 }
