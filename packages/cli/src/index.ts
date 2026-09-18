@@ -48,6 +48,7 @@ async function promptForAnswers<T = Record<string, unknown>>(questions: Inquirer
 import {
   createGeneratedConfig,
   deleteProfile,
+  emitConfig,
   getGeneratedConfigPath,
   getStateFilePath,
   isLocalWorkspaceServer,
@@ -57,11 +58,12 @@ import {
   saveInstallProfile,
   saveNamedProfile,
   writeGeneratedConfig,
+  writeTargetConfig,
   type ExportedProfile,
 } from "./config-store.js";
 import { printSection, renderServerTable, renderStatusLabel, renderToolTable } from "./output.js";
 import { checkForUpdate } from "./update-notifier.js";
-import { ConfigTarget, type InvocationMode, type ServerRegistryEntry, getRegistryEntry, SERVER_REGISTRY } from "./registry.js";
+import { ConfigTarget, getTargetDefaultPath, getTargetSpec, isConfigTarget, listConfigTargets, TARGET_REGISTRY, type InvocationMode, type ServerRegistryEntry, getRegistryEntry, SERVER_REGISTRY } from "./registry.js";
 import { loadPlugin, checkPluginAvailability, getSpawnConfig, clearPluginCache, type PluginLoadMode } from "./plugin-loader.js";
 import { DEFAULT_MCP_REGISTRY_URL, fetchRegistryServers } from "./registry-discovery.js";
 import { executeWorkflow, parseWorkflowJson } from "./workflow.js";
@@ -110,12 +112,11 @@ async function promptForTarget(): Promise<ConfigTarget> {
     {
       type: "list",
       name: "target",
-      message: "Which config format do you want?",
-      choices: [
-        { name: "Claude Desktop", value: "claude-desktop" },
-        { name: "Cursor", value: "cursor" },
-        { name: "Raw JSON", value: "json" },
-      ],
+      message: "Which coding harness are you configuring?",
+      choices: TARGET_REGISTRY.map((t) => ({
+        name: t.verified ? t.label : `${t.label} (unverified path)`,
+        value: t.id,
+      })),
     },
   ]);
 
@@ -199,14 +200,24 @@ async function generateConfig(
 ): Promise<void> {
   const entries = serverIds.map((serverId) => getRegistryEntry(serverId));
   const generatedConfig = createGeneratedConfig(entries, mode);
+  const spec = getTargetSpec(target);
+  // Writing into the harness's own config file is the default for harness
+  // targets — an explicit --write path only overrides *where*. Targets with no
+  // known file (the `json` dump) print the snippet instead.
+  const destination = writePath ?? getTargetDefaultPath(target);
 
-  if (writePath) {
-    await writeGeneratedConfig(writePath, generatedConfig);
-    console.log(chalk.green(`Wrote ${target} config to ${writePath}`));
+  if (destination) {
+    const { merged, backupPath } = await writeTargetConfig(target, destination, generatedConfig);
+    const backupNote = backupPath ? ` (backup: ${backupPath})` : "";
+    const verb = merged ? "Merged into" : "Wrote";
+    console.log(chalk.green(`${verb} ${spec.label} config at ${destination}${backupNote}`));
+    if (!spec.verified) {
+      console.log(chalk.yellow(`Note: ${spec.label}'s config path is unverified against official docs.`));
+    }
     return;
   }
 
-  console.log(JSON.stringify(generatedConfig, null, 2));
+  process.stdout.write(emitConfig(generatedConfig, target));
 }
 
 async function runServer(serverId: string, transport: "sse" | "stdio" | "streamable-http", host: string, port: number, supervise?: boolean, logLevel?: string): Promise<void> {
@@ -1291,22 +1302,33 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .command("config")
     .description("Generate a host configuration snippet for one or more servers.")
     .option("-s, --server <serverIds...>", "Server IDs to include.")
-    .option("-t, --target <targets>", "Config target: claude-desktop, cursor, or json. Supports comma-separated list.")
+    .option("-t, --target <targets>", `Config target. One or more of: ${TARGET_REGISTRY.map((t) => t.id).join(", ")}. Supports comma-separated list.`)
     .option("-m, --mode <mode>", "Invocation mode: npx or workspace.", "npx")
-    .option("-w, --write <path>", "Write the config to a file instead of stdout.")
-    .action(async (options: { mode: InvocationMode; server?: string[]; target?: string; write?: string }) => {
+    .option("-w, --write [path]", "Write to this path instead of the harness's default config file (merged, with a .umt-bak backup).")
+    .action(async (options: { mode: InvocationMode; server?: string[]; target?: string; write?: string | boolean }) => {
       const serverIds = options.server?.length ? options.server : await promptForServers();
-      
-      // Support comma-separated targets (e.g. "claude-desktop,cursor")
-      const targets = options.target
-        ? options.target.split(",").map(t => t.trim() as ConfigTarget)
-        : [await promptForTarget()];
-      
+
+      // Support comma-separated targets (e.g. "cursor,claude-code"), validated
+      // against the registry so an unknown id fails fast and lists the options.
+      const requested = options.target
+        ? options.target.split(",").map((value) => value.trim()).filter((value) => value.length > 0)
+        : [];
+      const unknown = requested.filter((value) => !isConfigTarget(value));
+      if (unknown.length > 0) {
+        console.error(chalk.red(`Unknown target${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ")}`));
+        console.log(chalk.gray(`  Supported targets: ${listConfigTargets().join(", ")}`));
+        process.exit(1);
+      }
+      const targets = (requested.length > 0 ? requested : [await promptForTarget()]) as ConfigTarget[];
+
       for (const target of targets) {
         if (targets.length > 1) {
           console.log(chalk.bold(`\n=== ${target} ===`));
         }
-        await generateConfig(serverIds, target, options.mode, options.write);
+        // An explicit --write path overrides where the config lands; otherwise
+        // the harness's own config file is used (see generateConfig).
+        const writePath = typeof options.write === "string" ? options.write : undefined;
+        await generateConfig(serverIds, target, options.mode, writePath);
       }
     });
 

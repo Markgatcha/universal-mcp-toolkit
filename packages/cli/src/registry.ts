@@ -1,4 +1,96 @@
-export type ConfigTarget = "claude-desktop" | "cursor" | "json";
+import os from "node:os";
+import path from "node:path";
+
+export type ConfigTarget =
+  | "claude-desktop"
+  | "claude-code"
+  | "cursor"
+  | "kilo"
+  | "cline"
+  | "omp"
+  | "pi"
+  | "codex"
+  | "openclaw"
+  | "zcode"
+  | "windsurf"
+  | "zed"
+  | "vscode"
+  | "opencode"
+  | "gemini-cli"
+  | "json";
+
+/**
+ * How a target's config file stores MCP servers.
+ *
+ * - `mcpServers-json` — `{ "mcpServers": { … } }` (Claude Code/Desktop, Cursor, …)
+ * - `vscode-json`     — `{ "servers": { … } }` with `type: "stdio"` (VS Code)
+ * - `zed-json`        — `{ "context_servers": { … } }` with `command: { path, args }`
+ * - `opencode-json`   — `{ "mcp": { … } }` with `type: "local"` and a command array
+ * - `openclaw-json`   — `{ "mcp": { "servers": { … } } }` (nested)
+ * - `codex-toml`      — `[mcp_servers.<name>]` TOML tables
+ * - `json`            — stdout dump in the plain `mcpServers` shape
+ */
+export type TargetShape =
+  | "mcpServers-json"
+  | "vscode-json"
+  | "zed-json"
+  | "opencode-json"
+  | "openclaw-json"
+  | "codex-toml"
+  | "json";
+
+/** Per-server entry shape used when serializing a JSON target. */
+export type EntryStyle = "plain" | "vscode" | "opencode";
+
+/** Where a shape keeps its server map, and how a write merges into an existing file. */
+export interface ShapeSpec {
+  /** Key path to the server map inside the config document (`[]` for TOML). */
+  serverKey: readonly string[];
+  /** Per-server entry shape. */
+  entryStyle: EntryStyle;
+  /** `json-merge` merges the server map; `toml-block` rewrites managed tables. */
+  merge: "json-merge" | "toml-block";
+}
+
+export const SHAPE_SPECS: Readonly<Record<TargetShape, ShapeSpec>> = {
+  "mcpServers-json": { serverKey: ["mcpServers"], entryStyle: "plain", merge: "json-merge" },
+  "vscode-json": { serverKey: ["servers"], entryStyle: "vscode", merge: "json-merge" },
+  "zed-json": { serverKey: ["context_servers"], entryStyle: "plain", merge: "json-merge" },
+  "opencode-json": { serverKey: ["mcp"], entryStyle: "opencode", merge: "json-merge" },
+  "openclaw-json": { serverKey: ["mcp", "servers"], entryStyle: "plain", merge: "json-merge" },
+  "codex-toml": { serverKey: [], entryStyle: "plain", merge: "toml-block" },
+  json: { serverKey: ["mcpServers"], entryStyle: "plain", merge: "json-merge" },
+};
+
+export interface TargetSpec {
+  /** The id accepted by `umt config -t <id>`. */
+  id: ConfigTarget;
+  /** Human-readable harness name for prompts and logs. */
+  label: string;
+  /** Output shape of the emitted config. */
+  shape: TargetShape;
+  /**
+   * Resolve the harness's user-scope config path for the current OS, or
+   * `undefined` when the config is workspace-scoped (`workspacePath`) or the
+   * target only dumps a snippet to stdout (`json`).
+   * `home` is the user's home directory; `env` is `process.env`.
+   */
+  defaultPath?: (home: string, env: NodeJS.ProcessEnv) => string;
+  /**
+   * Path relative to the current working directory for workspace-scoped
+   * harnesses (VS Code, project-scope Claude Code). Takes precedence over
+   * `defaultPath` when both are set.
+   */
+  workspacePath?: string;
+  /**
+   * True when the default path and schema were confirmed against the
+   * harness's official docs; false when the best-documented path was used
+   * but could not be confirmed. Surfaced as a note in the CLI and in docs.
+   */
+  verified: boolean;
+  /** Official documentation for this harness's MCP configuration. */
+  docsUrl: string;
+}
 
 export type InvocationMode = "npx" | "workspace";
 
@@ -312,4 +404,237 @@ export function getRegistryEntry(id: string): ServerRegistryEntry {
   }
 
   return entry;
+}
+
+// ---------------------------------------------------------------------------
+// Harness config-target registry (data-driven)
+// ---------------------------------------------------------------------------
+
+function joinPath(...segments: string[]): string {
+  return path.join(...segments);
+}
+
+function claudeDesktopPath(home: string, env: NodeJS.ProcessEnv): string {
+  if (process.platform === "win32") {
+    return joinPath(env.APPDATA ?? joinPath(home, "AppData", "Roaming"), "Claude", "claude_desktop_config.json");
+  }
+  if (process.platform === "darwin") {
+    return joinPath(home, "Library", "Application Support", "Claude", "claude_desktop_config.json");
+  }
+  return joinPath(env.XDG_CONFIG_HOME ?? joinPath(home, ".config"), "Claude", "claude_desktop_config.json");
+}
+
+function zedPath(home: string, env: NodeJS.ProcessEnv): string {
+  if (process.platform === "win32") {
+    return joinPath(env.APPDATA ?? joinPath(home, "AppData", "Roaming"), "Zed", "settings.json");
+  }
+  if (process.platform === "darwin") {
+    return joinPath(home, "Library", "Application Support", "Zed", "settings.json");
+  }
+  return joinPath(env.XDG_CONFIG_HOME ?? joinPath(home, ".config"), "zed", "settings.json");
+}
+
+function vscodeGlobalStorageMcp(home: string, env: NodeJS.ProcessEnv, relative: string): string {
+  if (process.platform === "win32") {
+    return joinPath(env.APPDATA ?? joinPath(home, "AppData", "Roaming"), "Code", "User", "globalStorage", relative);
+  }
+  if (process.platform === "darwin") {
+    return joinPath(home, "Library", "Application Support", "Code", "User", "globalStorage", relative);
+  }
+  return joinPath(env.XDG_CONFIG_HOME ?? joinPath(home, ".config"), "Code", "User", "globalStorage", relative);
+}
+
+function xdgConfig(home: string, env: NodeJS.ProcessEnv, ...rest: string[]): string {
+  return joinPath(env.XDG_CONFIG_HOME ?? joinPath(home, ".config"), ...rest);
+}
+
+/**
+ * Every harness `umt config -t` can target, with the path and document shape
+ * UMT uses to write its MCP configuration.
+ *
+ * `verified: true` means the path and schema were confirmed against the
+ * harness's official docs (`docsUrl`). `verified: false` marks a target where
+ * the best-documented path was used but could not be confirmed from official
+ * docs — `umt config` prints a warning for those.
+ */
+export const TARGET_REGISTRY: readonly TargetSpec[] = [
+  {
+    id: "claude-desktop",
+    label: "Claude Desktop",
+    shape: "mcpServers-json",
+    defaultPath: claudeDesktopPath,
+    verified: true,
+    docsUrl: "https://modelcontextprotocol.io/quickstart/user",
+  },
+  {
+    id: "claude-code",
+    label: "Claude Code",
+    shape: "mcpServers-json",
+    // Project scope (./.mcp.json) wins for a repo; the user-scope file is
+    // ~/.claude.json and is used when --write points at it.
+    defaultPath: (home) => joinPath(home, ".claude.json"),
+    workspacePath: ".mcp.json",
+    verified: true,
+    docsUrl: "https://docs.claude.com/en/docs/claude-code/mcp",
+  },
+  {
+    id: "cursor",
+    label: "Cursor",
+    shape: "mcpServers-json",
+    defaultPath: (home) => joinPath(home, ".cursor", "mcp.json"),
+    verified: true,
+    docsUrl: "https://docs.cursor.com/context/model-context-protocol",
+  },
+  {
+    id: "kilo",
+    label: "Kilo Code",
+    // Kilo's current config file is kilo.jsonc and servers live under the
+    // top-level `mcp` key in the same local/command-array shape as OpenCode —
+    // not under `mcpServers` in .kilocode/mcp.json (the older format).
+    shape: "opencode-json",
+    defaultPath: (home, env) => xdgConfig(home, env, "kilo", "kilo.jsonc"),
+    verified: true,
+    docsUrl: "https://kilo.ai/docs/automate/mcp/using-in-kilo-code",
+  },
+  {
+    id: "cline",
+    label: "Cline (VS Code)",
+    shape: "mcpServers-json",
+    defaultPath: (home, env) =>
+      vscodeGlobalStorageMcp(home, env, joinPath("saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json")),
+    verified: true,
+    docsUrl: "https://docs.cline.bot/mcp/configuring-mcp-servers",
+  },
+  {
+    id: "omp",
+    label: "omp (Oh My Pi)",
+    shape: "mcpServers-json",
+    // OMP's native user config; the project equivalent is .omp/mcp.json.
+    defaultPath: (home) => joinPath(home, ".omp", "agent", "mcp.json"),
+    verified: true,
+    docsUrl: "https://github.com/can1357/oh-my-pi/blob/HEAD/docs/mcp-config.md",
+  },
+  {
+    id: "pi",
+    label: "pi",
+    shape: "mcpServers-json",
+    // MCP support ships as the pi-mcp-adapter extension. Its documented
+    // shared user-global config is ~/.config/mcp/mcp.json; project ./.mcp.json.
+    defaultPath: (home, env) => xdgConfig(home, env, "mcp", "mcp.json"),
+    workspacePath: ".mcp.json",
+    verified: true,
+    docsUrl: "https://pi.dev/packages/pi-mcp-adapter",
+  },
+  {
+    id: "codex",
+    label: "Codex",
+    shape: "codex-toml",
+    defaultPath: (home) => joinPath(home, ".codex", "config.toml"),
+    verified: true,
+    docsUrl: "https://developers.openai.com/codex/mcp",
+  },
+  {
+    id: "openclaw",
+    label: "OpenClaw",
+    shape: "openclaw-json",
+    defaultPath: (home) => joinPath(home, ".openclaw", "openclaw.json"),
+    verified: true,
+    docsUrl: "https://docs.openclaw.ai/gateway/config-extensions",
+  },
+  {
+    id: "zcode",
+    label: "ZCode",
+    // ZCode's native config nests servers under mcp.servers; the workspace
+    // equivalent is <project root>/.zcode/config.json.
+    shape: "openclaw-json",
+    defaultPath: (home) => joinPath(home, ".zcode", "cli", "config.json"),
+    verified: true,
+    docsUrl: "https://zcode.z.ai/en/docs/mcp-services",
+  },
+  {
+    id: "windsurf",
+    label: "Windsurf",
+    shape: "mcpServers-json",
+    defaultPath: (home) => joinPath(home, ".codeium", "windsurf", "mcp_config.json"),
+    verified: true,
+    docsUrl: "https://docs.windsurf.com/windsurf/cascade/mcp",
+  },
+  {
+    id: "zed",
+    label: "Zed",
+    // Zed's local servers use a flat command/args/env entry under
+    // context_servers (see docs), not the nested command:{path,args} form.
+    shape: "zed-json",
+    defaultPath: zedPath,
+    verified: true,
+    docsUrl: "https://zed.dev/docs/ai/mcp",
+  },
+  {
+    id: "vscode",
+    label: "VS Code",
+    shape: "vscode-json",
+    workspacePath: ".vscode/mcp.json",
+    verified: true,
+    docsUrl: "https://code.visualstudio.com/docs/copilot/chat/mcp-servers",
+  },
+  {
+    id: "opencode",
+    label: "OpenCode",
+    shape: "opencode-json",
+    defaultPath: (home, env) => xdgConfig(home, env, "opencode", "opencode.json"),
+    verified: true,
+    docsUrl: "https://opencode.ai/docs/mcp-servers/",
+  },
+  {
+    id: "gemini-cli",
+    label: "Gemini CLI",
+    shape: "mcpServers-json",
+    defaultPath: (home) => joinPath(home, ".gemini", "settings.json"),
+    verified: true,
+    docsUrl: "https://developers.google.com/gemini-code-assist/docs/gemini-cli",
+  },
+  {
+    id: "json",
+    label: "Raw JSON (stdout)",
+    shape: "json",
+    verified: true,
+    docsUrl: "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  },
+];
+
+export function getTargetSpec(id: string): TargetSpec {
+  const spec = TARGET_REGISTRY.find((candidate) => candidate.id === id);
+  if (!spec) {
+    throw new Error(`Unknown target '${id}'. Supported targets: ${listConfigTargets().join(", ")}.`);
+  }
+  return spec;
+}
+
+/** Target ids in registry order, for CLI help and interactive prompts. */
+export function listConfigTargets(): ConfigTarget[] {
+  return TARGET_REGISTRY.map((target) => target.id);
+}
+
+/** Type guard for `-t` values coming from the command line. */
+export function isConfigTarget(value: string): value is ConfigTarget {
+  return TARGET_REGISTRY.some((target) => target.id === value);
+}
+
+/** Registry entries whose path/schema could not be confirmed from official docs. */
+export function getUnverifiedTargets(): TargetSpec[] {
+  return TARGET_REGISTRY.filter((target) => !target.verified);
+}
+
+/**
+ * The file `umt config -t <target>` writes to when no explicit path is given:
+ * the workspace-relative path for workspace-scoped harnesses, otherwise the
+ * harness's user-scope path. `undefined` for targets that only dump a snippet
+ * to stdout (`json`).
+ */
+export function getTargetDefaultPath(id: ConfigTarget, cwd: string = process.cwd()): string | undefined {
+  const spec = getTargetSpec(id);
+  if (spec.workspacePath) {
+    return path.resolve(cwd, spec.workspacePath);
+  }
+  return spec.defaultPath?.(os.homedir(), process.env);
 }
