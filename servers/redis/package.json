@@ -45,7 +45,7 @@
   "dependencies": {
     "@universal-mcp-toolkit/core": "workspace:*",
     "redis": "^6.2.1",
-    "zod": "4.4.3"
+    "zod": "4.6.5"
   },
   "publishConfig": {
     "access": "public"

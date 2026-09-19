@@ -44,7 +44,7 @@
   "dependencies": {
     "@slack/web-api": "^8.1.1",
     "@universal-mcp-toolkit/core": "workspace:*",
-    "zod": "4.4.3"
+    "zod": "4.6.5"
   },
   "publishConfig": {
     "access": "public"

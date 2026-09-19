@@ -43,9 +43,9 @@
     "storage"
   ],
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.4",
+    "@supabase/supabase-js": "^2.116.0",
     "@universal-mcp-toolkit/core": "workspace:*",
-    "zod": "4.4.3"
+    "zod": "4.6.5"
   },
   "publishConfig": {
     "access": "public"
