@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createGeneratedConfig } from "../src/config-store.js";
-import { getRegistryEntry, SERVER_REGISTRY } from "../src/registry.js";
+import { findServersDeclaringTool, getRegistryEntry, SERVER_REGISTRY } from "../src/registry.js";
 
 describe("CLI registry", () => {
   it("includes all 28 server packages", () => {
@@ -51,5 +51,24 @@ describe("CLI registry", () => {
         },
       },
     });
+  });
+});
+
+describe("findServersDeclaringTool", () => {
+  it("finds the server that declares a known tool", () => {
+    const matches = findServersDeclaringTool("get_pull_request");
+    expect(matches.map((e) => e.id)).toEqual(["github"]);
+  });
+
+  it("returns an empty array for unknown tools", () => {
+    expect(findServersDeclaringTool("definitely_not_a_real_tool")).toEqual([]);
+  });
+
+  it("never matches servers with an empty toolNames array", () => {
+    const emptyServers = SERVER_REGISTRY.filter((e) => e.toolNames.length === 0).map((e) => e.id);
+    const matches = findServersDeclaringTool("list_channels").map((e) => e.id);
+    for (const id of emptyServers) {
+      expect(matches).not.toContain(id);
+    }
   });
 });

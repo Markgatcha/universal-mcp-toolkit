@@ -109,6 +109,19 @@ export {
   type ProviderFormat,
 } from "./serializers.js";
 
+// Slim manifests — names-only tool catalog with on-demand schema expansion.
+export {
+  toSlimManifest,
+  buildSlimManifest,
+  formatSlimManifest,
+  describeTool,
+  oneLineDescription,
+  compareManifestSize,
+  type SlimToolEntry,
+  type SlimManifest,
+  type ToolSchemaDetail,
+} from "./slim-manifest.js";
+
 // Type definitions — shared interfaces used across the bridge.
 export type {
   AuditLogEntry,

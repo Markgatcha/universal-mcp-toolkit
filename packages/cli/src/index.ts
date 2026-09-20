@@ -61,11 +61,12 @@ import {
 } from "./config-store.js";
 import { printSection, renderServerTable, renderStatusLabel, renderToolTable } from "./output.js";
 import { checkForUpdate } from "./update-notifier.js";
-import { ConfigTarget, type InvocationMode, type ServerRegistryEntry, getRegistryEntry, SERVER_REGISTRY } from "./registry.js";
+import { ConfigTarget, type InvocationMode, type ServerRegistryEntry, findServersDeclaringTool, getRegistryEntry, SERVER_REGISTRY } from "./registry.js";
 import { loadPlugin, checkPluginAvailability, getSpawnConfig, clearPluginCache, type PluginLoadMode } from "./plugin-loader.js";
 import { DEFAULT_MCP_REGISTRY_URL, fetchRegistryServers } from "./registry-discovery.js";
 import { executeWorkflow, parseWorkflowJson } from "./workflow.js";
 import { createWorkspaceBuildArgs } from "./workspace-build.js";
+import type { BridgeTool } from "@universal-mcp-toolkit/bridge";
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
@@ -159,6 +160,38 @@ async function resolveBridgeConfig(entry: ServerRegistryEntry) {
     commandOrUrl: "npx",
     args,
   };
+}
+
+/**
+ * Connect a bridge to a registry server, preferring the local workspace
+ * build (auto-building when missing, like `umt run`) and falling back to
+ * the npx invocation for external companion packages.
+ *
+ * The caller owns the bridge and must call `disconnect()` when done.
+ */
+async function connectBridgeToEntry(entry: ServerRegistryEntry) {
+  const { MCPFunctionCallingBridge } = await import("@universal-mcp-toolkit/bridge");
+  if (isLocalWorkspaceServer(entry)) {
+    const distPath = resolveWorkspaceEntryFile(entry);
+    if (!(await pathExists(distPath))) {
+      await buildWorkspacePackages([entry.packageName]);
+    }
+    if (!(await pathExists(distPath))) {
+      throw new Error(
+        `Build output not found: ${distPath}. Build it first: pnpm --filter ${entry.packageName} build`,
+      );
+    }
+    const bridge = new MCPFunctionCallingBridge({
+      transport: "stdio" as const,
+      commandOrUrl: process.execPath,
+      args: [distPath, "--transport", "stdio"],
+    });
+    await bridge.connect();
+    return bridge;
+  }
+  const bridge = new MCPFunctionCallingBridge(await resolveBridgeConfig(entry));
+  await bridge.connect();
+  return bridge;
 }
 
 async function promptForMode(): Promise<InvocationMode> {
@@ -915,11 +948,68 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .option("-s, --server <serverIds...>", "Filter to specific server IDs.")
     .option("-q, --query <query>", "Filter tools by name or description (case-insensitive substring).")
     .option("--json", "Print the tool listing as JSON instead of a table.")
-    .action(async (options: { server?: string[]; query?: string; json?: boolean }) => {
+    .option("--slim", "Connect to each server and print a slim manifest: tool names + one-line descriptions grouped by server, with token savings vs full schemas.")
+    .action(async (options: { server?: string[]; query?: string; json?: boolean; slim?: boolean }) => {
       // Start with the full registry, optionally filtered by server IDs.
       let filtered = SERVER_REGISTRY;
       if (options.server?.length) {
         filtered = SERVER_REGISTRY.filter((e) => options.server!.includes(e.id));
+      }
+
+      // Slim catalog mode: fetch live tools/lists and render the cheap
+      // names-only manifest instead of the static registry names.
+      if (options.slim) {
+        const {
+          buildSlimManifest,
+          formatSlimManifest,
+          compareManifestSize,
+        } = await import("@universal-mcp-toolkit/bridge");
+        const perServer: Array<{ server: string; tools: BridgeTool[] }> = [];
+        const skipped: Array<{ server: string; reason: string }> = [];
+        const spinner = ora("Connecting to servers...").start();
+        for (const entry of filtered) {
+          let bridge: { listTools(): Promise<{ tools: BridgeTool[] }>; disconnect(): Promise<void> } | undefined;
+          try {
+            bridge = await connectBridgeToEntry(entry);
+            const listing = await bridge.listTools();
+            perServer.push({ server: entry.id, tools: listing.tools });
+            spinner.text = `Connecting to servers... (${perServer.length} ok)`;
+          } catch (error) {
+            skipped.push({
+              server: entry.id,
+              reason: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            await bridge?.disconnect().catch(() => undefined);
+          }
+        }
+        spinner.stop();
+
+        const manifest = buildSlimManifest(perServer);
+        if (manifest.totalTools === 0) {
+          console.log(chalk.yellow("No tools found. All servers failed to connect or expose tools."));
+        } else {
+          console.log(formatSlimManifest(manifest));
+          console.log();
+          let fullTokens = 0;
+          let slimTokens = 0;
+          for (const s of perServer) {
+            const c = compareManifestSize(s.tools, s.server);
+            fullTokens += c.fullTokens;
+            slimTokens += c.slimTokens;
+          }
+          const pct = fullTokens === 0 ? 0 : Math.round(((fullTokens - slimTokens) / fullTokens) * 100);
+          console.log(
+            chalk.gray(
+              `${manifest.totalTools} tool(s) across ${manifest.servers.length} server(s) · ` +
+              `~${fullTokens} tokens (full schemas) vs ~${slimTokens} tokens (slim) — ${pct}% smaller`,
+            ),
+          );
+        }
+        for (const s of skipped) {
+          console.log(chalk.yellow(`Skipped ${s.server}: ${s.reason}`));
+        }
+        return;
       }
 
       // Build a flat list of { serverId, toolName, title?, description? } rows.
@@ -957,6 +1047,71 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
 
       console.log(`Found ${chalk.bold(rows.length)} tool(s) across ${filtered.length} server(s).\n`);
       console.log(renderToolTable(rows));
+    });
+
+  toolsCmd
+    .command("describe")
+    .description("Show the full input schema for one tool — on-demand expansion of the slim catalog.")
+    .argument("<toolName>", "Exact tool name to describe.")
+    .option("-s, --server <serverId>", "Server ID to query. Required when several servers declare the tool.")
+    .option("--json", "Print the full tool schema as JSON instead of formatted text.")
+    .action(async (toolName: string, options: { server?: string; json?: boolean }) => {
+      // Resolve which server declares the tool.
+      let entry: ServerRegistryEntry;
+      if (options.server) {
+        entry = getRegistryEntry(options.server);
+        if (!entry.toolNames.includes(toolName)) {
+          console.log(
+            chalk.yellow(
+              `Warning: server '${entry.id}' does not declare '${toolName}' in the registry; querying it anyway.`,
+            ),
+          );
+        }
+      } else {
+        const candidates = findServersDeclaringTool(toolName);
+        if (candidates.length === 0) {
+          console.error(chalk.red(`No server in the registry declares a tool named '${toolName}'.`));
+          process.exitCode = 1;
+          return;
+        }
+        if (candidates.length > 1) {
+          console.error(
+            chalk.red(
+              `Tool '${toolName}' is declared by several servers (${candidates.map((c) => c.id).join(", ")}). ` +
+              "Re-run with --server <id>.",
+            ),
+          );
+          process.exitCode = 1;
+          return;
+        }
+        entry = candidates[0]!;
+      }
+
+      const { describeTool } = await import("@universal-mcp-toolkit/bridge");
+      const spinner = ora(`Connecting to ${entry.title}...`).start();
+      let bridge: { listTools(): Promise<{ tools: BridgeTool[] }>; disconnect(): Promise<void> } | undefined;
+      try {
+        bridge = await connectBridgeToEntry(entry);
+        const listing = await bridge.listTools();
+        spinner.succeed(`Connected to ${entry.title}.`);
+        const detail = describeTool(listing.tools, toolName, entry.id);
+        if (options.json) {
+          console.log(JSON.stringify(detail, null, 2));
+          return;
+        }
+        printSection(`Tool: ${detail.name}`);
+        if (detail.title) console.log(`${chalk.bold("Title:")} ${detail.title}`);
+        console.log(`${chalk.bold("Server:")} ${detail.server}`);
+        if (detail.description) console.log(`${chalk.bold("Description:")} ${detail.description}`);
+        console.log(chalk.bold("Input schema:"));
+        console.log(JSON.stringify(detail.inputSchema, null, 2));
+      } catch (error) {
+        spinner.fail(`Failed to describe tool '${toolName}'.`);
+        console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+        process.exitCode = 1;
+      } finally {
+        await bridge?.disconnect().catch(() => undefined);
+      }
     });
 
   // --- `umt workflow` — validate and run deterministic workflows ------------

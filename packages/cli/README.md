@@ -332,7 +332,23 @@ Check build output, config state, and required environment variables before you 
 | `umt profile show [name]` | Show profile configuration details |
 | `umt profile export <name>` | Export a named profile to a JSON file |
 | `umt tools list` | Discover all MCP tools across servers, with `--server` and `--query` filtering |
+| `umt tools list --slim` | Slim catalog mode: connect to servers and print tool names + one-line descriptions grouped by server, with token savings vs full schemas |
+| `umt tools describe <tool>` | On-demand full input-schema expansion for one tool (`--server` to disambiguate, `--json` for machine output) |
 | `umt compose` | Pipe one server's tool output into another server's tool call |
+
+### Slim tool catalogs (token-efficient tool discovery)
+
+Full `tools/list` definitions are the biggest token tax in multi-server MCP setups — every tool's JSON Schema ships on every turn. UMT supports the slim-manifest pattern:
+
+```sh
+# Names + one-line descriptions across servers (~90% fewer tokens than full schemas)
+umt tools list --slim --server hackernews
+
+# Expand the full input schema on demand, right before invoking
+umt tools describe search_stories --server hackernews
+```
+
+The same helpers are available programmatically from `@universal-mcp-toolkit/bridge`: `toSlimManifest`, `buildSlimManifest`, `formatSlimManifest`, `describeTool`, and `compareManifestSize`.
 
 ## Configuration examples
 

@@ -313,3 +313,14 @@ export function getRegistryEntry(id: string): ServerRegistryEntry {
 
   return entry;
 }
+
+/**
+ * Find all registry servers that declare a given tool name.
+ *
+ * Used by `umt tools describe` to resolve which server to query for a
+ * tool's full schema. Servers with an empty `toolNames` array (e.g. remote
+ * MCP servers) never match because their tools are unknown statically.
+ */
+export function findServersDeclaringTool(toolName: string): ServerRegistryEntry[] {
+  return SERVER_REGISTRY.filter((entry) => entry.toolNames.includes(toolName));
+}

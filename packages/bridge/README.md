@@ -240,6 +240,33 @@ const format = detectProvider("claude-3-5-sonnet-20241022"); // → "anthropic"
 const tools = toProvider(tools, "gpt-4o"); // auto-serializes to OpenAI format
 ```
 
+### Slim manifests
+
+Tool *definitions* are the biggest token tax in multi-server setups. Ship the
+model a names-only manifest and expand full schemas on demand:
+
+```typescript
+import {
+  buildSlimManifest,
+  formatSlimManifest,
+  describeTool,
+  compareManifestSize,
+} from "@universal-mcp-toolkit/bridge";
+
+const { tools } = await bridge.listTools();
+
+// 1. Cheap catalog: names + one-line descriptions (often ~90% fewer tokens)
+const manifest = buildSlimManifest([{ server: "github", tools }]);
+console.log(formatSlimManifest(manifest));
+
+// 2. On-demand expansion right before invoking
+const detail = describeTool(tools, "create_issue", "github");
+console.log(detail.inputSchema);
+
+// 3. Measure the savings
+console.log(compareManifestSize(tools, "github")); // { fullTokens, slimTokens, reductionPct }
+```
+
 ### `BridgeConversation`
 
 Full agent conversation loop with automatic tool calling.
