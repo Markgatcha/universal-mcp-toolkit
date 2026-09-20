@@ -58,6 +58,7 @@ import {
   deleteProfile,
   getGeneratedConfigPath,
   getStateFilePath,
+  readState,
   isLocalWorkspaceServer,
   listProfiles,
   loadProfile,
@@ -216,6 +217,42 @@ async function connectBridgeToEntry(entry: ServerRegistryEntry) {
   const bridge = new MCPFunctionCallingBridge(await resolveBridgeConfig(entry));
   await bridge.connect();
   return bridge;
+}
+
+/**
+ * Resolve a `umt vet` / `umt add` target argument — a registry server id or
+ * an http(s) URL — into a core `VetTarget`. Mirrors `connectBridgeToEntry`'s
+ * launch config so vetting probes the same server the other commands use.
+ * The caller owns nothing persistent; each probe opens its own connection.
+ */
+async function resolveVetTarget(arg: string): Promise<import("./vet.js").VetTarget> {
+  const { isUrlTarget, urlVetTarget, registryStdioTarget } = await import("./vet.js");
+  if (isUrlTarget(arg)) return urlVetTarget(arg);
+  const entry = getRegistryEntry(arg);
+  if (isLocalWorkspaceServer(entry)) {
+    const distPath = resolveWorkspaceEntryFile(entry);
+    if (!(await pathExists(distPath))) {
+      await buildWorkspacePackages([entry.packageName]);
+    }
+    if (!(await pathExists(distPath))) {
+      throw new Error(
+        `Build output not found: ${distPath}. Build it first: pnpm --filter ${entry.packageName} build`,
+      );
+    }
+    return registryStdioTarget(entry, {
+      command: process.execPath,
+      args: [distPath, "--transport", "stdio"],
+      // Same full-env inheritance as `connectBridgeToEntry`, so vetting sees
+      // the server exactly as `umt tools` would.
+      env: Object.fromEntries(
+        Object.entries(process.env).filter(
+          (entry): entry is [string, string] => typeof entry[1] === "string",
+        ),
+      ),
+    });
+  }
+  const args = entry.npxArgs ? [...entry.npxArgs] : ["-y", entry.packageName];
+  return registryStdioTarget(entry, { command: "npx", args });
 }
 
 /**
@@ -605,8 +642,10 @@ async function runServer(serverId: string, transport: "sse" | "stdio" | "streama
  *
  * @param serverId - Optional server ID to scope checks to one server
  * @param fix - When true, attempt to auto-heal issues instead of just reporting
+ * @param vet - When true, also run the live `umt vet` probe as a non-blocking
+ *   sub-check (scoped server, or every `umt add`-registered server)
  */
-async function runDoctor(serverId?: string, fix?: boolean): Promise<void> {
+async function runDoctor(serverId?: string, fix?: boolean, vet?: boolean): Promise<void> {
   const entries = serverId ? [getRegistryEntry(serverId)] : SERVER_REGISTRY;
   const missingLocalEntries: ServerRegistryEntry[] = [];
 
@@ -670,6 +709,22 @@ async function runDoctor(serverId?: string, fix?: boolean): Promise<void> {
       spinner.fail(`Failed to build ${titles}`);
       const message = error instanceof Error ? error.message : "Unknown error";
       console.error(chalk.red(message));
+    }
+  }
+
+  if (vet) {
+    const { runDoctorVet } = await import("./vet.js");
+    if (serverId) {
+      await runDoctorVet(await resolveVetTarget(serverId));
+    } else {
+      const { addedServers } = await readState();
+      if (!addedServers || addedServers.length === 0) {
+        console.log(chalk.yellow("\n  --vet needs a server: pass a server id, or register one with `umt add` first."));
+      } else {
+        for (const added of addedServers) {
+          await runDoctorVet(await resolveVetTarget(added.target));
+        }
+      }
     }
   }
 }
@@ -1946,8 +2001,9 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .description("Check build outputs and required environment variables.")
     .argument("[serverId]", "Optionally scope the checks to one server.")
     .option("--fix", "Attempt to auto-heal common issues (build missing dist, write env vars).")
-    .action(async (serverId?: string, options?: { fix?: boolean }) => {
-      await runDoctor(serverId, options?.fix);
+    .option("--vet", "Also live-vet the scoped server (or every `umt add`-registered server): MCP spec-conformance + security scan.")
+    .action(async (serverId?: string, options?: { fix?: boolean; vet?: boolean }) => {
+      await runDoctor(serverId, options?.fix, options?.vet);
     });
 
   program
@@ -1971,6 +2027,42 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .argument("[serverId]", "Optionally scope the conformance check to one server.")
     .action(async (serverId?: string) => {
       await runConformance(serverId);
+    });
+
+  program
+    .command("vet")
+    .description("Live-vet a running MCP server: protocol negotiation, tool-poisoning scan, permission-risk tiering, drift pin. Exit 0 clean, 1 security findings, 2 protocol error.")
+    .argument("<server-id-or-url>", "Registry server ID or http(s) URL of the running server.")
+    .option("--json", "Print the machine-readable report instead of human-readable text.")
+    .action(async (target: string, options: { json?: boolean }) => {
+      const { runVet } = await import("./vet.js");
+      const spinner = (await oraLazy(`Vetting ${target}…`)).start();
+      try {
+        const exitCode = await runVet(await resolveVetTarget(target), options);
+        spinner.stop();
+        if (exitCode !== 0) process.exitCode = exitCode;
+      } catch (error) {
+        spinner.fail("Vet failed");
+        throw error;
+      }
+    });
+
+  program
+    .command("add")
+    .description("Register a server with UMT (for `doctor --vet`), with a non-blocking vet advisory first.")
+    .argument("<server-id-or-url>", "Registry server ID or http(s) URL of the running server.")
+    .option("--skip-vet", "Skip the vet advisory and register immediately.")
+    .option("--json", "Print the machine-readable result instead of human-readable text.")
+    .action(async (target: string, options: { skipVet?: boolean; json?: boolean }) => {
+      const { runAdd } = await import("./vet.js");
+      const spinner = options.skipVet ? undefined : (await oraLazy(`Vetting ${target} (advisory)…`)).start();
+      try {
+        await runAdd(await resolveVetTarget(target), target, options);
+        spinner?.stop();
+      } catch (error) {
+        spinner?.fail("Add failed");
+        throw error;
+      }
     });
 
   program

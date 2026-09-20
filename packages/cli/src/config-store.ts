@@ -19,8 +19,26 @@ export interface InstallProfile {
   profileName?: string;
 }
 
+/** A server registered via `umt add` (newest first in `CliState.addedServers`). */
+export interface AddedServer {
+  id: string;
+  target: string;
+  transport: "stdio" | "streamable-http" | "sse" | "unknown";
+  addedAt: string;
+  lastVet?: {
+    vettedAt: string;
+    exitCode: 0 | 1 | 2;
+    negotiatedVersion: string | null;
+  };
+}
+
 export interface CliState {
   installs: InstallProfile[];
+  /**
+   * Servers registered via `umt add` (server id or URL, newest first).
+   * Optional so state files written before `umt add` existed still parse.
+   */
+  addedServers?: AddedServer[];
 }
 
 export interface GeneratedConfig {
