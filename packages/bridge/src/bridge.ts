@@ -983,8 +983,13 @@ export class MCPFunctionCallingBridge {
   /**
    * Close the connection to the MCP server.
    * Call this when you're done using the bridge.
+   *
+   * Shuts down the health monitor first: an explicit disconnect is not a
+   * failure, so no auto-reconnect is scheduled — and the monitor's backoff
+   * timer is cancelled so it cannot keep the process alive after we return.
    */
   async disconnect(): Promise<void> {
+    this.healthMonitor?.shutdown();
     if (this.client) {
       await this.client.close();
       this.client = undefined;

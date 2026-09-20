@@ -1,7 +1,4 @@
-import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { Request, Response } from "express";
 import { parseArgs } from "node:util";
@@ -9,6 +6,41 @@ import { parseArgs } from "node:util";
 import { ConfigurationError } from "./errors.js";
 import { createLogger } from "./logger.js";
 import type { ToolkitRuntimeOptions, ToolkitRuntimeRegistration } from "./types.js";
+
+// The HTTP/SSE server stack (express + the MCP SDK's HTTP transports) is
+// intentionally NOT imported statically: it costs ~200-300ms of module load
+// (measured), and the stdio path — the hot path for spawned servers — never
+// needs it. Each transport branch lazy-loads what it needs on first use.
+type CreateMcpExpressApp = typeof import("@modelcontextprotocol/sdk/server/express.js").createMcpExpressApp;
+type SSEServerTransportCtor = typeof import("@modelcontextprotocol/sdk/server/sse.js").SSEServerTransport;
+type StreamableHTTPServerTransportCtor =
+  typeof import("@modelcontextprotocol/sdk/server/streamableHttp.js").StreamableHTTPServerTransport;
+
+let httpStackPromise:
+  | Promise<{
+      createMcpExpressApp: CreateMcpExpressApp;
+      SSEServerTransport: SSEServerTransportCtor;
+      StreamableHTTPServerTransport: StreamableHTTPServerTransportCtor;
+    }>
+  | undefined;
+
+/** Load the HTTP/SSE server stack once, on first non-stdio use. */
+function loadHttpStack(): Promise<{
+  createMcpExpressApp: CreateMcpExpressApp;
+  SSEServerTransport: SSEServerTransportCtor;
+  StreamableHTTPServerTransport: StreamableHTTPServerTransportCtor;
+}> {
+  httpStackPromise ??= Promise.all([
+    import("@modelcontextprotocol/sdk/server/express.js"),
+    import("@modelcontextprotocol/sdk/server/sse.js"),
+    import("@modelcontextprotocol/sdk/server/streamableHttp.js"),
+  ]).then(([expressMod, sseMod, streamableMod]) => ({
+    createMcpExpressApp: expressMod.createMcpExpressApp,
+    SSEServerTransport: sseMod.SSEServerTransport,
+    StreamableHTTPServerTransport: streamableMod.StreamableHTTPServerTransport,
+  }));
+  return httpStackPromise;
+}
 
 const DEFAULT_OPTIONS: ToolkitRuntimeOptions = {
   transport: "stdio",
@@ -82,6 +114,7 @@ export async function runToolkitServer(
   }
 
   if (options.transport === "streamable-http") {
+    const { createMcpExpressApp, StreamableHTTPServerTransport } = await loadHttpStack();
     const app = createMcpExpressApp({ host: options.host });
 
     app.get(options.wellKnownPath, (_request: Request, response: Response) => {
@@ -146,8 +179,9 @@ export async function runToolkitServer(
     return;
   }
 
+  const { createMcpExpressApp, SSEServerTransport } = await loadHttpStack();
   const app = createMcpExpressApp({ host: options.host });
-  const sessions = new Map<string, { server: Awaited<ReturnType<typeof registration.createServer>>; transport: SSEServerTransport; lastActivity: number }>();
+  const sessions = new Map<string, { server: Awaited<ReturnType<typeof registration.createServer>>; transport: InstanceType<SSEServerTransportCtor>; lastActivity: number }>();
 
   // Periodic cleanup of idle sessions to prevent memory leaks
   const cleanupTimer = setInterval(() => {

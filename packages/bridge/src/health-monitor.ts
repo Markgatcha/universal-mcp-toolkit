@@ -92,6 +92,14 @@ export class HealthMonitor {
   private retryCount = 0;
   private listeners: HealthEventListener[] = [];
   private circuitOpenAt: number = 0;
+  /**
+   * Pending auto-reconnect notification timer, if one was scheduled by
+   * onDisconnect(). Tracked so shutdown() can cancel it — otherwise the
+   * timer keeps the process alive after an intentional disconnect().
+   */
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Set by shutdown(); suppresses any further reconnect scheduling. */
+  private stopped = false;
 
   constructor(options: HealthMonitorOptions = {}) {
     // Destructure onEvent out of the options so it doesn't get spread into
@@ -224,11 +232,16 @@ export class HealthMonitor {
    */
   onDisconnect(): void {
     this.emit({ type: "disconnected", timestamp: Date.now(), message: "Disconnected from MCP server." });
+    if (this.stopped) return;
     if (this.options.autoReconnect && this.state !== "open") {
       const delay = this.getReconnectDelay();
       if (delay > 0) {
         this.onReconnectAttempt();
-        setTimeout(() => {
+        // unref: a pending reconnect notification must never keep the
+        // process alive on its own (e.g. after the bridge was dropped
+        // without an explicit disconnect()).
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = undefined;
           // Emit a reconnecting event. The bridge's callTool() is responsible
           // for calling reconnect() when it detects the client is gone.
           this.emit({
@@ -238,7 +251,24 @@ export class HealthMonitor {
             retryCount: this.retryCount,
           });
         }, delay);
+        this.reconnectTimer.unref?.();
       }
+    }
+  }
+
+  /**
+   * Shut the monitor down: cancel any pending auto-reconnect notification
+   * timer and suppress further reconnect scheduling.
+   *
+   * Call this on intentional teardown (e.g. `bridge.disconnect()`) so the
+   * monitor's backoff timer cannot keep the event loop — and therefore the
+   * process — alive after the work is done.
+   */
+  shutdown(): void {
+    this.stopped = true;
+    if (this.reconnectTimer !== undefined) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
     }
   }
 

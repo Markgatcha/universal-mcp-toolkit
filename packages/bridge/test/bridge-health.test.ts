@@ -101,4 +101,56 @@ describe("MCPFunctionCallingBridge health monitoring", () => {
     expect(monitor.getCircuitState()).toBe("closed");
     expect(monitor.getFailureCount()).toBe(0);
   });
+
+  it("shutdown() suppresses reconnect scheduling on intentional disconnect", () => {
+    vi.useFakeTimers();
+    try {
+      const bridge = new MCPFunctionCallingBridge({
+        transport: "stdio",
+        commandOrUrl: "echo",
+      });
+      const monitor = bridge.getHealthMonitor()!;
+      const events: string[] = [];
+      monitor.on((event) => events.push(event.type));
+
+      monitor.onDisconnect();
+      expect(events).toContain("disconnected");
+      // A reconnect attempt is scheduled on an unexpected disconnect...
+      expect(events).toContain("reconnecting");
+
+      // ...but shutdown() cancels the pending timer and stops further ones.
+      monitor.shutdown();
+      monitor.onDisconnect();
+      vi.runAllTimers();
+      expect(events.filter((type) => type === "reconnecting")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("bridge.disconnect() shuts the health monitor down first", async () => {
+    vi.useFakeTimers();
+    try {
+      const bridge = new MCPFunctionCallingBridge({
+        transport: "stdio",
+        commandOrUrl: "echo",
+      });
+      const monitor = bridge.getHealthMonitor()!;
+      const events: string[] = [];
+      monitor.on((event) => events.push(event.type));
+      // Simulate a connected client without spawning a real server process.
+      (bridge as unknown as { client: { close(): Promise<void> } }).client = {
+        close: async () => {},
+      };
+      const shutdownSpy = vi.spyOn(monitor, "shutdown");
+
+      await bridge.disconnect();
+
+      expect(shutdownSpy).toHaveBeenCalled();
+      vi.runAllTimers();
+      expect(events.filter((type) => type === "reconnecting")).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

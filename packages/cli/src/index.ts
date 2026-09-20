@@ -10,7 +10,15 @@ import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import ora from "ora";
+
+// ora is imported lazily (~70ms of module load, measured): most commands never
+// show a spinner, so paying for it on every CLI startup is pure overhead.
+// Use oraLazy() at the call sites that need a spinner instead.
+let oraModule: typeof import("ora") | undefined;
+async function oraLazy(text: string): Promise<import("ora").Ora> {
+  oraModule ??= await import("ora");
+  return oraModule.default(text);
+}
 
 const _require = createRequire(import.meta.url);
 const _pkg = _require("../package.json") as { version: string };
@@ -185,6 +193,16 @@ async function connectBridgeToEntry(entry: ServerRegistryEntry) {
       transport: "stdio" as const,
       commandOrUrl: process.execPath,
       args: [distPath, "--transport", "stdio"],
+      // Forward the user's environment to the spawned server. The MCP SDK's
+      // StdioClientTransport only inherits an allowlist of env vars by
+      // default, which silently drops server-required variables such as
+      // FILESYSTEM_ROOTS. `umt run` spawns with full env inheritance, so
+      // `umt tools` matches that behavior for local workspace servers.
+      env: Object.fromEntries(
+        Object.entries(process.env).filter(
+          (entry): entry is [string, string] => typeof entry[1] === "string",
+        ),
+      ),
     });
     await bridge.connect();
     return bridge;
@@ -244,7 +262,7 @@ async function generateConfig(
 
 async function runServer(serverId: string, transport: "sse" | "stdio" | "streamable-http", host: string, port: number, supervise?: boolean, logLevel?: string): Promise<void> {
   const entry = getRegistryEntry(serverId);
-  const spinner = ora(`Resolving ${entry.title} package`).start();
+  const spinner = (await oraLazy(`Resolving ${entry.title} package`)).start();
   const { getStateDirectory } = await import("./config-store.js");
   
   // Set log level from CLI flag (overrides LOG_LEVEL env var)
@@ -448,7 +466,7 @@ async function runDoctor(serverId?: string, fix?: boolean): Promise<void> {
 
   if (fix && missingLocalEntries.length > 0) {
     const titles = missingLocalEntries.map((entry) => entry.title).join(", ");
-    const spinner = ora(`Building ${titles}...`).start();
+    const spinner = (await oraLazy(`Building ${titles}...`)).start();
     try {
       await buildWorkspacePackages(missingLocalEntries.map((entry) => entry.packageName));
       spinner.succeed(`Built ${titles}`);
@@ -461,7 +479,7 @@ async function runDoctor(serverId?: string, fix?: boolean): Promise<void> {
 }
 
 async function runUpdate(): Promise<void> {
-  const spinner = ora("Checking for updates").start();
+  const spinner = (await oraLazy("Checking for updates")).start();
   try {
     const currentVersion = CLI_VERSION;
     const { stdout: registryOutput } = await execNpm(["view", "universal-mcp-toolkit", "version", "--registry", "https://registry.npmjs.org"], {
@@ -490,7 +508,7 @@ async function runUpdate(): Promise<void> {
       return;
     }
 
-    const updateSpinner = ora(`Installing universal-mcp-toolkit@${latestVersion}`).start();
+    const updateSpinner = (await oraLazy(`Installing universal-mcp-toolkit@${latestVersion}`)).start();
     await execNpm(["install", "-g", `universal-mcp-toolkit@${latestVersion}`], {
       timeout: 60000,
     });
@@ -523,7 +541,7 @@ async function runTest(serverId: string): Promise<void> {
     return;
   }
 
-  const spinner = ora(`Starting ${entry.title} in stdio mode`).start();
+  const spinner = (await oraLazy(`Starting ${entry.title} in stdio mode`)).start();
 
   try {
     const child = spawn(process.execPath, [distPath, "--transport", "stdio"], {
@@ -860,7 +878,7 @@ async function runProfileList(): Promise<void> {
 
 async function runProfileUse(name: string): Promise<void> {
   const profile = await loadProfile(name);
-  const spinner = ora(`Activating profile '${name}'`).start();
+  const spinner = (await oraLazy(`Activating profile '${name}'`)).start();
 
   const entries = profile.serverIds.map((id) => getRegistryEntry(id));
   const generatedConfig = createGeneratedConfig(entries, profile.mode);
@@ -906,16 +924,12 @@ async function runProfileDuplicate(source: string, target: string): Promise<void
 export async function main(argv: readonly string[] = process.argv): Promise<void> {
   const program = new Command();
 
-  // Check for updates (non-blocking, best-effort)
-  const updateNotification = await checkForUpdate(CLI_VERSION, argv);
-  if (updateNotification) {
-    console.log(
-      chalk.cyan(
-        `📦 New version available: v${updateNotification.currentVersion} → v${updateNotification.latestVersion}\n` +
-          `   Run \`${chalk.bold(updateNotification.updateCommand)}\` to update.\n`,
-      ),
-    );
-  }
+  // Check for updates concurrently with command dispatch instead of awaiting
+  // it up front: the check is best-effort, and on a cold cache (or an
+  // unreachable registry) it can otherwise add seconds — up to the 5s fetch
+  // timeout — to every CLI invocation. The notification is printed after the
+  // command output instead of before.
+  const updateNotificationPromise = checkForUpdate(CLI_VERSION, argv).catch(() => null);
 
   program
     .name("universal-mcp-toolkit")
@@ -966,7 +980,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         } = await import("@universal-mcp-toolkit/bridge");
         const perServer: Array<{ server: string; tools: BridgeTool[] }> = [];
         const skipped: Array<{ server: string; reason: string }> = [];
-        const spinner = ora("Connecting to servers...").start();
+        const spinner = (await oraLazy("Connecting to servers...")).start();
         for (const entry of filtered) {
           let bridge: { listTools(): Promise<{ tools: BridgeTool[] }>; disconnect(): Promise<void> } | undefined;
           try {
@@ -1088,7 +1102,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       }
 
       const { describeTool } = await import("@universal-mcp-toolkit/bridge");
-      const spinner = ora(`Connecting to ${entry.title}...`).start();
+      const spinner = (await oraLazy(`Connecting to ${entry.title}...`)).start();
       let bridge: { listTools(): Promise<{ tools: BridgeTool[] }>; disconnect(): Promise<void> } | undefined;
       try {
         bridge = await connectBridgeToEntry(entry);
@@ -1475,7 +1489,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       const mode = await promptForMode();
       const outputPath = await promptForOutputPath(target);
 
-      const spinner = ora(`Writing ${target} config`).start();
+      const spinner = (await oraLazy(`Writing ${target} config`)).start();
       try {
         await generateConfig(serverIds, target, mode, outputPath);
         await saveInstallProfile({
@@ -1700,6 +1714,16 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     });
 
   await program.parseAsync(argv);
+
+  const updateNotification = await updateNotificationPromise;
+  if (updateNotification) {
+    console.log(
+      chalk.cyan(
+        `📦 New version available: v${updateNotification.currentVersion} → v${updateNotification.latestVersion}\n` +
+          `   Run \`${chalk.bold(updateNotification.updateCommand)}\` to update.\n`,
+      ),
+    );
+  }
 }
 
 /**
@@ -1869,7 +1893,7 @@ async function runLogs(serverName: string, lines: number, follow: boolean, grep?
  * @param dryRun - When true, show what would change without making modifications
  */
 async function runUpgrade(allPackages: boolean, serverName?: string, dryRun?: boolean): Promise<void> {
-  const spinner = ora(dryRun ? "Checking for updates (dry run)..." : "Checking for updates...").start();
+  const spinner = (await oraLazy(dryRun ? "Checking for updates (dry run)..." : "Checking for updates...")).start();
   
   try {
     if (serverName) {
@@ -1912,7 +1936,7 @@ async function runInit(): Promise<void> {
   const mode = await promptForMode();
   const outputPath = await promptForOutputPath(target);
 
-  const spinner = ora("Writing config...").start();
+  const spinner = (await oraLazy("Writing config...")).start();
   try {
     await generateConfig(serverIds, target, mode, outputPath);
     spinner.succeed(`Config written to ${outputPath}`);
@@ -2020,7 +2044,7 @@ async function runProfileCreate(name: string): Promise<void> {
   const mode = await promptForMode();
   const outputPath = await promptForOutputPath(target);
   
-  const spinner = ora(`Creating profile '${name}'...`).start();
+  const spinner = (await oraLazy(`Creating profile '${name}'...`)).start();
   try {
     await generateConfig(serverIds, target, mode, outputPath);
     await saveNamedProfile({
@@ -2086,7 +2110,7 @@ async function runProfileImport(profilePath: string): Promise<void> {
       return;
     }
     
-    const spinner = ora(`Importing profile '${profile.name}'...`).start();
+    const spinner = (await oraLazy(`Importing profile '${profile.name}'...`)).start();
     await saveNamedProfile(profile);
     spinner.succeed(`Profile '${profile.name}' imported`);
   } catch (error) {
