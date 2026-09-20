@@ -343,6 +343,10 @@ Check build output, config state, and required environment variables before you 
 | `umt profile show [name]` | Show profile configuration details |
 | `umt profile export <name>` | Export a named profile to a JSON file |
 | `umt profile import <path>` | Import a profile from a JSON file |
+| `umt skills` | Unified catalog of local Agent Skills (workflow knowledge) + MCP servers (execution) |
+| `umt skills generate` | Emit a `SKILL.md` per server for Claude Code / Cursor / Goose auto-discovery |
+| `umt workflow run <file> --trace` | Run a workflow and record a turn-scoped trace of every tool call |
+| `umt trace list` / `umt trace show <id>` | Inspect saved traces (summary, JSON, or OpenTelemetry export) |
 
 ## Configuration examples
 
@@ -435,6 +439,74 @@ umt discover --registry https://registry.example.com/v0.1/servers
 # Verify the well-known card is served correctly
 curl http://localhost:3000/.well-known/mcp/server-card.json | jq .name
 ```
+
+## Agent Skills + MCP
+
+[Agent Skills](https://agentskills.io) (open standard, Dec 2025) and MCP solve
+different halves of the agent problem. The 2026 consensus is simple:
+
+- **Skills carry workflow knowledge** — *when* to act, in what order, with what
+  judgment. A `SKILL.md` teaches the agent the playbook.
+- **MCP stays narrow** — typed tools the agent *executes*. A five-server MCP
+  setup already costs ~55k tokens/turn of tool definitions; skills keep the
+  knowledge out of that tax.
+
+UMT treats both as one installable catalog:
+
+```bash
+# Unified catalog: local skills (workflow knowledge) + registry servers (execution)
+umt skills
+umt skills --json
+
+# Generate one SKILL.md per server — Claude Code auto-discovers ./.agents/skills/*/SKILL.md
+umt skills generate
+umt skills generate -s github notion --out ./skills
+```
+
+Local skills are plain Agent Skills: a directory containing `SKILL.md` with
+YAML frontmatter. UMT discovers them from `$UMT_SKILLS_DIR`,
+`~/.universal-mcp-toolkit/skills`, `./.agents/skills`, and `./skills`, and
+reads the standard `name`/`description` plus the optional UMT extensions
+`version`, `servers` (UMT server IDs the skill drives), `tools`, and
+`umt-format` (manifest format version, currently `1`).
+
+## Turn-scoped tracing
+
+One trace per agent turn / CLI invocation, with a privacy-safe span named
+`server.tool` for every tool call: latency, input/output payload *sizes*
+(never bodies), token estimates, cost estimates, and error status. Span
+names, durations, and sizes are recorded — tool arguments, outputs,
+credentials, and secrets are never stored.
+
+```ts
+import { MCPFunctionCallingBridge, startTrace } from "@universal-mcp-toolkit/bridge";
+
+const trace = startTrace({ model: "gpt-4o" }); // model selects the price table
+const bridge = new MCPFunctionCallingBridge(config, { tracing: { trace, server: "github" } });
+await bridge.connect();
+await bridge.callTool("search_repositories", { query: "mcp" });
+
+const finished = trace.endTrace();
+console.log(trace.formatSummary(finished)); // human-readable one-pager
+await saveTraceSomewhere(trace.toJson(finished)); // umt-trace/1 JSON
+await shipToLangfuse(trace.toOtelJson(finished)); // OTLP-compatible export
+```
+
+From the CLI:
+
+```bash
+umt workflow run flow.json --trace --trace-model claude-sonnet-4
+umt compose --from github:search_repositories --to notion:create-page --trace
+umt trace list
+umt trace show <id>            # summary
+umt trace show <id> --json     # raw trace JSON (sizes only, never bodies)
+umt trace show <id> --otel     # OpenTelemetry OTLP-compatible JSON
+```
+
+Cost figures come from a configurable per-model price table
+(`DEFAULT_PRICE_TABLE`, overridable via `startTrace({ prices })`) and are
+**estimates, not billed amounts**. Unknown models yield no cost instead of a
+made-up number.
 
 ## Core package
 
