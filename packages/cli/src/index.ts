@@ -2243,6 +2243,86 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       console.log(chalk.gray("Claude Code auto-discovers ./.agents/skills/*/SKILL.md — no restart needed."));
     });
 
+  // --- `umt plugin` — Agent Plugins 1.0 distribution engine -------------------
+  // The Agent Plugins 1.0 spec (agent-plugins.org) makes Agent Skills +
+  // mcp.json a portable cross-client package but defines no CLI and no trust
+  // model. `umt plugin pack` generates a complete installable package from
+  // any UMT server selection; `umt plugin audit` deterministically
+  // security-scans a package directory before it is distributed.
+
+  const pluginCmd = program
+    .command("plugin")
+    .description("Build and audit portable Agent Plugins 1.0 packages (plugin.json + mcp.json + skills/).");
+
+  pluginCmd
+    .command("pack")
+    .description("Generate an installable Agent Plugins 1.0 package from UMT servers.")
+    .requiredOption("--servers <serverIds...>", "UMT server IDs to include in the package.")
+    .requiredOption("--name <name>", "Plugin name (spec: 1-64 lowercase chars, a-z 0-9 . -).")
+    .option("--description <text>", "Plugin description (default: generated from the server list).")
+    .option("--version <version>", "Plugin version (default: CLI version).")
+    .option("--out <dir>", "Output directory (default: ./<name>).")
+    .option("--dry-run", "List what would be emitted without writing any files.")
+    .action(
+      async (options: {
+        servers: string[];
+        name: string;
+        description?: string;
+        version?: string;
+        out?: string;
+        dryRun?: boolean;
+      }) => {
+        const { planPluginPack, writePluginPack } = await import("./plugin-pack.js");
+        let plan;
+        try {
+          plan = planPluginPack(
+            {
+              name: options.name,
+              serverIds: options.servers,
+              description: options.description,
+              version: options.version,
+              outDir: options.out,
+            },
+            CLI_VERSION,
+          );
+        } catch (error) {
+          console.error(chalk.red(`pack failed: ${error instanceof Error ? error.message : String(error)}`));
+          process.exit(1);
+        }
+        if (options.dryRun) {
+          console.log(chalk.cyan(`Would emit ${plan.files.length} file(s) to ${plan.outDir}:`));
+          for (const file of plan.files) {
+            console.log(`  ${file.relativePath} ${chalk.gray(`(${file.kind})`)}`);
+          }
+          return;
+        }
+        const written = await writePluginPack(plan);
+        console.log(chalk.green(`Wrote ${written.length} file(s) to ${plan.outDir}:`));
+        for (const filePath of written) {
+          console.log(`  ${filePath}`);
+        }
+        console.log(chalk.gray(`Audit before distributing: umt plugin audit ${plan.outDir}`));
+      },
+    );
+
+  pluginCmd
+    .command("audit")
+    .description("Deterministically security-scan an Agent Plugins 1.0 package directory.")
+    .argument("<dir>", "Plugin package directory to audit.")
+    .option("--json", "Print the findings as JSON instead of human-readable text.")
+    .action(async (dir: string, options: { json?: boolean }) => {
+      const { auditPluginPackage, formatAuditResult } = await import("./plugin-audit.js");
+      const result = await auditPluginPackage(dir);
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2));
+        return;
+      }
+      console.log(formatAuditResult(result));
+      if (!result.ok) {
+        process.exit(1);
+      }
+    });
+
   await program.parseAsync(argv);
 
   const updateNotification = await updateNotificationPromise;

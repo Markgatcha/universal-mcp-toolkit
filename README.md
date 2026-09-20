@@ -345,6 +345,8 @@ Check build output, config state, and required environment variables before you 
 | `umt profile import <path>` | Import a profile from a JSON file |
 | `umt skills` | Unified catalog of local Agent Skills (workflow knowledge) + MCP servers (execution) |
 | `umt skills generate` | Emit a `SKILL.md` per server for Claude Code / Cursor / Goose auto-discovery |
+| `umt plugin pack --servers <ids...> --name <name>` | Generate an installable Agent Plugins 1.0 package (plugin.json + mcp.json + skills/) |
+| `umt plugin audit <dir>` | Security-scan a plugin package: path containment, secrets, component isolation, schema |
 | `umt workflow run <file> --trace` | Run a workflow and record a turn-scoped trace of every tool call |
 | `umt trace list` / `umt trace show <id>` | Inspect saved traces (summary, JSON, or OpenTelemetry export) |
 
@@ -469,6 +471,42 @@ YAML frontmatter. UMT discovers them from `$UMT_SKILLS_DIR`,
 reads the standard `name`/`description` plus the optional UMT extensions
 `version`, `servers` (UMT server IDs the skill drives), `tools`, and
 `umt-format` (manifest format version, currently `1`).
+
+## Agent Plugins 1.0 distribution
+
+[Agent Plugins](https://agent-plugins.org) 1.0.0 (GA Aug 2026) made Agent
+Skills + `mcp.json` a portable cross-tool package — one directory that
+GitHub Copilot, ChatGPT & Codex, VS Code, Hermes Agent, Kiro, Cursor, and
+OpenClaw can all install. The spec defines the package layout but no CLI
+and no trust model; UMT ships both:
+
+```bash
+# Generate a complete, installable plugin package from any server selection
+umt plugin pack --servers github notion --name my-pack --out ./my-pack
+umt plugin pack --servers github --name my-pack --dry-run   # preview only
+
+# Deterministically security-scan a package before distributing it
+umt plugin audit ./my-pack
+umt plugin audit ./my-pack --json   # machine-readable findings
+```
+
+`pack` emits `plugin.json` (spec `$schema` + name/version/description),
+`mcp.json` (stdio server configs over `npx` — never secret values; each
+required env var becomes a client-managed `${VAR_NAME}` placeholder),
+`skills/umt-<id>/SKILL.md` per server (reusing `umt skills generate`), plus
+the `.mcp.json` / `.claude-plugin/plugin.json` client shims that UMT's own
+`plugin/` directory ships. Unknown server IDs and spec-invalid names fail
+loudly before anything is written.
+
+`audit` checks path containment (no `../` escapes, no absolute paths, no
+symlinks leaving the root), scans env values, headers, args, and skill
+bodies against deterministic secret shapes (the spec forbids credentials
+there), enforces component isolation (skills can't smuggle extra server
+entries or manifests, executable bits are flagged), and validates
+`plugin.json`/`mcp.json` against the spec's structural rules. Errors exit
+non-zero; warnings (unknown fields, deprecated `sse`, missing skill
+manifests) are reported but pass, matching the spec's failure-isolation
+rules.
 
 ## Turn-scoped tracing
 
