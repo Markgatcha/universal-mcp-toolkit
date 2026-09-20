@@ -1157,7 +1157,9 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .description("Run a validated workflow sequentially.")
     .argument("<file>", "Path to the workflow JSON file.")
     .option("--input <json>", "Workflow input values as a JSON object.", "{}")
-    .action(async (file: string, options: { input: string }) => {
+    .option("--trace", "Record a turn-scoped trace of every tool call; saves JSON and prints a summary.")
+    .option("--trace-model <model>", "Model used for cost estimation (default: gpt-4o or $UMT_TRACE_MODEL).")
+    .action(async (file: string, options: { input: string; trace?: boolean; traceModel?: string }) => {
       const workflowPath = path.resolve(file);
       let source: string;
       try {
@@ -1179,15 +1181,23 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         throw new Error("--input must be a JSON object.");
       }
 
-      const { MCPFunctionCallingBridge } = await import("@universal-mcp-toolkit/bridge");
+      const { MCPFunctionCallingBridge, startTrace } = await import("@universal-mcp-toolkit/bridge");
+      const { resolveTraceModel, saveTrace } = await import("./trace.js");
+      const trace = options.trace ? startTrace({ model: resolveTraceModel(options.traceModel) }) : undefined;
       const result = await executeWorkflow(workflow, inputs as Record<string, unknown>, {
         createBridge: async (serverId) => {
           const entry = getRegistryEntry(serverId);
           const config = await resolveBridgeConfig(entry);
-          return new MCPFunctionCallingBridge(config);
+          return new MCPFunctionCallingBridge(config, trace ? { tracing: { trace, server: serverId } } : {});
         },
       });
       console.log(JSON.stringify(result, null, 2));
+      if (trace) {
+        const finished = trace.endTrace();
+        const tracePath = await saveTrace(trace, finished);
+        console.log(chalk.gray(`\nTrace saved to ${tracePath}`));
+        console.log(trace.formatSummary(finished));
+      }
     });
 
   // --- `umt compose` — pipe tool outputs between MCP servers -----------------
@@ -1203,12 +1213,16 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .option("-a, --args <json>", "JSON arguments for the source tool.", (v: string) => v)
     .option("--from-args <json>", "JSON arguments specifically for the source tool.")
     .option("--to-args <json>", "JSON arguments for the destination tool. Use \"__PIPE__\" to receive the source output.")
+    .option("--trace", "Record a turn-scoped trace of both tool calls; saves JSON and prints a summary.")
+    .option("--trace-model <model>", "Model used for cost estimation (default: gpt-4o or $UMT_TRACE_MODEL).")
     .action(async (options: {
       from?: string;
       to?: string;
       args?: string;
       fromArgs?: string;
       toArgs?: string;
+      trace?: boolean;
+      traceModel?: string;
     }) => {
       if (!options.from || !options.to) {
         console.error(chalk.red("Both --from and --to are required."));
@@ -1232,14 +1246,19 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       const fromEntry = getRegistryEntry(fromServerId);
       const toEntry = getRegistryEntry(toServerId);
 
-      const { MCPFunctionCallingBridge } = await import("@universal-mcp-toolkit/bridge");
+      const { MCPFunctionCallingBridge, startTrace } = await import("@universal-mcp-toolkit/bridge");
+      const { resolveTraceModel, saveTrace } = await import("./trace.js");
+      const trace = options.trace ? startTrace({ model: resolveTraceModel(options.traceModel) }) : undefined;
 
       // Build configs from the registry entries.
       const fromConfig = await resolveBridgeConfig(fromEntry);
       const toConfig = await resolveBridgeConfig(toEntry);
 
       // Connect to the source server.
-      const fromBridge = new MCPFunctionCallingBridge(fromConfig);
+      const fromBridge = new MCPFunctionCallingBridge(
+        fromConfig,
+        trace ? { tracing: { trace, server: fromServerId } } : {},
+      );
       await fromBridge.connect();
 
       const fromArgs = options.fromArgs ? JSON.parse(options.fromArgs) :
@@ -1257,7 +1276,10 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       console.log(chalk.green(`✓ Source returned ${fromResult.output.length} characters`));
 
       // Connect to the destination server.
-      const toBridge = new MCPFunctionCallingBridge(toConfig);
+      const toBridge = new MCPFunctionCallingBridge(
+        toConfig,
+        trace ? { tracing: { trace, server: toServerId } } : {},
+      );
       await toBridge.connect();
 
       // Parse the destination args, substituting __PIPE__ with the source output.
@@ -1277,6 +1299,13 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
 
       console.log(chalk.bold("\n=== Result ==="));
       console.log(toResult.output);
+
+      if (trace) {
+        const finished = trace.endTrace();
+        const tracePath = await saveTrace(trace, finished);
+        console.log(chalk.gray(`\nTrace saved to ${tracePath}`));
+        console.log(trace.formatSummary(finished));
+      }
     });
 
   // --- `umt discover` — scan for MCP servers with well-known manifests -----
@@ -1711,6 +1740,128 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .argument("<path>", "Path to profile JSON file.")
     .action(async (profilePath: string) => {
       await runProfileImport(profilePath);
+    });
+
+  // --- `umt trace` — inspect saved turn-scoped traces -----------------------
+
+  const traceCmd = program
+    .command("trace")
+    .description("Inspect turn-scoped tool-call traces recorded with --trace.");
+
+  traceCmd
+    .command("list")
+    .description("List saved traces (newest first).")
+    .option("--json", "Print the trace summaries as JSON.")
+    .action(async (options: { json?: boolean }) => {
+      const { listTraces, renderTraceTable } = await import("./trace.js");
+      const summaries = await listTraces();
+      if (summaries.length === 0) {
+        console.log(chalk.yellow("No saved traces. Run a command with --trace to record one."));
+        return;
+      }
+      if (options.json) {
+        console.log(JSON.stringify(summaries, null, 2));
+        return;
+      }
+      console.log(renderTraceTable(summaries));
+    });
+
+  traceCmd
+    .command("show")
+    .description("Show a saved trace: human-readable summary, JSON, or OTEL export.")
+    .argument("<id>", "Trace ID (prefix match allowed).")
+    .option("--json", "Print the raw trace JSON (privacy-safe: sizes only, never bodies).")
+    .option("--otel", "Print the OpenTelemetry OTLP-compatible JSON export.")
+    .action(async (id: string, options: { json?: boolean; otel?: boolean }) => {
+      const { loadTrace } = await import("./trace.js");
+      const loaded = await loadTrace(id);
+      if (!loaded) {
+        console.error(chalk.red(`No saved trace matching '${id}'.`));
+        process.exit(1);
+      }
+      if (options.json) {
+        console.log(loaded.json);
+        return;
+      }
+      // toOtelJson/formatSummary only read the finished payload, so a fresh
+      // ActiveTrace works as a stateless formatter here.
+      const { ActiveTrace } = await import("@universal-mcp-toolkit/bridge");
+      const formatter = new ActiveTrace();
+      if (options.otel) {
+        console.log(formatter.toOtelJson(loaded.trace));
+        return;
+      }
+      console.log(formatter.formatSummary(loaded.trace));
+    });
+
+  // --- `umt skills` — Agent Skills interop -----------------------------------
+  // Skills carry workflow knowledge (when/how); MCP servers stay narrow
+  // (execution). This group builds one unified catalog of both, and can
+  // generate a SKILL.md per server for Claude Code / Cursor / Goose
+  // auto-discovery.
+
+  async function runSkillsList(options: { json?: boolean; skillsDir?: string }): Promise<void> {
+    const {
+      discoverSkills,
+      buildSkillCatalog,
+      renderSkillCatalog,
+      defaultSkillsDirs,
+    } = await import("./skills.js");
+    const dirs = options.skillsDir ? [options.skillsDir] : defaultSkillsDirs();
+    const { skills, warnings } = await discoverSkills(dirs);
+    const catalog = buildSkillCatalog(skills, SERVER_REGISTRY);
+    if (options.json) {
+      console.log(JSON.stringify(catalog, null, 2));
+      return;
+    }
+    console.log(renderSkillCatalog(catalog));
+    for (const warning of warnings) {
+      console.log(chalk.yellow(`Skipped ${warning.source}: ${warning.reason}`));
+    }
+  }
+
+  const skillsCmd = program
+    .command("skills")
+    .alias("skill")
+    .description("Unified catalog of local Agent Skills (workflow knowledge) and MCP servers (execution).")
+    .option("--json", "Print the catalog as JSON.")
+    .option("--skills-dir <dir>", "Scan a single skills directory instead of the defaults.")
+    .action(async (options: { json?: boolean; skillsDir?: string }) => {
+      await runSkillsList(options);
+    });
+
+  skillsCmd
+    .command("list")
+    .description("List the unified skill + MCP server catalog.")
+    .option("--json", "Print the catalog as JSON.")
+    .option("--skills-dir <dir>", "Scan a single skills directory instead of the defaults.")
+    .action(async (options: { json?: boolean; skillsDir?: string }) => {
+      await runSkillsList(options);
+    });
+
+  skillsCmd
+    .command("generate")
+    .description("Generate a SKILL.md per UMT server for Claude Code / Cursor / Goose auto-discovery.")
+    .option("-s, --server <serverIds...>", "Only generate for these server IDs (default: all).")
+    .option("--out <dir>", "Output directory (default: ./.agents/skills).")
+    .action(async (options: { server?: string[]; out?: string }) => {
+      const { writeServerSkills, defaultSkillsOutDir } = await import("./skills.js");
+      let entries = SERVER_REGISTRY;
+      if (options.server?.length) {
+        const wanted = new Set(options.server);
+        entries = SERVER_REGISTRY.filter((e) => wanted.has(e.id));
+        const missing = options.server.filter((id) => !entries.some((e) => e.id === id));
+        for (const id of missing) {
+          console.log(chalk.yellow(`Unknown server '${id}' — skipped.`));
+        }
+      }
+      const outDir = options.out ?? defaultSkillsOutDir();
+      const written = await writeServerSkills(entries, outDir);
+      console.log(chalk.green(`Wrote ${written.length} SKILL.md file(s) to ${outDir}:`));
+      for (const filePath of written) {
+        console.log(`  ${filePath}`);
+      }
+      console.log(chalk.gray("Claude Code auto-discovers ./.agents/skills/*/SKILL.md — no restart needed."));
     });
 
   await program.parseAsync(argv);

@@ -158,6 +158,23 @@ export type { HealthEvent, HealthEventListener, HealthMonitorOptions, CircuitSta
 export { BridgeObservability, estimateTokenCost, estimateTokenCount } from "./observability.js";
 export type { ObservabilityOptions } from "./observability.js";
 
+// Turn-scoped tracing — one trace per agent turn / CLI invocation, with
+// privacy-safe per-tool-call spans (`server.tool`) carrying latency, payload
+// sizes (never bodies), token estimates, and cost estimates.
+export {
+  ActiveTrace,
+  startTrace,
+  createCostModel,
+  DEFAULT_PRICE_TABLE,
+  type ModelPrice,
+  type TraceCostModel,
+  type ToolCallSpan,
+  type TraceTotals,
+  type Trace,
+  type StartTraceOptions,
+  type SpanHandle,
+} from "./tracing.js";
+
 // A2A Protocol server adapter — expose MCP tools via Google's Agent2Agent protocol.
 export {
   A2AServerAdapter,

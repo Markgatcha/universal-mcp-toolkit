@@ -12,6 +12,7 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { HealthMonitorOptions } from "./health-monitor.js";
 import type { ObservabilityOptions } from "./observability.js";
+import type { ActiveTrace } from "./tracing.js";
 
 /**
  * A normalized function-calling tool that can be serialized
@@ -243,6 +244,32 @@ export interface BridgeOptions {
    * ```
    */
   observability?: ObservabilityOptions;
+
+  /**
+   * Optional turn-scoped tracing. When provided, every `callTool()`
+   * invocation — successful, failed, or served from the result cache —
+   * records a privacy-safe span named `server.tool` on the given
+   * `ActiveTrace`: latency, payload *sizes* (never bodies), token
+   * estimates, cost estimates, and error status.
+   *
+   * Create the trace with `startTrace()` (one per agent turn / CLI
+   * invocation), pass it to every bridge in the turn, then finish with
+   * `trace.endTrace()` and export via `toJson()` / `toOtelJson()`.
+   *
+   * @example
+   * ```ts
+   * const trace = startTrace({ model: "gpt-4o" });
+   * const bridge = new MCPFunctionCallingBridge(config, {
+   *   tracing: { trace, server: "github" },
+   * });
+   * ```
+   */
+  tracing?: {
+    /** The active trace to record spans on. */
+    trace?: ActiveTrace;
+    /** Server label used in `server.tool` span names. Default: "unknown". */
+    server?: string;
+  };
 
   /**
    * Optional audit logger for recording tool invocations.

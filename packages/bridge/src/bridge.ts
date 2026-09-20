@@ -249,6 +249,7 @@ export class MCPFunctionCallingBridge {
       health: options.health,
       auditLog: options.auditLog,
       observability: options.observability,
+      tracing: options.tracing,
       policies: options.policies,
     };
 
@@ -667,6 +668,8 @@ export class MCPFunctionCallingBridge {
         // Refresh LRU position.
         this.resultCache.delete(cacheKey);
         this.resultCache.set(cacheKey, cached);
+        // Record a zero-duration cached span on the active turn trace.
+        this.recordTraceSpan(toolName, toolArgs, cached.result.output, undefined, true);
         return cached.result;
       }
       // Evict expired entry.
@@ -677,6 +680,13 @@ export class MCPFunctionCallingBridge {
 
     // Start an observability span for this tool call (if tracing is enabled).
     const spanHandle = this.observability?.startToolSpan(toolName, toolArgs);
+
+    // Start a turn-scoped trace span (privacy-safe: sizes only, never bodies).
+    const traceHandle = this.options.tracing?.trace?.startSpan(
+      this.options.tracing.server ?? "unknown",
+      toolName,
+      toolArgs,
+    );
 
     try {
       const startTime = Date.now();
@@ -702,6 +712,16 @@ export class MCPFunctionCallingBridge {
       // End the observability span with success.
       this.observability?.endToolSpan(spanHandle, normalized.output, undefined);
 
+      // End the turn-trace span. A tool-level `isError` result counts as an
+      // error span (error type only — never the message).
+      if (normalized.error) {
+        const toolError = new Error(`Tool "${toolName}" returned an error result.`);
+        toolError.name = "ToolError";
+        this.options.tracing?.trace?.endSpan(traceHandle!, normalized.output, toolError);
+      } else {
+        this.options.tracing?.trace?.endSpan(traceHandle!, normalized.output);
+      }
+
       return normalized;
     } catch (error) {
       // Tool/application errors do not imply that the MCP connection is
@@ -718,6 +738,10 @@ export class MCPFunctionCallingBridge {
 
       // End the observability span with error.
       this.observability?.endToolSpan(spanHandle, undefined, errMsg);
+
+      // End the turn-trace span with error status (error type only — never
+      // the message, which may carry secrets).
+      this.options.tracing?.trace?.endSpan(traceHandle!, undefined, error);
 
       if (this.options.suppressErrors) {
         return this.buildSuppressedErrorResult(toolName, toolArgs, error);
@@ -787,6 +811,24 @@ export class MCPFunctionCallingBridge {
       const errMsg = error instanceof Error ? error.message : String(error);
       yield `[ERROR tool:${toolName}] ${errMsg}`;
     }
+  }
+
+  /**
+   * Record a complete turn-trace span in one shot (used for result-cache
+   * hits, which never reach the normal call path). Privacy-safe: the trace
+   * records payload sizes, never bodies.
+   */
+  protected recordTraceSpan(
+    toolName: string,
+    toolArgs: Record<string, unknown>,
+    output: unknown,
+    error: unknown,
+    cached: boolean,
+  ): void {
+    const tracing = this.options.tracing;
+    if (!tracing?.trace) return;
+    const handle = tracing.trace.startSpan(tracing.server ?? "unknown", toolName, toolArgs, { cached });
+    tracing.trace.endSpan(handle, output, error ?? undefined);
   }
 
   /** Build a structured error result when suppressErrors is enabled. */
