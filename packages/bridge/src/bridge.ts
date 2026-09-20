@@ -14,8 +14,29 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { Tool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { Tool, CallToolResult, ClientRequest } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { createHash } from "node:crypto";
+
+import {
+  checkDefinitionDrift,
+  detectTaskSupport,
+  digestToolsList,
+  extractCacheHint,
+  isTerminalTaskStatus,
+  runMultiRoundTrip,
+  type BridgeEventName,
+  type CacheHint,
+  type DefinitionDriftEvent,
+  type DefinitionDriftListener,
+  type MrtrInputResponses,
+  type MultiRoundTripOptions,
+  type McpTask,
+  type TaskAwaitOptions,
+  type TaskCancelOptions,
+  type TaskSpawnOptions,
+  type TaskSupport,
+} from "./tasks.js";
 
 import type {
   AuditLogEntry,
@@ -31,6 +52,7 @@ import type {
 } from "./types.js";
 import { HealthMonitor } from "./health-monitor.js";
 import { BridgeObservability } from "./observability.js";
+import type { SpanHandle } from "./tracing.js";
 import { PolicyEngine } from "./types.js";
 
 /**
@@ -211,6 +233,18 @@ export class MCPFunctionCallingBridge {
   protected resultCache: Map<string, { result: BridgeToolResult; expiresAt: number }> | null = null;
   protected resultCacheTtlMs: number = 300_000;
   protected resultCacheMaxSize: number = 500;
+
+  // --- 2026-07-28 surfaces -------------------------------------------------
+  // Server-advertised cache hint from the latest tools/list (SEP-2549).
+  // When present, its ttlMs replaces the configured guess for result-cache TTL.
+  protected listCacheHint: CacheHint = {};
+  // Digest pin of the latest tools/list per connection (drift defense).
+  protected toolsDigest: string | undefined;
+  protected toolsDigestTools: Tool[] = [];
+  protected driftListeners = new Set<DefinitionDriftListener>();
+  // Tasks spawned through this bridge (for cancellation cascades).
+  protected spawnedTasks = new Set<string>();
+  protected taskChildren = new Map<string, Set<string>>();
 
   // Health monitoring (optional — set via options.health).
   protected healthMonitor?: HealthMonitor;
@@ -490,21 +524,37 @@ export class MCPFunctionCallingBridge {
   /**
    * List all available tools from the connected MCP server.
    * If `allowedTools` is configured, only those tools are returned.
-   * Results are cached after the first call for performance.
+   * Results are cached after the first call for performance; pass
+   * `{ refresh: true }` to re-fetch (this also re-runs cache-hint
+   * extraction and the definition-drift check).
+   *
+   * On every fresh fetch, two 2026-07-28 surfaces are wired in:
+   * - **Cache hints**: a server-advertised `ttlMs`/`cacheScope` on the
+   *   `tools/list` result replaces the configured result-cache TTL
+   *   (see {@link getListCacheHint}).
+   * - **Drift defense**: the listing is digest-pinned; a changed digest
+   *   emits a `definition-drift` event to registered listeners.
    */
-  async listTools(): Promise<ToolListing> {
+  async listTools(options: { refresh?: boolean } = {}): Promise<ToolListing> {
     if (!this.client) {
       throw new Error("Bridge not connected. Call connect() first.");
     }
 
     // Use cached tool listing if available (avoids re-querying the server).
-    if (this.toolsCache) {
+    if (this.toolsCache && !options.refresh) {
       const cached = Array.from(this.toolsCache.values());
       return this.toListing(cached);
     }
 
     const response = await this.client.listTools();
     const allTools = response.tools;
+
+    // Cache hints (SEP-2549): server-blessed TTL replaces guessed defaults.
+    this.listCacheHint = extractCacheHint(response);
+
+    // Definition-drift defense: digest-pin the fresh listing and alert
+    // when it no longer matches the previous pin.
+    this.checkToolsDrift(allTools);
 
     // Cache all tools for future calls.
     this.toolsCache = new Map(allTools.map((t) => [t.name, t]));
@@ -518,6 +568,95 @@ export class MCPFunctionCallingBridge {
     }
 
     return this.toListing(allTools);
+  }
+
+  /**
+   * The cache hint advertised by the server's latest `tools/list`
+   * (`ttlMs`/`cacheScope`), or `{}` when the server advertises nothing.
+   */
+  getListCacheHint(): CacheHint {
+    return { ...this.listCacheHint };
+  }
+
+  /**
+   * Digest-pin a fresh `tools/list` and emit `definition-drift` when it
+   * changed since the previous pin. The first fetch only establishes the pin.
+   */
+  protected checkToolsDrift(allTools: Tool[]): void {
+    const currentDigest = digestToolsList(allTools);
+    const previousDigest = this.toolsDigest;
+    const previousTools = this.toolsDigestTools;
+    this.toolsDigest = currentDigest;
+    this.toolsDigestTools = allTools;
+
+    if (
+      previousDigest !== undefined &&
+      previousDigest !== currentDigest &&
+      this.driftListeners.size > 0
+    ) {
+      const report = checkDefinitionDrift(previousDigest, previousTools, allTools);
+      const event: DefinitionDriftEvent = {
+        ...report,
+        serverLabel: this.serverLabel(),
+        fetchedAt: new Date().toISOString(),
+        cacheHint: this.getListCacheHint(),
+      };
+      for (const listener of this.driftListeners) {
+        try {
+          listener(event);
+        } catch {
+          // A listener must never break tool listing.
+        }
+      }
+    }
+  }
+
+  /** Human-readable label for this bridge's server (used in drift events). */
+  protected serverLabel(): string {
+    return `${this.config.transport}:${this.config.commandOrUrl ?? "unknown"}`;
+  }
+
+  /**
+   * Subscribe to bridge events. Currently only `"definition-drift"`.
+   * Returns an unsubscribe function.
+   */
+  on(
+    event: BridgeEventName,
+    listener: DefinitionDriftListener,
+  ): () => void {
+    if (event === "definition-drift") {
+      this.driftListeners.add(listener);
+      return () => {
+        this.driftListeners.delete(listener);
+      };
+    }
+    return () => undefined;
+  }
+
+  /**
+   * Remove a previously registered bridge event listener.
+   */
+  off(event: BridgeEventName, listener: DefinitionDriftListener): void {
+    if (event === "definition-drift") {
+      this.driftListeners.delete(listener);
+    }
+  }
+
+  /**
+   * The current digest pin for this server's `tools/list`, or undefined
+   * when no listing has been fetched yet.
+   */
+  getToolsDigest(): string | undefined {
+    return this.toolsDigest;
+  }
+
+  /**
+   * Clear the digest pin (e.g. after an acknowledged, legitimate rotation).
+   * The next `listTools()` fetch re-establishes the pin silently.
+   */
+  resetToolsDigest(): void {
+    this.toolsDigest = undefined;
+    this.toolsDigestTools = [];
   }
 
   /**
@@ -578,9 +717,101 @@ export class MCPFunctionCallingBridge {
     const toolName = typeof nameOrCall === "string" ? nameOrCall : nameOrCall.name;
     const toolArgs = typeof nameOrCall === "string" ? (args ?? {}) : nameOrCall.arguments;
 
+    // Authorization (allowedTools + RBAC policies) runs before reconnecting,
+    // consulting the result cache, or invoking the remote server.
+    const authzResult = await this.authorizeToolCall(toolName, toolArgs);
+    if (authzResult) return authzResult;
+
+    // If the client was torn down by a health-monitor disconnect event,
+    // attempt to reconnect only after the call has passed authorization.
+    if (!this.client && this.healthMonitor && this.healthMonitor.getCircuitState() !== "open") {
+      await this.reconnect();
+    }
+
+    if (!this.client) {
+      throw new Error("Bridge not connected. Call connect() first.");
+    }
+
+    const toolTimeout = timeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS;
+
+    // Check the result cache before making the call.
+    const cachedResult = this.lookupResultCache(toolName, toolArgs);
+    if (cachedResult) return cachedResult;
+
+    // Start an observability span for this tool call (if tracing is enabled).
+    const spanHandle = this.observability?.startToolSpan(toolName, toolArgs);
+
+    // Start a turn-scoped trace span (privacy-safe: sizes only, never bodies).
+    const traceHandle = this.options.tracing?.trace?.startSpan(
+      this.options.tracing.server ?? "unknown",
+      toolName,
+      toolArgs,
+    );
+
+    try {
+      const startTime = Date.now();
+      // Execute the MCP tool call with a timeout.
+      const result = (await withTimeout(
+        this.client.callTool({
+          name: toolName,
+          arguments: toolArgs,
+        }),
+        toolTimeout,
+        () => new Error(`Tool "${toolName}" timed out after ${toolTimeout}ms.`),
+      )) as CallToolResult;
+
+      return this.finalizeToolResult(toolName, toolArgs, result, startTime, spanHandle, traceHandle);
+    } catch (error) {
+      // Tool/application errors do not imply that the MCP connection is
+      // unhealthy. Only report errors with explicit transport indicators.
+      if (isLikelyTransportError(error)) {
+        this.healthMonitor?.onError(error);
+      }
+
+      // Audit-log failed tool call.
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.auditLogger?.log(
+        this.buildAuditEntry(toolName, toolArgs, false, errMsg, 0),
+      );
+
+      // End the observability span with error.
+      this.observability?.endToolSpan(spanHandle, undefined, errMsg);
+
+      // End the turn-trace span with error status (error type only — never
+      // the message, which may carry secrets).
+      this.options.tracing?.trace?.endSpan(traceHandle!, undefined, error);
+
+      if (this.options.suppressErrors) {
+        return this.buildSuppressedErrorResult(toolName, toolArgs, error);
+      }
+
+      // When not suppressing errors, enrich the thrown error with context
+      // so the caller gets a clear message including tool name and args.
+      const wrapped = new Error(
+        `Tool "${toolName}" failed: ${errMsg}\n  args: ${JSON.stringify(toolArgs).slice(0, 500)}`,
+      );
+      // Preserve the original stack trace for debugging.
+      (wrapped as any).originalError = error;
+      (wrapped as any).toolName = toolName;
+      (wrapped as any).toolArgs = toolArgs;
+      throw wrapped;
+    }
+  }
+
+  /**
+   * Enforce the authorization boundary (allowedTools allowlist + RBAC policy
+   * engine) for a tool call.
+   *
+   * @returns A suppressed error result when access is denied and
+   *   `suppressErrors` is on, `undefined` when the call is authorized
+   *   (the caller proceeds). Throws when access is denied and
+   *   `suppressErrors` is off.
+   */
+  protected async authorizeToolCall(
+    toolName: string,
+    toolArgs: Record<string, unknown>,
+  ): Promise<BridgeToolResult | undefined> {
     // Treat allowedTools as an authorization boundary, not just a listing filter.
-    // This must run before reconnecting, consulting the result cache, or invoking
-    // the remote server so direct calls cannot bypass the configured allowlist.
     if (this.options.allowedTools && !this.options.allowedTools.includes(toolName)) {
       const reason = `Tool '${toolName}' is not included in allowedTools.`;
       const error = new Error(`Access denied: ${reason}`);
@@ -603,8 +834,7 @@ export class MCPFunctionCallingBridge {
       throw error;
     }
 
-    // Enforce policy-based access control (RBAC) before reconnecting,
-    // consulting the cache, or executing the tool.
+    // Enforce policy-based access control (RBAC).
     // This implements the OAuth 2.1 + RBAC pattern: OAuth scopes define
     // broad capability domains, and fine-grained tool-level access is
     // enforced here via the policy engine.
@@ -648,6 +878,129 @@ export class MCPFunctionCallingBridge {
       }
     }
 
+    return undefined;
+  }
+
+  /**
+   * Look up a tool result in the TTL+LRU result cache.
+   * Returns the cached result (recording a cached trace span) or undefined.
+   */
+  protected lookupResultCache(
+    toolName: string,
+    toolArgs: Record<string, unknown>,
+  ): BridgeToolResult | undefined {
+    if (!this.resultCache) return undefined;
+    const cacheKey = this.buildCacheKey(toolName, toolArgs);
+    const cached = this.resultCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      // Refresh LRU position.
+      this.resultCache.delete(cacheKey);
+      this.resultCache.set(cacheKey, cached);
+      // Record a zero-duration cached span on the active turn trace.
+      this.recordTraceSpan(toolName, toolArgs, cached.result.output, undefined, true);
+      return cached.result;
+    }
+    // Evict expired entry.
+    if (cached) {
+      this.resultCache.delete(cacheKey);
+    }
+    return undefined;
+  }
+
+  /**
+   * Finalize a successful raw tool result: normalize, cache, audit-log, and
+   * close the observability / turn-trace spans.
+   */
+  protected finalizeToolResult(
+    toolName: string,
+    toolArgs: Record<string, unknown>,
+    result: CallToolResult,
+    startTime: number,
+    spanHandle: Parameters<BridgeObservability["endToolSpan"]>[0],
+    traceHandle: SpanHandle | undefined,
+  ): BridgeToolResult {
+    const normalized = this.normalizeResult(result, toolName);
+    // Cache successful results.
+    this.storeInCache(toolName, toolArgs, normalized);
+
+    // Audit-log successful tool call.
+    this.auditLogger?.log(
+      this.buildAuditEntry(toolName, toolArgs, true, undefined, normalized.output.length, Date.now() - startTime),
+    );
+
+    // End the observability span with success.
+    this.observability?.endToolSpan(spanHandle, normalized.output, undefined);
+
+    // End the turn-trace span. A tool-level `isError` result counts as an
+    // error span (error type only — never the message).
+    if (normalized.error) {
+      const toolError = new Error(`Tool "${toolName}" returned an error result.`);
+      toolError.name = "ToolError";
+      this.options.tracing?.trace?.endSpan(traceHandle!, normalized.output, toolError);
+    } else {
+      this.options.tracing?.trace?.endSpan(traceHandle!, normalized.output);
+    }
+
+    return normalized;
+  }
+
+  /**
+   * Invoke `tools/call` at the raw JSON-RPC level, preserving MRTR envelope
+   * fields (`inputResponses`, `requestState`) that the typed
+   * `client.callTool()` path strips from params.
+   */
+  protected async invokeToolRaw(
+    toolName: string,
+    args: Record<string, unknown>,
+    inputResponses?: MrtrInputResponses,
+    requestState?: string,
+  ): Promise<CallToolResult> {
+    if (!this.client) {
+      throw new Error("Bridge not connected. Call connect() first.");
+    }
+    const params: Record<string, unknown> = {
+      name: toolName,
+      arguments: args,
+    };
+    if (inputResponses !== undefined) params.inputResponses = inputResponses;
+    // requestState must be echoed back byte-exact (spec requirement);
+    // it is opaque to the client — never inspected here.
+    if (requestState !== undefined) params.requestState = requestState;
+    const request = { method: "tools/call", params } as ClientRequest;
+    return (await this.client.request(request, CallToolResultSchema)) as CallToolResult;
+  }
+
+  /**
+   * Call a tool with MRTR (multi-round-trip request) support (2026-07-28).
+   *
+   * When the server returns `resultType: "input_required"`, the loop does
+   * NOT error: it surfaces `inputRequests` through `onInputRequest`,
+   * collects the answers, and retries the call with `inputResponses` (+ the
+   * opaque `requestState` echoed back) until a final result arrives or
+   * `maxRounds` is exceeded. Servers on older spec revisions never emit
+   * `input_required`, so this behaves exactly like {@link callTool} for them.
+   *
+   * @example
+   * ```ts
+   * const result = await bridge.callToolWithMrtr("book_flight", args, {
+   *   maxRounds: 5,
+   *   onInputRequest: async (requests) => askUser(requests),
+   * });
+   * ```
+   */
+  async callToolWithMrtr(
+    nameOrCall: string | FunctionCall,
+    args?: Record<string, unknown>,
+    mrtrOptions: MultiRoundTripOptions = {},
+    timeoutMs?: number,
+  ): Promise<BridgeToolResult> {
+    const toolName = typeof nameOrCall === "string" ? nameOrCall : nameOrCall.name;
+    const toolArgs = typeof nameOrCall === "string" ? (args ?? {}) : nameOrCall.arguments;
+
+    // Same authorization boundary as callTool().
+    const authzResult = await this.authorizeToolCall(toolName, toolArgs);
+    if (authzResult) return authzResult;
+
     // If the client was torn down by a health-monitor disconnect event,
     // attempt to reconnect only after the call has passed authorization.
     if (!this.client && this.healthMonitor && this.healthMonitor.getCircuitState() !== "open") {
@@ -661,22 +1014,8 @@ export class MCPFunctionCallingBridge {
     const toolTimeout = timeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS;
 
     // Check the result cache before making the call.
-    if (this.resultCache) {
-      const cacheKey = this.buildCacheKey(toolName, toolArgs);
-      const cached = this.resultCache.get(cacheKey);
-      if (cached && Date.now() < cached.expiresAt) {
-        // Refresh LRU position.
-        this.resultCache.delete(cacheKey);
-        this.resultCache.set(cacheKey, cached);
-        // Record a zero-duration cached span on the active turn trace.
-        this.recordTraceSpan(toolName, toolArgs, cached.result.output, undefined, true);
-        return cached.result;
-      }
-      // Evict expired entry.
-      if (cached) {
-        this.resultCache.delete(cacheKey);
-      }
-    }
+    const cachedResult = this.lookupResultCache(toolName, toolArgs);
+    if (cachedResult) return cachedResult;
 
     // Start an observability span for this tool call (if tracing is enabled).
     const spanHandle = this.observability?.startToolSpan(toolName, toolArgs);
@@ -690,39 +1029,21 @@ export class MCPFunctionCallingBridge {
 
     try {
       const startTime = Date.now();
-      // Execute the MCP tool call with a timeout.
-      const result = (await withTimeout(
-        this.client.callTool({
-          name: toolName,
-          arguments: toolArgs,
-        }),
-        toolTimeout,
-        () => new Error(`Tool "${toolName}" timed out after ${toolTimeout}ms.`),
-      )) as CallToolResult;
-
-      const normalized = this.normalizeResult(result, toolName);
-      // Cache successful results.
-      this.storeInCache(toolName, toolArgs, normalized);
-
-      // Audit-log successful tool call.
-      this.auditLogger?.log(
-        this.buildAuditEntry(toolName, toolArgs, true, undefined, normalized.output.length, Date.now() - startTime),
+      // Run the MRTR loop: each round re-invokes tools/call, carrying the
+      // inputResponses + echoed requestState from the previous round.
+      // Per-round timeout — a hung server fails the round, not the loop.
+      const { result } = await runMultiRoundTrip(
+        (callArgs, mrtr) =>
+          withTimeout(
+            this.invokeToolRaw(toolName, callArgs, mrtr.inputResponses, mrtr.requestState),
+            toolTimeout,
+            () => new Error(`Tool "${toolName}" timed out after ${toolTimeout}ms.`),
+          ),
+        toolArgs,
+        mrtrOptions,
       );
 
-      // End the observability span with success.
-      this.observability?.endToolSpan(spanHandle, normalized.output, undefined);
-
-      // End the turn-trace span. A tool-level `isError` result counts as an
-      // error span (error type only — never the message).
-      if (normalized.error) {
-        const toolError = new Error(`Tool "${toolName}" returned an error result.`);
-        toolError.name = "ToolError";
-        this.options.tracing?.trace?.endSpan(traceHandle!, normalized.output, toolError);
-      } else {
-        this.options.tracing?.trace?.endSpan(traceHandle!, normalized.output);
-      }
-
-      return normalized;
+      return this.finalizeToolResult(toolName, toolArgs, result, startTime, spanHandle, traceHandle);
     } catch (error) {
       // Tool/application errors do not imply that the MCP connection is
       // unhealthy. Only report errors with explicit transport indicators.
@@ -741,7 +1062,7 @@ export class MCPFunctionCallingBridge {
 
       // End the turn-trace span with error status (error type only — never
       // the message, which may carry secrets).
-      this.options.tracing?.trace?.endSpan(traceHandle!, undefined, error);
+      this.options.tracing?.trace?.endSpan(traceHandle as never, undefined, error);
 
       if (this.options.suppressErrors) {
         return this.buildSuppressedErrorResult(toolName, toolArgs, error);
@@ -758,6 +1079,186 @@ export class MCPFunctionCallingBridge {
       (wrapped as any).toolArgs = toolArgs;
       throw wrapped;
     }
+  }
+
+  /* ── Tasks (2026-07-28, io.modelcontextprotocol/tasks) ─────────────────── */
+
+  /**
+   * Feature-detect Tasks support on the connected server.
+   * All-false for servers on the older 2025-06-18 / 2025-11-25 revisions
+   * (dual-era safe) or when not connected.
+   */
+  getTaskSupport(): TaskSupport {
+    return detectTaskSupport(this.client?.getServerCapabilities());
+  }
+
+  /** Get the experimental task client API, or throw when not connected. */
+  protected taskApi() {
+    const tasks = this.client?.experimental?.tasks;
+    if (!tasks) {
+      throw new Error("Bridge not connected. Call connect() first.");
+    }
+    return tasks;
+  }
+
+  /**
+   * Spawn a long-running tool call as a task (2026-07-28 Tasks extension).
+   *
+   * Returns as soon as the server acknowledges the task (`taskCreated`);
+   * use {@link awaitTaskCompletion} to follow it to a terminal state, or
+   * {@link cancelTask} to cancel it. Servers that execute synchronously
+   * return `{ taskId: null, result }` instead — no task is created.
+   */
+  async spawnTaskToolCall(
+    toolName: string,
+    args: Record<string, unknown> = {},
+    options: TaskSpawnOptions = {},
+  ): Promise<{ taskId: string | null; task: McpTask | null; result: BridgeToolResult | null }> {
+    const tasks = this.taskApi();
+    const stream = tasks.callToolStream(
+      { name: toolName, arguments: args },
+      CallToolResultSchema,
+      {
+        ...(options.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
+        task: {
+          ...(options.ttlMs !== undefined ? { ttl: options.ttlMs } : {}),
+          ...(options.pollIntervalMs !== undefined ? { pollInterval: options.pollIntervalMs } : {}),
+        },
+      },
+    );
+
+    for await (const message of stream) {
+      switch (message.type) {
+        case "taskCreated":
+          this.spawnedTasks.add(message.task.taskId);
+          return { taskId: message.task.taskId, task: message.task, result: null };
+        case "taskStatus":
+          // Intermediate progress before the creation ack — keep consuming.
+          break;
+        case "result":
+          // The server executed synchronously; no task was created.
+          return {
+            taskId: null,
+            task: null,
+            result: this.normalizeResult(message.result, toolName),
+          };
+        case "error":
+          throw message.error;
+      }
+    }
+    throw new Error(
+      `Task stream for tool "${toolName}" ended without a task or result.`,
+    );
+  }
+
+  /**
+   * Get the current state of a task.
+   */
+  async getTask(taskId: string): Promise<McpTask> {
+    return this.taskApi().getTask(taskId);
+  }
+
+  /**
+   * List tasks on the server (requires the `tasks.list` capability).
+   */
+  async listServerTasks(cursor?: string): Promise<{ tasks: McpTask[]; nextCursor?: string }> {
+    const result = await this.taskApi().listTasks(cursor);
+    return { tasks: result.tasks, nextCursor: result.nextCursor };
+  }
+
+  /**
+   * Poll a task until it reaches a terminal status, surfacing progress
+   * updates through `onProgress`.
+   *
+   * - `completed` → the task's result is fetched via `tasks/result` and
+   *   returned as a normalized {@link BridgeToolResult}.
+   * - `failed` / `cancelled` → throws.
+   * - `input_required` → keeps polling (the server wants input mid-flight;
+   *   `tasks/update` is not yet in the SDK — the statusMessage is surfaced
+   *   via `onProgress` so callers can react).
+   */
+  async awaitTaskCompletion(
+    taskId: string,
+    options: TaskAwaitOptions = {},
+  ): Promise<BridgeToolResult> {
+    const tasks = this.taskApi();
+    const fallbackPollMs = options.pollIntervalMs ?? 1000;
+    const start = Date.now();
+
+    for (;;) {
+      const status = await tasks.getTask(taskId);
+      options.onProgress?.(status);
+
+      if (isTerminalTaskStatus(status.status)) {
+        if (status.status === "completed") {
+          const raw = (await tasks.getTaskResult(
+            taskId,
+            CallToolResultSchema as never,
+          )) as CallToolResult;
+          return this.normalizeResult(raw, `task:${taskId}`);
+        }
+        if (status.status === "failed") {
+          throw new Error(
+            `Task ${taskId} failed${status.statusMessage ? `: ${status.statusMessage}` : "."}`,
+          );
+        }
+        throw new Error(`Task ${taskId} was cancelled.`);
+      }
+
+      if (options.timeoutMs !== undefined && Date.now() - start > options.timeoutMs) {
+        throw new Error(
+          `Timed out waiting for task ${taskId} after ${options.timeoutMs}ms.`,
+        );
+      }
+
+      const waitMs = status.pollInterval ?? fallbackPollMs;
+      await new Promise((resolve) => setTimeout(resolve, Math.max(0, waitMs)));
+    }
+  }
+
+  /**
+   * Cancel a task. With the default `{ cascade: true }`, child tasks linked
+   * via {@link linkTaskChild} are cancelled first (depth-first), so
+   * cancelling a parent fans out into a cancellation cascade.
+   */
+  async cancelTask(taskId: string, options: TaskCancelOptions = {}): Promise<void> {
+    const cascade = options.cascade ?? true;
+    if (cascade) {
+      const children = this.taskChildren.get(taskId);
+      if (children) {
+        for (const childId of [...children]) {
+          await this.cancelTask(childId, { cascade: true });
+        }
+      }
+    }
+    await this.taskApi().cancelTask(taskId);
+    this.taskChildren.delete(taskId);
+    this.spawnedTasks.delete(taskId);
+    // Remove from any parent's child set.
+    for (const siblings of this.taskChildren.values()) {
+      siblings.delete(taskId);
+    }
+  }
+
+  /**
+   * Link a child task to a parent so {@link cancelTask} cascades.
+   * Use when one task's execution spawns another (e.g. an agent task that
+   * fans out sub-tool tasks).
+   */
+  linkTaskChild(parentTaskId: string, childTaskId: string): void {
+    let children = this.taskChildren.get(parentTaskId);
+    if (!children) {
+      children = new Set();
+      this.taskChildren.set(parentTaskId, children);
+    }
+    children.add(childTaskId);
+  }
+
+  /**
+   * Task IDs spawned through this bridge that have not been cancelled.
+   */
+  getSpawnedTaskIds(): string[] {
+    return [...this.spawnedTasks];
   }
 
   /**
@@ -900,6 +1401,10 @@ export class MCPFunctionCallingBridge {
   /**
    * Store a successful tool result in the result cache.
    * Called internally after normalizeResult returns a non-error result.
+   *
+   * TTL selection: a server-advertised `ttlMs` from the latest `tools/list`
+   * (2026-07-28 cache hints, SEP-2549) replaces the configured guess;
+   * otherwise the bridge falls back to its configured default TTL.
    */
   protected storeInCache(toolName: string, args: Record<string, unknown>, result: BridgeToolResult): void {
     if (!this.resultCache) return;
@@ -915,10 +1420,12 @@ export class MCPFunctionCallingBridge {
       }
     }
 
+    // Server-blessed caching replaces guessed TTLs.
+    const ttlMs = this.listCacheHint.ttlMs ?? this.resultCacheTtlMs;
     const cacheKey = this.buildCacheKey(toolName, args);
     this.resultCache.set(cacheKey, {
       result,
-      expiresAt: Date.now() + this.resultCacheTtlMs,
+      expiresAt: Date.now() + ttlMs,
     });
   }
 
@@ -926,12 +1433,20 @@ export class MCPFunctionCallingBridge {
    * Get cache statistics for monitoring.
    * Returns null if caching is not enabled.
    */
-  getCacheStats(): { size: number; maxSize: number; ttlMs: number } | null {
+  getCacheStats(): {
+    size: number;
+    maxSize: number;
+    ttlMs: number;
+    advertisedTtlMs?: number;
+    cacheScope?: "public" | "private";
+  } | null {
     if (!this.resultCache) return null;
     return {
       size: this.resultCache.size,
       maxSize: this.resultCacheMaxSize,
       ttlMs: this.resultCacheTtlMs,
+      ...(this.listCacheHint.ttlMs !== undefined ? { advertisedTtlMs: this.listCacheHint.ttlMs } : {}),
+      ...(this.listCacheHint.cacheScope !== undefined ? { cacheScope: this.listCacheHint.cacheScope } : {}),
     };
   }
 

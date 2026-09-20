@@ -175,6 +175,38 @@ export {
   type SpanHandle,
 } from "./tracing.js";
 
+// MCP 2026-07-28 spec surfaces — Tasks, MRTR, cache hints, definition-drift defense.
+export {
+  detectTaskSupport,
+  isTerminalTaskStatus,
+  isInputRequiredResult,
+  extractInputRequired,
+  extractCacheHint,
+  digestToolsList,
+  checkDefinitionDrift,
+  runMultiRoundTrip,
+  MrtrRoundLimitError,
+  MrtrInputRequiredError,
+  DEFAULT_MRTR_MAX_ROUNDS,
+  type McpTaskStatus,
+  type McpTask,
+  type TaskSupport,
+  type MrtrInputRequest,
+  type MrtrInputRequests,
+  type MrtrInputResponses,
+  type InputRequiredResultShape,
+  type MultiRoundTripOptions,
+  type CacheHint,
+  type DigestibleToolDefinition,
+  type DefinitionDriftReport,
+  type DefinitionDriftEvent,
+  type DefinitionDriftListener,
+  type BridgeEventName,
+  type TaskSpawnOptions,
+  type TaskAwaitOptions,
+  type TaskCancelOptions,
+} from "./tasks.js";
+
 // A2A Protocol server adapter — expose MCP tools via Google's Agent2Agent protocol.
 export {
   A2AServerAdapter,

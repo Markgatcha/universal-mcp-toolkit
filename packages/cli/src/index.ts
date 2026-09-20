@@ -74,7 +74,13 @@ import { loadPlugin, checkPluginAvailability, getSpawnConfig, clearPluginCache, 
 import { DEFAULT_MCP_REGISTRY_URL, fetchRegistryServers } from "./registry-discovery.js";
 import { executeWorkflow, parseWorkflowJson } from "./workflow.js";
 import { createWorkspaceBuildArgs } from "./workspace-build.js";
-import type { BridgeTool } from "@universal-mcp-toolkit/bridge";
+import type {
+  BridgeTool,
+  BridgeToolResult,
+  MCPFunctionCallingBridge,
+  MrtrInputRequests,
+  MrtrInputResponses,
+} from "@universal-mcp-toolkit/bridge";
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
@@ -210,6 +216,196 @@ async function connectBridgeToEntry(entry: ServerRegistryEntry) {
   const bridge = new MCPFunctionCallingBridge(await resolveBridgeConfig(entry));
   await bridge.connect();
   return bridge;
+}
+
+/**
+ * Resolve which registry server declares a tool (shared by `tools call`).
+ * Throws a human-readable error when ambiguous or unknown.
+ */
+function resolveToolEntry(toolName: string, serverId?: string): ServerRegistryEntry {
+  if (serverId) {
+    const entry = getRegistryEntry(serverId);
+    if (!entry.toolNames.includes(toolName)) {
+      console.log(
+        chalk.yellow(
+          `Warning: server '${entry.id}' does not declare '${toolName}' in the registry; querying it anyway.`,
+        ),
+      );
+    }
+    return entry;
+  }
+  const candidates = findServersDeclaringTool(toolName);
+  if (candidates.length === 0) {
+    throw new Error(`No server in the registry declares a tool named '${toolName}'.`);
+  }
+  if (candidates.length > 1) {
+    throw new Error(
+      `Tool '${toolName}' is declared by several servers (${candidates.map((c) => c.id).join(", ")}). ` +
+      "Re-run with --server <id>.",
+    );
+  }
+  return candidates[0]!;
+}
+
+/**
+ * Parse `--args` JSON into a tool-arguments object.
+ * Throws a human-readable error on invalid input.
+ */
+function parseToolArgsJson(json: string): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error(`Invalid --args JSON: ${json.slice(0, 120)}`);
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("--args must be a JSON object, e.g. --args '{\"key\":\"value\"}'.");
+  }
+  return parsed as Record<string, unknown>;
+}
+
+/**
+ * Print a tool result (text or JSON).
+ */
+function printToolResult(
+  toolName: string,
+  result: BridgeToolResult,
+  json?: boolean,
+): void {
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  printSection(`Result: ${toolName}`);
+  console.log(result.output);
+  if (result.error) {
+    console.error(chalk.red("\n[Tool returned an error]"));
+    process.exitCode = 1;
+  }
+}
+
+/**
+ * MRTR input handler for the CLI: surface each `inputRequest` as an
+ * interactive prompt, then build the `inputResponses` envelope.
+ */
+async function collectMrtrInputs(
+  requests: MrtrInputRequests,
+): Promise<MrtrInputResponses> {
+  const { planMrtrPrompts, buildMrtrResponses } = await import("./task-cli.js");
+  const plans = planMrtrPrompts(requests);
+  const answersByKey: Record<string, Record<string, unknown>> = {};
+  for (const plan of plans) {
+    console.log(chalk.cyan(`\n${plan.headline}`));
+    answersByKey[plan.key] = await promptForAnswers<Record<string, unknown>>(plan.questions);
+  }
+  return buildMrtrResponses(plans, answersByKey);
+}
+
+/**
+ * Run a tool as a long-running task: spawn, stream progress, await the
+ * final result. Falls back to a direct MRTR call when the server does not
+ * advertise task support (dual-era compatibility).
+ */
+async function runToolAsTask(
+  bridge: MCPFunctionCallingBridge,
+  entry: ServerRegistryEntry,
+  toolName: string,
+  toolArgs: Record<string, unknown>,
+  options: { taskTtl?: string; taskPoll?: string; json?: boolean },
+): Promise<void> {
+  const support = bridge.getTaskSupport();
+  if (!support.toolsCallTasks) {
+    console.log(
+      chalk.yellow(
+        `Server '${entry.id}' does not advertise task support (2026-07-28 Tasks) — ` +
+        "falling back to a direct call.",
+      ),
+    );
+    const result = await bridge.callToolWithMrtr(toolName, toolArgs, {
+      onInputRequest: collectMrtrInputs,
+    });
+    printToolResult(toolName, result, options.json);
+    return;
+  }
+
+  const spawned = await bridge.spawnTaskToolCall(toolName, toolArgs, {
+    ...(options.taskTtl !== undefined ? { ttlMs: parseInt(options.taskTtl, 10) } : {}),
+    ...(options.taskPoll !== undefined ? { pollIntervalMs: parseInt(options.taskPoll, 10) } : {}),
+  });
+  if (spawned.result) {
+    console.log(chalk.gray("The server executed synchronously — no task was created."));
+    printToolResult(toolName, spawned.result, options.json);
+    return;
+  }
+
+  console.log(`Task spawned: ${chalk.bold(spawned.taskId)}`);
+  const spinner = (await oraLazy("Waiting for task...")).start();
+  try {
+    const result = await bridge.awaitTaskCompletion(spawned.taskId!, {
+      onProgress: (task) => {
+        spinner.text =
+          `Task ${spawned.taskId}: ${task.status}` +
+          (task.statusMessage ? ` — ${task.statusMessage}` : "");
+      },
+    });
+    spinner.succeed(`Task ${spawned.taskId} completed.`);
+    printToolResult(toolName, result, options.json);
+  } catch (error) {
+    spinner.fail(`Task ${spawned.taskId} did not complete.`);
+    throw error;
+  }
+}
+
+/**
+ * Refresh the tools listing after connect so the definition-drift pin is
+ * compared and `definition-drift` events fire. Warns (but does not fail)
+ * when the listing cannot be refreshed.
+ */
+async function refreshToolListingForDriftCheck(
+  bridge: MCPFunctionCallingBridge,
+  entry: ServerRegistryEntry,
+): Promise<void> {
+  try {
+    await bridge.listTools({ refresh: true });
+  } catch (error) {
+    console.error(
+      chalk.yellow(
+        `Warning: could not refresh tools/list on '${entry.id}' for drift check: ` +
+        (error instanceof Error ? error.message : String(error)),
+      ),
+    );
+  }
+}
+
+/**
+ * Connect to a registry server for `umt task` commands, attach the
+ * definition-drift watcher, run `fn`, and always disconnect.
+ */
+async function withTaskBridge(
+  serverId: string,
+  fn: (bridge: MCPFunctionCallingBridge, entry: ServerRegistryEntry) => Promise<void>,
+): Promise<void> {
+  const entry = getRegistryEntry(serverId);
+  const { watchDefinitionDrift } = await import("./task-cli.js");
+  const spinner = (await oraLazy(`Connecting to ${entry.title}...`)).start();
+  let bridge: MCPFunctionCallingBridge | undefined;
+  try {
+    bridge = await connectBridgeToEntry(entry);
+    spinner.succeed(`Connected to ${entry.title}.`);
+    const stopWatching = watchDefinitionDrift(bridge, entry.id);
+    try {
+      await refreshToolListingForDriftCheck(bridge, entry);
+      await fn(bridge, entry);
+    } finally {
+      stopWatching();
+    }
+  } catch (error) {
+    spinner.fail(`Task command failed.`);
+    console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+    process.exitCode = 1;
+  } finally {
+    await bridge?.disconnect().catch(() => undefined);
+  }
 }
 
 async function promptForMode(): Promise<InvocationMode> {
@@ -1126,6 +1322,189 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
       } finally {
         await bridge?.disconnect().catch(() => undefined);
       }
+    });
+
+  toolsCmd
+    .command("call")
+    .description("Call a tool on a server — with MRTR multi-round-trip support and optional task execution.")
+    .argument("<toolName>", "Tool to call.")
+    .option("-s, --server <serverId>", "Server ID to query. Required when several servers declare the tool.")
+    .option("--args <json>", "Tool arguments as a JSON object.", "{}")
+    .option("--task", "Run as a long-running task (2026-07-28 Tasks): spawn, stream progress, await completion.")
+    .option("--task-ttl <ms>", "Requested task retention in ms.")
+    .option("--task-poll <ms>", "Poll interval hint in ms.")
+    .option("--max-rounds <n>", "MRTR round cap — how many input_required rounds to answer (default 8).", "8")
+    .option("--json", "Print the result as JSON instead of formatted text.")
+    .action(async (toolName: string, options: {
+      server?: string; args: string; task?: boolean; taskTtl?: string;
+      taskPoll?: string; maxRounds: string; json?: boolean;
+    }) => {
+      let entry: ServerRegistryEntry;
+      try {
+        entry = resolveToolEntry(toolName, options.server);
+      } catch (error) {
+        console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+        process.exitCode = 1;
+        return;
+      }
+      let toolArgs: Record<string, unknown>;
+      try {
+        toolArgs = parseToolArgsJson(options.args);
+      } catch (error) {
+        console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+        process.exitCode = 1;
+        return;
+      }
+
+      const { watchDefinitionDrift } = await import("./task-cli.js");
+      const spinner = (await oraLazy(`Connecting to ${entry.title}...`)).start();
+      let bridge: Awaited<ReturnType<typeof connectBridgeToEntry>> | undefined;
+      try {
+        bridge = await connectBridgeToEntry(entry);
+        spinner.succeed(`Connected to ${entry.title}.`);
+        const stopWatching = watchDefinitionDrift(bridge, entry.id);
+        try {
+          await refreshToolListingForDriftCheck(bridge, entry);
+          if (options.task) {
+            await runToolAsTask(bridge, entry, toolName, toolArgs, options);
+          } else {
+            const result = await bridge.callToolWithMrtr(
+              toolName,
+              toolArgs,
+              {
+                maxRounds: Math.max(1, parseInt(options.maxRounds, 10) || 8),
+                onInputRequest: collectMrtrInputs,
+              },
+            );
+            printToolResult(toolName, result, options.json);
+          }
+        } finally {
+          stopWatching();
+        }
+      } catch (error) {
+        spinner.fail(`Failed to call tool '${toolName}'.`);
+        console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+        process.exitCode = 1;
+      } finally {
+        await bridge?.disconnect().catch(() => undefined);
+      }
+    });
+
+  // --- `umt task` — 2026-07-28 Tasks: spawn / status / await / cancel --------
+
+  const taskCmd = program
+    .command("task")
+    .description("Manage long-running MCP tasks (2026-07-28 Tasks extension: spawn, poll, await, cancel).");
+
+  taskCmd
+    .command("spawn")
+    .description("Spawn a long-running tool call as a task and print its task ID.")
+    .argument("<toolName>", "Tool to call.")
+    .requiredOption("-s, --server <serverId>", "Server ID to run against.")
+    .option("--args <json>", "Tool arguments as a JSON object.", "{}")
+    .option("--ttl <ms>", "Requested task retention in ms.")
+    .option("--poll <ms>", "Poll interval hint in ms.")
+    .option("--json", "Print the spawn result as JSON.")
+    .action(async (toolName: string, options: {
+      server: string; args: string; ttl?: string; poll?: string; json?: boolean;
+    }) => {
+      await withTaskBridge(options.server, async (bridge, entry) => {
+        const support = bridge.getTaskSupport();
+        if (!support.toolsCallTasks) {
+          console.error(
+            chalk.red(
+              `Server '${entry.id}' does not advertise task support for tools/call ` +
+              "(2026-07-28 Tasks extension). Use `umt tools call` for a direct call instead.",
+            ),
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const toolArgs = parseToolArgsJson(options.args);
+        const spawned = await bridge.spawnTaskToolCall(toolName, toolArgs, {
+          ...(options.ttl !== undefined ? { ttlMs: parseInt(options.ttl, 10) } : {}),
+          ...(options.poll !== undefined ? { pollIntervalMs: parseInt(options.poll, 10) } : {}),
+        });
+        if (options.json) {
+          console.log(JSON.stringify(spawned, null, 2));
+          return;
+        }
+        if (spawned.result) {
+          console.log(chalk.gray("The server executed synchronously — no task was created."));
+          printToolResult(toolName, spawned.result, false);
+          return;
+        }
+        console.log(`Task spawned: ${chalk.bold(spawned.taskId)}`);
+        console.log(`Status: ${spawned.task?.status}`);
+        console.log(chalk.gray(`Follow it with: umt task await ${spawned.taskId} --server ${entry.id}`));
+      });
+    });
+
+  taskCmd
+    .command("status")
+    .description("Show the current status of a task.")
+    .argument("<taskId>", "Task ID from `umt task spawn`.")
+    .requiredOption("-s, --server <serverId>", "Server ID the task belongs to.")
+    .option("--json", "Print the task status as JSON.")
+    .action(async (taskId: string, options: { server: string; json?: boolean }) => {
+      await withTaskBridge(options.server, async (bridge) => {
+        const task = await bridge.getTask(taskId);
+        if (options.json) {
+          console.log(JSON.stringify(task, null, 2));
+          return;
+        }
+        printSection(`Task: ${task.taskId}`);
+        console.log(`${chalk.bold("Status:")} ${task.status}`);
+        if (task.statusMessage) console.log(`${chalk.bold("Message:")} ${task.statusMessage}`);
+        console.log(`${chalk.bold("Created:")} ${task.createdAt}`);
+        console.log(`${chalk.bold("Updated:")} ${task.lastUpdatedAt}`);
+        if (task.pollInterval !== undefined) console.log(`${chalk.bold("Poll interval:")} ${task.pollInterval}ms`);
+      });
+    });
+
+  taskCmd
+    .command("await")
+    .description("Poll a task until it completes, streaming progress updates.")
+    .argument("<taskId>", "Task ID from `umt task spawn`.")
+    .requiredOption("-s, --server <serverId>", "Server ID the task belongs to.")
+    .option("--timeout <ms>", "Give up after this many ms.")
+    .option("--poll <ms>", "Poll interval in ms when the server advertises none (default 1000).")
+    .option("--json", "Print the final result as JSON.")
+    .action(async (taskId: string, options: {
+      server: string; timeout?: string; poll?: string; json?: boolean;
+    }) => {
+      await withTaskBridge(options.server, async (bridge) => {
+        const spinner = (await oraLazy(`Waiting for task ${taskId}...`)).start();
+        try {
+          const result = await bridge.awaitTaskCompletion(taskId, {
+            ...(options.timeout !== undefined ? { timeoutMs: parseInt(options.timeout, 10) } : {}),
+            ...(options.poll !== undefined ? { pollIntervalMs: parseInt(options.poll, 10) } : {}),
+            onProgress: (task) => {
+              spinner.text = `Task ${taskId}: ${task.status}${task.statusMessage ? ` — ${task.statusMessage}` : ""}`;
+            },
+          });
+          spinner.succeed(`Task ${taskId} completed.`);
+          printToolResult(`task:${taskId}`, result, options.json);
+        } catch (error) {
+          spinner.fail(`Task ${taskId} did not complete.`);
+          throw error;
+        }
+      });
+    });
+
+  taskCmd
+    .command("cancel")
+    .description("Cancel a task (cascades to linked child tasks by default).")
+    .argument("<taskId>", "Task ID from `umt task spawn`.")
+    .requiredOption("-s, --server <serverId>", "Server ID the task belongs to.")
+    .option("--no-cascade", "Cancel only this task, not linked children.")
+    .action(async (taskId: string, options: { server: string; cascade: boolean }) => {
+      await withTaskBridge(options.server, async (bridge) => {
+        await bridge.cancelTask(taskId, { cascade: options.cascade });
+        console.log(
+          chalk.green(`Task ${taskId} cancelled${options.cascade ? " (cascade)" : ""}.`),
+        );
+      });
     });
 
   // --- `umt workflow` — validate and run deterministic workflows ------------
