@@ -61,7 +61,11 @@ describe("trace persistence (umt trace)", () => {
   beforeEach(async () => {
     homeDir = await mkdtemp(path.join(tmpdir(), "umt-trace-test-"));
     vi.stubEnv("HOME", homeDir);
-    delete process.env.APPDATA;
+    // getStateDirectory() prefers APPDATA over os.homedir(). On Windows
+    // os.homedir() reads USERPROFILE (not HOME), so stubbing HOME alone
+    // leaves tests pointed at the real profile dir and traces leak across
+    // tests. Point APPDATA at the temp dir on every platform instead.
+    vi.stubEnv("APPDATA", homeDir);
   });
 
   afterEach(async () => {

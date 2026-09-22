@@ -300,7 +300,10 @@ describe("auditPluginPackage — component isolation", () => {
     expect(result.warnings.some((f) => f.code === "schema/skill-missing-manifest")).toBe(true);
   });
 
-  it("warns on executable files", async () => {
+  // Executable-bit detection is POSIX-only: on Windows chmod(0o755) cannot set
+  // exec bits and lstat never reports them, so the audit cannot observe an
+  // executable file there.
+  it.skipIf(process.platform === "win32")("warns on executable files", async () => {
     const dir = await writePkg({
       "plugin.json": goodPluginJson(),
       "skills/tool/SKILL.md": "---\nname: tool\ndescription: d\n---\n",
