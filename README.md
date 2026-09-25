@@ -77,7 +77,7 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 
 `universal-mcp-toolkit` fixes that with one opinionated, high-quality Turborepo:
 
-- 28 production-focused MCP servers
+- 31 production-focused MCP servers
 - One shared strict-mode TypeScript core
 - One polished CLI for install, config, run, and diagnostics
 - Consistent Zod validation, structured errors, and pino logging
@@ -125,7 +125,7 @@ Experimental companion packages under the `@contextcore/*` scope currently inclu
 
 | Option | Breadth | DX quality | Shared architecture | Host config help | Documentation polish | Tool discovery | Server composition | Caching | Lazy loading | Remote MCP discovery | Resilient transport | Token budgeting |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `universal-mcp-toolkit` | 28 servers in one monorepo | High | Yes | Yes | Yes | ✅ `umt tools list` | ✅ `umt compose` | ✅ TTL+LRU | ✅ `registerLazyTool` | ✅ `umt discover --remote` | ✅ Auto-reconnect + circuit breaker | ✅ `TokenBudgetManager` |
+| `universal-mcp-toolkit` | 31 servers in one monorepo | High | Yes | Yes | Yes | ✅ `umt tools list` | ✅ `umt compose` | ✅ TTL+LRU | ✅ `registerLazyTool` | ✅ `umt discover --remote` | ✅ Auto-reconnect + circuit breaker | ✅ `TokenBudgetManager` |
 | Single-service MCP repos | Narrow | Varies | No | Rarely | Usually none | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Personal one-off scripts | Very narrow | Low | No | No | No | Usually none | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 

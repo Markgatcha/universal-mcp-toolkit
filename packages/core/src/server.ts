@@ -48,6 +48,33 @@ interface StoredTool {
 }
 
 /**
+ * Recursively remove `$schema` keywords from a JSON Schema document.
+ *
+ * Every tool schema the MCP SDK emits carries
+ * `"$schema": "http://json-schema.org/draft-07/schema#"` at its root — once
+ * per input schema and once per output schema, for every tool, on every
+ * `tools/list` call. The keyword is pure metadata: it declares which draft
+ * the schema is written in, and MCP tool schemas are draft 2020-12 by
+ * definition. Dropping it from the advertised payload changes no validation
+ * semantics (runtime validation still uses the full Zod schemas) and saves
+ * ~5-7% of catalog bytes fleet-wide.
+ */
+function stripSchemaKeyword(schema: unknown): unknown {
+  if (Array.isArray(schema)) {
+    return schema.map(stripSchemaKeyword);
+  }
+  if (schema !== null && typeof schema === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(schema)) {
+      if (key === "$schema") continue;
+      out[key] = stripSchemaKeyword(value);
+    }
+    return out;
+  }
+  return schema;
+}
+
+/**
  * A lazily-registered tool: the registration (handler, schemas, etc.) is
  * deferred until the tool is first called. This avoids startup cost for
  * tools that may never be used during a session.
@@ -80,6 +107,58 @@ export abstract class ToolkitServer {
 
   // Lazily-registered tools: deferred until first invocation.
   private readonly lazyTools = new Map<string, LazyStoredTool>();
+
+  // Whether the tools/list token-diet wrapper is installed (idempotent).
+  private listToolsDietInstalled = false;
+
+  /**
+   * Install the token-diet wrapper around the SDK's `tools/list` handler.
+   *
+   * The SDK converts each tool's Zod schemas to JSON Schema at list time and
+   * unconditionally stamps every schema with a redundant `$schema` keyword.
+   * Wrapping (rather than replacing) the handler preserves all SDK behavior —
+   * capability checks, `enabled` filtering, schema conversion — and only
+   * trims the redundant keyword from the served payload.
+   *
+   * Fail-open: if the SDK's handler layout ever changes, we log and serve
+   * the full schemas instead of breaking `tools/list`. The CI token-budget
+   * lint (scripts/check-token-budget.mjs) measures the real wire payload, so
+   * a silently-disabled diet fails the build instead of rotting quietly.
+   */
+  private installListToolsDiet(): void {
+    if (this.listToolsDietInstalled) return;
+    this.listToolsDietInstalled = true;
+    try {
+      const protocol = this.server.server as unknown as {
+        _requestHandlers?: Map<string, (request: unknown, extra: unknown) => Promise<unknown>>;
+      };
+      const handlers = protocol._requestHandlers;
+      // "tools/list" is the stable MCP method name for ListToolsRequest.
+      const original = handlers?.get("tools/list");
+      if (typeof original !== "function") return;
+      handlers?.set("tools/list", async (request: unknown, extra: unknown) => {
+        const result = (await original(request, extra)) as
+          | { tools?: Array<Record<string, unknown>>; [key: string]: unknown }
+          | undefined;
+        if (!result || !Array.isArray(result.tools)) return result;
+        return {
+          ...result,
+          tools: result.tools.map((tool) => ({
+            ...tool,
+            inputSchema: stripSchemaKeyword(tool["inputSchema"]),
+            ...(tool["outputSchema"] === undefined
+              ? {}
+              : { outputSchema: stripSchemaKeyword(tool["outputSchema"]) }),
+          })),
+        };
+      });
+    } catch (error) {
+      this.logger.warn(
+        { error },
+        "token-diet: could not wrap the tools/list handler; serving full tool schemas",
+      );
+    }
+  }
 
   protected constructor(metadata: ToolkitServerMetadata, logger?: Logger) {
     this.metadata = metadata;
@@ -363,6 +442,9 @@ export abstract class ToolkitServer {
       }) as ToolCallback<TInputShape>;
 
     this.server.registerTool(definition.name, toolConfig, toolCallback);
+    // The SDK installs its tools/list handler on first registration; wrap it
+    // now so every served catalog goes through the token diet.
+    this.installListToolsDiet();
   }
 
   protected registerStaticResource(

@@ -35,6 +35,7 @@
     "lint": "node scripts/run-turbo.mjs lint",
     "lint:ox": "oxlint packages servers --quiet",
     "lint:ox:fix": "oxlint packages servers --fix",
+    "lint:tokens": "node scripts/check-token-budget.mjs",
     "typecheck": "node scripts/run-turbo.mjs typecheck",
     "test": "node scripts/run-turbo.mjs test",
     "clean": "node scripts/run-turbo.mjs clean && rimraf node_modules .turbo",

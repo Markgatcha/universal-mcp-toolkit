@@ -498,7 +498,7 @@ export async function main(argv: string[]): Promise<void> {
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  main(process.argv).catch((e) => {
+  main(process.argv.slice(2)).catch((e) => {
     console.error(normalizeError(e).toClientMessage());
     process.exit(1);
   });

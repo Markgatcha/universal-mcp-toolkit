@@ -118,3 +118,58 @@ describe("ToolkitServer", () => {
     expect(normalized.details).toEqual({ name: "Error" });
   });
 });
+
+describe("ToolkitServer token diet (tools/list wire payload)", () => {
+  it("strips redundant $schema keywords while keeping schema semantics", async () => {
+    const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+    const { InMemoryTransport } = await import("@modelcontextprotocol/sdk/inMemory.js");
+
+    const server = new TestServer();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.server.connect(serverTransport);
+
+    const client = new Client({ name: "diet-test", version: "0.0.0" });
+    await client.connect(clientTransport);
+    try {
+      const { tools } = await client.listTools();
+      expect(tools).toHaveLength(1);
+      const wire = JSON.parse(JSON.stringify(tools[0]));
+      // No $schema keyword anywhere in the served payload.
+      expect(JSON.stringify(wire)).not.toContain("$schema");
+      // Schema semantics intact: structure, types, and required lists survive.
+      expect(wire.inputSchema).toMatchObject({
+        type: "object",
+        properties: { message: { type: "string" } },
+        required: ["message"],
+      });
+      expect(wire.outputSchema).toMatchObject({
+        type: "object",
+        properties: { echoedMessage: { type: "string" } },
+      });
+      expect(wire.name).toBe("echo");
+      expect(wire.description).toBe("Echo the provided message.");
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("still executes tools after the diet wrapper is installed", async () => {
+    const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+    const { InMemoryTransport } = await import("@modelcontextprotocol/sdk/inMemory.js");
+
+    const server = new TestServer();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.server.connect(serverTransport);
+
+    const client = new Client({ name: "diet-test", version: "0.0.0" });
+    await client.connect(clientTransport);
+    try {
+      const result = await client.callTool({ name: "echo", arguments: { message: "hi" } });
+      expect(result.structuredContent).toEqual({ echoedMessage: "hi" });
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+});

@@ -134,7 +134,7 @@ const storyLimitSchema = z.number().int().min(1).max(30).default(10).describe(
   "Maximum number of stories to return. Defaults to 10; valid range is 1 to 30.",
 );
 const searchQuerySchema = z.string().trim().min(1).describe(
-  "Non-empty keyword query sent verbatim to Algolia HN search; matching is Algolia token-based search, not guaranteed exact phrase matching.",
+  "Keyword query for Algolia HN search (token-based matching, not exact phrase).",
 );
 const itemIdSchema = z.number().int().nonnegative().describe(
   "Hacker News item ID to fetch. Must be a nonnegative integer from HN item URLs or prior tool results.",
@@ -319,9 +319,6 @@ class FetchHackerNewsClient implements HackerNewsClient {
   }
 }
 
-const PUBLIC_HN_BEHAVIOR =
-  "Read-only, idempotent, and unauthenticated; the client caches GET responses in memory for 60 seconds and throttles upstream HN/Algolia requests to 10 requests/second with a burst of 20, while upstream HTTP, rate-limit, or response-shape failures are returned as tool errors.";
-
 export class HackerNewsServer extends ToolkitServer {
   private readonly client: HackerNewsClient;
 
@@ -333,7 +330,7 @@ export class HackerNewsServer extends ToolkitServer {
       defineTool({
         name: "get_top_stories",
         title: "Get top stories",
-        description: `Fetches the current Hacker News front-page/topstories ranking from the public Firebase API and returns story summaries, unlike search_stories keyword lookup or get_item_thread discussion expansion. ${PUBLIC_HN_BEHAVIOR} Use for "top", "front page", or currently popular stories; use get_new_stories for newest submissions, get_best_stories for HN best ranking, search_stories for keywords, and get_item_thread for a known item ID.`,
+        description: `Hacker News front-page ranking: current top stories with summaries. Newest: get_new_stories. Best ranking: get_best_stories. Keyword lookup: search_stories. Comments on a known item: get_item_thread.`,
         inputSchema: {
           limit: storyLimitSchema,
         },
@@ -341,6 +338,7 @@ export class HackerNewsServer extends ToolkitServer {
           stories: z.array(storySummarySchema),
           returned: z.number().int(),
         },
+        annotations: { readOnlyHint: true },
         handler: async ({ limit }, context) => {
           await context.log("info", "Fetching top Hacker News stories");
           const stories = await this.client.getTopStories(limit);
@@ -357,7 +355,7 @@ export class HackerNewsServer extends ToolkitServer {
       defineTool({
         name: "get_new_stories",
         title: "Get new stories",
-        description: `Fetches Hacker News newest stories from the Firebase newstories ranking and returns summaries, unlike get_top_stories which follows front-page rank or search_stories which uses keywords. ${PUBLIC_HN_BEHAVIOR} Use when recency matters more than score or comment activity; use get_top_stories or get_best_stories when popularity signals matter.`,
+        description: `Hacker News newest submissions in chronological order, with summaries. For the front-page ranking use get_top_stories, for the best ranking get_best_stories, for keyword lookup search_stories.`,
         inputSchema: {
           limit: storyLimitSchema,
         },
@@ -365,6 +363,7 @@ export class HackerNewsServer extends ToolkitServer {
           stories: z.array(storySummarySchema),
           returned: z.number().int(),
         },
+        annotations: { readOnlyHint: true },
         handler: async ({ limit }, context) => {
           await context.log("info", "Fetching new Hacker News stories");
           const stories = await this.client.getNewStories(limit);
@@ -381,7 +380,7 @@ export class HackerNewsServer extends ToolkitServer {
       defineTool({
         name: "get_best_stories",
         title: "Get best stories",
-        description: `Fetches Hacker News beststories ranking from the public Firebase API and returns summaries, unlike get_top_stories front-page rank or get_new_stories chronological rank. ${PUBLIC_HN_BEHAVIOR} Use for high-quality/popular stories beyond the current front page; use search_stories for topic discovery or get_item_thread for comments on one item.`,
+        description: `Hacker News best-stories ranking with summaries. Front-page ranking: get_top_stories. Newest: get_new_stories. Keyword lookup: search_stories. Comments on a known item: get_item_thread.`,
         inputSchema: {
           limit: storyLimitSchema,
         },
@@ -389,6 +388,7 @@ export class HackerNewsServer extends ToolkitServer {
           stories: z.array(storySummarySchema),
           returned: z.number().int(),
         },
+        annotations: { readOnlyHint: true },
         handler: async ({ limit }, context) => {
           await context.log("info", "Fetching best Hacker News stories");
           const stories = await this.client.getBestStories(limit);
@@ -405,7 +405,7 @@ export class HackerNewsServer extends ToolkitServer {
       defineTool({
         name: "search_stories",
         title: "Search stories",
-        description: `Searches Hacker News stories by keyword via the public Algolia HN API and returns summaries ranked by Algolia relevance/popularity, not exact phrase matching or HN front-page order. ${PUBLIC_HN_BEHAVIOR} Empty queries are rejected, no-match searches return an empty stories array, and this is the right tool for topics or phrases; use story-list tools for rankings and get_item_thread for comments on a known item.`,
+        description: `Keyword search across Hacker News stories via Algolia (token-based matching, not exact phrase). For top/newest/best rankings use the story-list tools; for comments on a known item use get_item_thread.`,
         inputSchema: {
           query: searchQuerySchema,
           limit: storyLimitSchema,
@@ -414,6 +414,7 @@ export class HackerNewsServer extends ToolkitServer {
           stories: z.array(storySummarySchema),
           returned: z.number().int(),
         },
+        annotations: { readOnlyHint: true },
         handler: async ({ query, limit }, context) => {
           await context.log("info", `Searching Hacker News for ${query}`);
           const stories = await this.client.searchStories({ query, limit });
@@ -435,7 +436,7 @@ export class HackerNewsServer extends ToolkitServer {
       defineTool({
         name: "get_item_thread",
         title: "Get item thread",
-        description: `Fetches one Hacker News item by numeric itemId and expands its nested comment tree, unlike story-list tools or search_stories which return lists without discussion context. ${PUBLIC_HN_BEHAVIOR} Missing root items throw a 404-style error, deleted/dead descendants are skipped, and broad branches are truncated by maxChildren; use only when you already have an item ID.`,
+        description: `Fetch one Hacker News item by numeric item ID with its nested comment tree. Requires a known item ID; for story lists use the ranking tools, for keyword lookup use search_stories.`,
         inputSchema: {
           itemId: itemIdSchema,
           depth: depthSchema,
@@ -444,6 +445,7 @@ export class HackerNewsServer extends ToolkitServer {
         outputSchema: {
           thread: threadSchema,
         },
+        annotations: { readOnlyHint: true },
         handler: async ({ itemId, depth, maxChildren }, context) => {
           await context.log("info", `Fetching Hacker News thread ${itemId}`);
           return {
