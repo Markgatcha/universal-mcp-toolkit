@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, mkdir, writeFile, rm, symlink, chmod } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { auditPluginPackage, detectSecret, formatAuditResult } from "../src/plugin-audit.js";
@@ -338,5 +338,80 @@ describe("auditPluginPackage — robustness", () => {
     const result = await auditPluginPackage(path.join(root, "does-not-exist"));
     expect(result.ok).toBe(false);
     expect(result.errors.some((f) => f.code === "path/root-missing")).toBe(true);
+  });
+});
+
+describe("auditPluginPackage — SEP-2640 skills.json integrity", () => {
+  async function packOne(name = "my-pack"): Promise<string> {
+    const outDir = path.join(root, `packed-${name}`);
+    const plan = planPluginPack({ name, serverIds: ["github"], outDir }, "1.0.0");
+    await writePluginPack(plan);
+    return outDir;
+  }
+
+  it("verifies the digests of a pack-generated package", async () => {
+    const result = await auditPluginPackage(await packOne());
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it("fails on tampered skill content (digest mismatch)", async () => {
+    const outDir = await packOne("tampered-digest");
+    const skillPath = path.join(outDir, "skills", "umt-github", "SKILL.md");
+    const body = await readFile(skillPath, "utf8");
+    // Same byte length, different bytes: only the digest check can catch this.
+    const tampered = "X" + body.slice(1);
+    expect(Buffer.byteLength(tampered, "utf8")).toBe(Buffer.byteLength(body, "utf8"));
+    await writeFile(skillPath, tampered, "utf8");
+    const result = await auditPluginPackage(outDir);
+    expect(result.ok).toBe(false);
+    expect(result.errors.map((e) => e.code)).toContain("integrity/skill-digest-mismatch");
+  });
+
+  it("fails on size drift", async () => {
+    const outDir = await packOne("tampered-size");
+    const skillPath = path.join(outDir, "skills", "umt-github", "SKILL.md");
+    await writeFile(skillPath, (await readFile(skillPath, "utf8")) + "\n<!-- drift -->\n", "utf8");
+    const result = await auditPluginPackage(outDir);
+    expect(result.ok).toBe(false);
+    expect(result.errors.map((e) => e.code)).toContain("integrity/skill-size-mismatch");
+  });
+
+  it("fails when a pinned skill file is missing", async () => {
+    const outDir = await packOne("missing-file");
+    await rm(path.join(outDir, "skills", "umt-github", "SKILL.md"), { force: true });
+    const result = await auditPluginPackage(outDir);
+    expect(result.ok).toBe(false);
+    expect(result.errors.map((e) => e.code)).toContain("integrity/skill-file-missing");
+  });
+
+  it("warns (not fails) on a malformed skills.json", async () => {
+    const dir = await writePkg({
+      "plugin.json": goodPluginJson(),
+      "mcp.json": goodMcpJson(),
+      "skills.json": JSON.stringify({ notSkills: true }),
+    });
+    const result = await auditPluginPackage(dir);
+    expect(result.ok).toBe(true);
+    expect(result.warnings.map((w) => w.code)).toContain("integrity/skills-manifest-shape");
+  });
+
+  it("rejects a skill URI that escapes the package root", async () => {
+    const dir = await writePkg({
+      "plugin.json": goodPluginJson(),
+      "mcp.json": goodMcpJson(),
+      "skills.json": JSON.stringify({
+        skills: [
+          {
+            uri: "skill://../../evil/SKILL.md",
+            frontmatter: { name: "evil", description: "x" },
+            resources: [{ uri: "skill://../../evil/SKILL.md", digest: "sha256:abc", size: 1 }],
+          },
+        ],
+      }),
+    });
+    const result = await auditPluginPackage(dir);
+    expect(result.ok).toBe(false);
+    expect(result.errors.map((e) => e.code)).toContain("integrity/skill-uri-escape");
   });
 });

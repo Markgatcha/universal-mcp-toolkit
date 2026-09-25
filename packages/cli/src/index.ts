@@ -2344,7 +2344,7 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
 
   const pluginCmd = program
     .command("plugin")
-    .description("Build and audit portable Agent Plugins 1.0 packages (plugin.json + mcp.json + skills/).");
+    .description("Build and audit portable Agent Plugins 1.0 packages (plugin.json + mcp.json + skills/ + SEP-2640 skills.json).");
 
   pluginCmd
     .command("pack")
@@ -2392,6 +2392,16 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
         console.log(chalk.green(`Wrote ${written.length} file(s) to ${plan.outDir}:`));
         for (const filePath of written) {
           console.log(`  ${filePath}`);
+        }
+        // Persist the SEP-2640 skill digests alongside `umt vet`'s drift pins
+        // so later audits can detect drifted skill content. Non-fatal: a
+        // read-only state dir must not fail the pack itself.
+        const { manifestForPlan, recordSkillPins } = await import("./plugin-pack.js");
+        const pinsPersisted = await recordSkillPins(plan, manifestForPlan(plan));
+        if (pinsPersisted) {
+          console.log(chalk.gray(`Recorded skill digest pins for drift checks.`));
+        } else {
+          console.log(chalk.yellow(`Warning: could not persist skill digest pins (state directory unwritable).`));
         }
         console.log(chalk.gray(`Audit before distributing: umt plugin audit ${plan.outDir}`));
       },

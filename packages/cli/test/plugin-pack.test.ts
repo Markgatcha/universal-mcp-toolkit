@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -6,6 +6,7 @@ import {
   AGENT_PLUGINS_SPEC_VERSION,
   PLUGIN_SCHEMA_URL,
   MCP_SCHEMA_URL,
+  MCP_SKILLS_EXTENSION_ID,
   validatePluginName,
   resolvePackServers,
   buildPluginManifest,
@@ -15,8 +16,17 @@ import {
   defaultPackDescription,
   planPluginPack,
   writePluginPack,
+  sha256Digest,
+  skillUriForPackEntry,
+  buildSkillEntry,
+  buildSkillsList,
+  getSkillEntry,
+  manifestForPlan,
+  recordSkillPins,
+  readRecordedSkillPins,
 } from "../src/plugin-pack.js";
 import { getRegistryEntry } from "../src/registry.js";
+import { createHash } from "node:crypto";
 
 describe("validatePluginName", () => {
   it("accepts spec-valid names", () => {
@@ -105,6 +115,7 @@ describe("planPluginPack", () => {
         "mcp.json",
         "skills/umt-github/SKILL.md",
         "skills/umt-notion/SKILL.md",
+        "skills.json",
         ".mcp.json",
         ".claude-plugin/plugin.json",
       ].sort(),
@@ -113,6 +124,7 @@ describe("planPluginPack", () => {
     expect(kinds["plugin.json"]).toBe("manifest");
     expect(kinds["mcp.json"]).toBe("mcp-config");
     expect(kinds["skills/umt-github/SKILL.md"]).toBe("skill");
+    expect(kinds["skills.json"]).toBe("skill-manifest");
     expect(kinds[".mcp.json"]).toBe("client-shim");
   });
 
@@ -180,5 +192,125 @@ describe("buildClientShims / defaultPackDescription", () => {
     const desc = defaultPackDescription([getRegistryEntry("github"), getRegistryEntry("notion")]);
     expect(desc).toContain("GitHub");
     expect(desc).toContain("Notion");
+  });
+});
+
+describe("SEP-2640 skills manifest (skills.json)", () => {
+  const entry = getRegistryEntry("github");
+
+  it("skillUriForPackEntry uses the skill:// scheme with the name as final segment", () => {
+    expect(skillUriForPackEntry(entry)).toBe("skill://umt-github/SKILL.md");
+  });
+
+  it("sha256Digest formats as sha256:{64 lowercase hex}", () => {
+    const digest = sha256Digest("hello");
+    expect(digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(digest).toBe(`sha256:${createHash("sha256").update("hello", "utf8").digest("hex")}`);
+  });
+
+  it("buildSkillEntry emits the SEP-2640 Skill shape with digests over the planned bytes", () => {
+    const content = "---\nname: umt-github\ndescription: d\nservers: [github]\n---\n\n# body\n";
+    const skill = buildSkillEntry(entry, content);
+    expect(skill.uri).toBe("skill://umt-github/SKILL.md");
+    // Frontmatter passes through verbatim: name + description plus extras.
+    expect(skill.frontmatter).toMatchObject({ name: "umt-github", description: "d", servers: ["github"] });
+    // Resources is complete: the SKILL.md entry itself, with size == raw byte length.
+    expect(Array.isArray(skill.resources)).toBe(true);
+    const resources = skill.resources as Array<{ uri: string; digest: string; size: number }>;
+    expect(resources).toHaveLength(1);
+    expect(resources[0]!.uri).toBe(skill.uri);
+    expect(resources[0]!.digest).toBe(sha256Digest(content));
+    expect(resources[0]!.size).toBe(Buffer.byteLength(content, "utf8"));
+  });
+
+  it("buildSkillEntry throws when the generated SKILL.md lacks name/description", () => {
+    expect(() => buildSkillEntry(entry, "# no frontmatter\n")).toThrow(/name\/description/);
+  });
+
+  it("buildSkillsList emits the skills/list result shape", () => {
+    const manifest = buildSkillsList([{ entry, content: "---\nname: umt-github\ndescription: d\n---\n" }]);
+    expect(manifest.extension).toBe(MCP_SKILLS_EXTENSION_ID);
+    expect(manifest.extension).toBe("io.modelcontextprotocol/skills");
+    expect(manifest.resultType).toBe("complete");
+    expect(manifest.skills).toHaveLength(1);
+    expect(manifest.skills[0]!.uri).toBe("skill://umt-github/SKILL.md");
+    expect(manifest.ttlMs).toBe(0);
+    expect(manifest.cacheScope).toBe("public");
+  });
+
+  it("getSkillEntry is the skills/get view: same shape, throws on unknown URI", () => {
+    const manifest = buildSkillsList([{ entry, content: "---\nname: umt-github\ndescription: d\n---\n" }]);
+    const viaGet = getSkillEntry(manifest, "skill://umt-github/SKILL.md");
+    expect(viaGet).toEqual(manifest.skills[0]);
+    expect(() => getSkillEntry(manifest, "skill://nope/SKILL.md")).toThrow(/Unknown skill URI/);
+  });
+
+  it("planPluginPack emits a parseable skills.json whose digests match the planned files", () => {
+    const plan = planPluginPack({ name: "my-pack", serverIds: ["github"] }, "1.0.0");
+    const file = plan.files.find((f) => f.relativePath === "skills.json")!;
+    const manifest = JSON.parse(file.content);
+    expect(manifest.extension).toBe("io.modelcontextprotocol/skills");
+    expect(manifest.resultType).toBe("complete");
+    expect(manifest.skills).toHaveLength(1);
+    const skillFile = plan.files.find((f) => f.relativePath === "skills/umt-github/SKILL.md")!;
+    const resource = manifest.skills[0].resources[0];
+    expect(resource.uri).toBe("skill://umt-github/SKILL.md");
+    expect(resource.digest).toBe(sha256Digest(skillFile.content));
+    expect(resource.size).toBe(Buffer.byteLength(skillFile.content, "utf8"));
+  });
+
+  it("manifestForPlan rebuilds the same manifest the plan wrote", () => {
+    const plan = planPluginPack({ name: "my-pack", serverIds: ["github"] }, "1.0.0");
+    const file = plan.files.find((f) => f.relativePath === "skills.json")!;
+    expect(JSON.parse(file.content)).toEqual(JSON.parse(JSON.stringify(manifestForPlan(plan))));
+  });
+});
+
+describe("recordSkillPins — disk persistence dovetailing with vet drift pins", () => {
+  let appDataDir: string;
+  let savedAppData: string | undefined;
+
+  beforeEach(async () => {
+    appDataDir = await mkdtemp(path.join(tmpdir(), "umt-skillpin-test-"));
+    savedAppData = process.env.APPDATA;
+    process.env.APPDATA = appDataDir; // getStateDirectory() prefers APPDATA.
+  });
+
+  afterEach(async () => {
+    if (savedAppData === undefined) delete process.env.APPDATA;
+    else process.env.APPDATA = savedAppData;
+    await rm(appDataDir, { recursive: true, force: true });
+  });
+
+  it("persists one pin per skill URI and reads them back", async () => {
+    const plan = planPluginPack({ name: "my-pack", serverIds: ["github", "notion"] }, "1.0.0");
+    const manifest = manifestForPlan(plan);
+    expect(await recordSkillPins(plan, manifest)).toBe(true);
+    const pins = await readRecordedSkillPins();
+    expect(Object.keys(pins).sort()).toEqual(["skill://umt-github/SKILL.md", "skill://umt-notion/SKILL.md"]);
+    const pin = pins["skill://umt-github/SKILL.md"]!;
+    expect(pin.plugin).toBe("my-pack");
+    expect(pin.uri).toBe("skill://umt-github/SKILL.md");
+    expect(pin.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(pin.size).toBeGreaterThan(0);
+    expect(pin.pinnedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    // The pinned digest is the manifest digest, byte-for-byte.
+    const manifestResources = manifest.skills[0]!.resources;
+    expect(Array.isArray(manifestResources)).toBe(true);
+    expect(pin.digest).toBe((manifestResources as Array<{ digest: string }>)[0]!.digest);
+  });
+
+  it("merges with existing pins instead of clobbering other plugins", async () => {
+    const planA = planPluginPack({ name: "pack-a", serverIds: ["github"] }, "1.0.0");
+    await recordSkillPins(planA, manifestForPlan(planA));
+    const planB = planPluginPack({ name: "pack-b", serverIds: ["notion"] }, "1.0.0");
+    await recordSkillPins(planB, manifestForPlan(planB));
+    const pins = await readRecordedSkillPins();
+    expect(pins["skill://umt-github/SKILL.md"]!.plugin).toBe("pack-a");
+    expect(pins["skill://umt-notion/SKILL.md"]!.plugin).toBe("pack-b");
+  });
+
+  it("returns an empty record when nothing was pinned yet", async () => {
+    expect(await readRecordedSkillPins()).toEqual({});
   });
 });

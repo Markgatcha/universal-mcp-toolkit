@@ -34,10 +34,12 @@
  * the server registry and the existing SKILL.md generator.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { SERVER_REGISTRY, type ServerRegistryEntry } from "./registry.js";
-import { generateServerSkill } from "./skills.js";
+import { generateServerSkill, parseSkillFrontmatter } from "./skills.js";
+import { getStateDirectory } from "./config-store.js";
 
 /** Agent Plugins spec version this engine targets. */
 export const AGENT_PLUGINS_SPEC_VERSION = "1.0.0";
@@ -57,7 +59,115 @@ export const PLUGIN_HOMEPAGE = "https://github.com/Markgatcha/universal-mcp-tool
 export const PLUGIN_AUTHOR_NAME = "Markgatcha";
 
 /** What kind of package member a planned file is (shown in `--dry-run`). */
-export type PluginPackFileKind = "manifest" | "mcp-config" | "skill" | "client-shim";
+export type PluginPackFileKind = "manifest" | "mcp-config" | "skill" | "skill-manifest" | "client-shim";
+
+/**
+ * Extension identifier for the MCP Skills extension (`io.modelcontextprotocol/skills`).
+ * SEP-2640 reached Status: Final (PR #2640 merged 2026-09-13); the normative
+ * extension spec is `specification/stable/skills.mdx` in
+ * modelcontextprotocol/ext-skills, written against base protocol 2026-07-28.
+ */
+export const MCP_SKILLS_EXTENSION_ID = "io.modelcontextprotocol/skills";
+
+/**
+ * SEP-2640 §Skill Entries: one file of a skill — the digest and byte size of
+ * its raw content. `digest` is `sha256:{64 lowercase hex}`.
+ */
+export interface Sep2640SkillResource {
+  uri: string;
+  digest: string;
+  size: number;
+}
+
+/**
+ * SEP-2640 §Skill Entries: the entry for a single skill. Identical shape in
+ * `skills/list` and `skills/get`; `frontmatter` is the SKILL.md frontmatter
+ * verbatim as a JSON object (`name` and `description` always present).
+ */
+export interface Sep2640SkillEntry {
+  uri: string;
+  frontmatter: Record<string, unknown>;
+  resources: Sep2640SkillResource[] | "dynamic";
+}
+
+/**
+ * SEP-2640 §Listing Skills: the `skills/list` result shape (JSON-RPC envelope
+ * omitted — this is the file a host reads from disk). `ttlMs: 0` marks a
+ * static package manifest as immediately stale: hosts re-check the package
+ * itself rather than trusting a cached listing.
+ */
+export interface Sep2640SkillsList {
+  extension: typeof MCP_SKILLS_EXTENSION_ID;
+  resultType: "complete";
+  skills: Sep2640SkillEntry[];
+  ttlMs: 0;
+  cacheScope: "public";
+}
+
+/** SHA-256 digest of raw bytes, formatted `sha256:{64 lowercase hex}` per SEP-2640. */
+export function sha256Digest(content: string | Uint8Array): string {
+  const bytes = typeof content === "string" ? Buffer.from(content, "utf8") : content;
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+/**
+ * The `skill://` URI for a packed skill. SEP-2640 requires the final
+ * `<skill-path>` segment to equal the frontmatter `name`, which for
+ * pack-generated skills is `umt-<id>` (see `generateServerSkill`).
+ */
+export function skillUriForPackEntry(entry: ServerRegistryEntry): string {
+  return `skill://umt-${entry.id}/SKILL.md`;
+}
+
+/**
+ * Build the SEP-2640 `Skill` entry for one packed skill from its planned
+ * file content. Digests are computed over the exact bytes `writePluginPack`
+ * writes (UTF-8), so the manifest and the package can never disagree.
+ */
+export function buildSkillEntry(entry: ServerRegistryEntry, content: string): Sep2640SkillEntry {
+  const frontmatter = parseSkillFrontmatter(content);
+  if (!frontmatter || typeof frontmatter.name !== "string" || typeof frontmatter.description !== "string") {
+    throw new Error(
+      `Cannot build SEP-2640 skill entry for '${entry.id}': generated SKILL.md lacks name/description frontmatter.`,
+    );
+  }
+  const uri = skillUriForPackEntry(entry);
+  return {
+    uri,
+    frontmatter: frontmatter as Record<string, unknown>,
+    resources: [{ uri, digest: sha256Digest(content), size: Buffer.byteLength(content, "utf8") }],
+  };
+}
+
+/**
+ * Build the SEP-2640 `skills/list` result for a set of planned skill files.
+ * Each entry is complete (its `resources` set is never split), so the same
+ * object also answers `skills/get` entry-by-entry via {@link getSkillEntry}.
+ */
+export function buildSkillsList(
+  skills: Array<{ entry: ServerRegistryEntry; content: string }>,
+): Sep2640SkillsList {
+  return {
+    extension: MCP_SKILLS_EXTENSION_ID,
+    resultType: "complete",
+    skills: skills.map(({ entry, content }) => buildSkillEntry(entry, content)),
+    ttlMs: 0,
+    cacheScope: "public",
+  };
+}
+
+/**
+ * The `skills/get` view over a manifest: return the entry for one skill URI.
+ * Mirrors the spec's error contract — an unknown URI is `-32602 Invalid
+ * params` on the wire, a loud throw here.
+ */
+export function getSkillEntry(manifest: Sep2640SkillsList, uri: string): Sep2640SkillEntry {
+  const found = manifest.skills.find((s) => s.uri === uri);
+  if (!found) {
+    throw new Error(`Unknown skill URI '${uri}'. (On the wire this is skills/get error -32602 Invalid params.)`);
+  }
+  return found;
+}
 
 export interface PluginPackFile {
   /** Path relative to the package root, POSIX-style. */
@@ -262,9 +372,42 @@ export function planPluginPack(options: PluginPackOptions, cliVersion = "0.0.0")
     });
   }
 
+  // SEP-2640 skills/list manifest: every packed skill as a `Skill` entry with
+  // SHA-256 digests over the exact bytes written above. Hosts can verify a
+  // distributed package the same way they verify a live server's listing.
+  files.push({
+    relativePath: "skills.json",
+    kind: "skill-manifest",
+    content: `${JSON.stringify(buildSkillsList(skillFilesForEntries(entries, files)), null, 2)}\n`,
+  });
+
   files.push(...buildClientShims(options.name, version, description, mcpConfig));
 
   return { name: options.name, version, description, entries, outDir, files };
+}
+
+/**
+ * Re-derive the planned skill file contents for a set of entries (the same
+ * strings `writePluginPack` will write). Shared by the plan builder and the
+ * CLI so digests can never disagree with the package on disk.
+ */
+function skillFilesForEntries(
+  entries: readonly ServerRegistryEntry[],
+  files: readonly PluginPackFile[],
+): Array<{ entry: ServerRegistryEntry; content: string }> {
+  return entries.map((entry) => {
+    const file = files.find((f) => f.relativePath === `skills/umt-${entry.id}/SKILL.md`);
+    if (!file) throw new Error(`Plan is missing the skill file for server '${entry.id}'.`);
+    return { entry, content: file.content };
+  });
+}
+
+/**
+ * Build the SEP-2640 `skills/list` manifest for an already-planned package.
+ * Pure — the CLI uses it to record digest pins after writing.
+ */
+export function manifestForPlan(plan: PluginPackPlan): Sep2640SkillsList {
+  return buildSkillsList(skillFilesForEntries(plan.entries, plan.files));
 }
 
 /**
@@ -284,4 +427,80 @@ export async function writePluginPack(plan: PluginPackPlan): Promise<string[]> {
     written.push(abs);
   }
   return written;
+}
+
+/**
+ * One skill's integrity pin — the disk-side record of what `umt plugin pack`
+ * emitted, dovetailing with `umt vet`'s drift-pin persistence in
+ * `vet-pins.json`. A later `umt plugin audit` (or vet) compares the pinned
+ * digests against the package on disk and reports drift instead of silently
+ * trusting changed skill files.
+ */
+export interface SkillPinRecord {
+  /** Plugin name this skill was packed into. */
+  plugin: string;
+  /** SEP-2640 skill URI (`skill://umt-<id>/SKILL.md`). */
+  uri: string;
+  /** SHA-256 digest of the packed SKILL.md, `sha256:{hex}`. */
+  digest: string;
+  /** Byte size of the packed SKILL.md. */
+  size: number;
+  /** Full SEP-2640 resources set (the unit of content a pin binds to). */
+  resources: Sep2640SkillResource[] | "dynamic";
+  /** ISO timestamp of when the pin was recorded. */
+  pinnedAt: string;
+}
+
+function getSkillPinPath(): string {
+  return path.join(getStateDirectory(), "skill-pins.json");
+}
+
+async function readSkillPins(): Promise<Record<string, SkillPinRecord>> {
+  try {
+    const contents = await readFile(getSkillPinPath(), "utf8");
+    return JSON.parse(contents) as Record<string, SkillPinRecord>;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Persist the manifest's skill digests to `~/.universal-mcp-toolkit/skill-pins.json`,
+ * keyed by skill URI. Returns `true` when the pins were stored; `false` when
+ * the state directory is unwritable (callers should warn, not fail).
+ */
+export async function recordSkillPins(
+  plan: Pick<PluginPackPlan, "name">,
+  manifest: Sep2640SkillsList,
+): Promise<boolean> {
+  const pins = await readSkillPins();
+  const pinnedAt = new Date().toISOString();
+  for (const skill of manifest.skills) {
+    const skillResource = Array.isArray(skill.resources)
+      ? skill.resources.find((r) => r.uri === skill.uri)
+      : undefined;
+    pins[skill.uri] = {
+      plugin: plan.name,
+      uri: skill.uri,
+      digest: skillResource?.digest ?? "sha256:unavailable",
+      size: skillResource?.size ?? 0,
+      resources: skill.resources,
+      pinnedAt,
+    };
+  }
+  try {
+    await mkdir(getStateDirectory(), { recursive: true });
+    await writeFile(getSkillPinPath(), JSON.stringify(pins, null, 2), "utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Read back the recorded skill pins (used by tests and by future drift
+ * checks). Returns an empty record when nothing was pinned yet.
+ */
+export async function readRecordedSkillPins(): Promise<Record<string, SkillPinRecord>> {
+  return readSkillPins();
 }

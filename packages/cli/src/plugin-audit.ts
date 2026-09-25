@@ -34,6 +34,7 @@
  * place to update.
  */
 
+import { createHash } from "node:crypto";
 import { readdir, readFile, lstat, readlink } from "node:fs/promises";
 import path from "node:path";
 import { PLUGIN_SCHEMA_URL, MCP_SCHEMA_URL, PLUGIN_NAME_PATTERN, PLUGIN_NAME_MAX_LENGTH } from "./plugin-pack.js";
@@ -128,7 +129,7 @@ const KNOWN_MCP_SERVER_FIELDS: Record<string, Set<string>> = {
 };
 
 /** Root-level members a spec-conformant package may contain. */
-const KNOWN_ROOT_FILES = new Set(["plugin.json", "mcp.json", ".mcp.json", "license", "license.md", "readme", "readme.md"]);
+const KNOWN_ROOT_FILES = new Set(["plugin.json", "mcp.json", ".mcp.json", "license", "license.md", "readme", "readme.md", "skills.json"]);
 const KNOWN_ROOT_DIRS = new Set(["skills", ".claude-plugin"]);
 const REVERSE_DOMAIN_PATTERN = /^[a-z0-9]+(\.[a-z0-9-]+)+$/;
 
@@ -716,6 +717,16 @@ export async function auditPluginPackage(dir: string): Promise<AuditResult> {
     }
   }
 
+  // --- SEP-2640 skills manifest integrity -------------------------------------
+  // When a `skills.json` manifest (SEP-2640 `skills/list` shape) ships with the
+  // package, verify every pinned digest against the file on disk. A mismatch
+  // means the skill content drifted after packing and must not be trusted
+  // silently — this is the pack-time counterpart of `umt vet`'s drift pins.
+  const skillsManifest = byRel.get("skills.json");
+  if (skillsManifest && !skillsManifest.isDir) {
+    await auditSkillsManifest(root, skillsManifest.abs, findings);
+  }
+
   // --- Unexpected executables ---------------------------------------------------
   for (const entry of entries) {
     if (entry.isDir || entry.isSymlink) continue;
@@ -757,6 +768,88 @@ function toResult(root: string, findings: AuditFinding[]): AuditResult {
   const errors = findings.filter((f) => f.severity === "error");
   const warnings = findings.filter((f) => f.severity === "warning");
   return { root, ok: errors.length === 0, errors, warnings };
+}
+
+/**
+ * Verify the SEP-2640 `skills/list` manifest (`skills.json`) against the
+ * package on disk: each resource's `sha256:{hex}` digest and byte size are
+ * recomputed over the file's raw bytes. Digests that fail are `error`
+ * findings — drifted skill content is an integrity violation, not a warning.
+ */
+async function auditSkillsManifest(root: string, abs: string, findings: AuditFinding[]): Promise<void> {
+  const parsed = await readJsonFile(abs);
+  if (!parsed.ok) {
+    findings.push(warn("integrity/skills-manifest-unparseable", "skills.json", parsed.error));
+    return;
+  }
+  const doc = parsed.value;
+  if (doc === null || typeof doc !== "object" || Array.isArray(doc)) {
+    findings.push(warn("integrity/skills-manifest-shape", "skills.json", "`skills.json` must be a JSON object."));
+    return;
+  }
+  const skills = (doc as Record<string, unknown>).skills;
+  if (!Array.isArray(skills)) {
+    findings.push(
+      warn("integrity/skills-manifest-shape", "skills.json", "`skills.json` has no `skills` array; skipping digest verification."),
+    );
+    return;
+  }
+  for (const skill of skills) {
+    if (skill === null || typeof skill !== "object" || Array.isArray(skill)) {
+      findings.push(warn("integrity/skill-entry-shape", "skills.json", "Ignoring malformed skill entry in `skills.json`."));
+      continue;
+    }
+    const resources = (skill as Record<string, unknown>).resources;
+    if (resources === "dynamic" || resources === undefined) continue;
+    if (!Array.isArray(resources)) {
+      findings.push(warn("integrity/skill-resources-shape", "skills.json", "Skill `resources` must be an array or \"dynamic\"."));
+      continue;
+    }
+    for (const resource of resources) {
+      if (resource === null || typeof resource !== "object" || Array.isArray(resource)) {
+        findings.push(warn("integrity/skill-resource-shape", "skills.json", "Ignoring malformed skill resource."));
+        continue;
+      }
+      const { uri, digest, size } = resource as Record<string, unknown>;
+      if (typeof uri !== "string" || typeof digest !== "string" || typeof size !== "number") {
+        findings.push(warn("integrity/skill-resource-shape", "skills.json", "Skill resource needs `uri`, `digest`, and `size`."));
+        continue;
+      }
+      // Map `skill://<path>` to the package-relative file. Anything outside
+      // `skill://` is out of scope for a package manifest — warn, don't guess.
+      if (!uri.startsWith("skill://")) {
+        findings.push(warn("integrity/skill-uri-unsupported", "skills.json", `Cannot verify resource with non-skill URI '${uri}'.`));
+        continue;
+      }
+      const rel = `skills/${uri.slice("skill://".length)}`;
+      const target = path.resolve(root, rel);
+      if (target !== root && !target.startsWith(root + path.sep)) {
+        findings.push(err("integrity/skill-uri-escape", "skills.json", `Skill resource URI escapes the package root: '${uri}'.`));
+        continue;
+      }
+      let bytes: Buffer;
+      try {
+        bytes = await readFile(target);
+      } catch {
+        findings.push(err("integrity/skill-file-missing", rel, `skills.json pins '${uri}' but '${rel}' is missing.`));
+        continue;
+      }
+      if (bytes.length !== size) {
+        findings.push(
+          err("integrity/skill-size-mismatch", rel, `Size drift in '${rel}': manifest pins ${size} bytes, file has ${bytes.length}.`),
+        );
+        continue;
+      }
+      if (!digest.startsWith("sha256:")) {
+        findings.push(warn("integrity/skill-digest-unsupported", rel, `Cannot verify digest format '${digest}' in '${rel}'.`));
+        continue;
+      }
+      const actual = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+      if (actual !== digest) {
+        findings.push(err("integrity/skill-digest-mismatch", rel, `Digest drift in '${rel}': content no longer matches skills.json.`));
+      }
+    }
+  }
 }
 
 /** Render an audit result as human-readable text. */
