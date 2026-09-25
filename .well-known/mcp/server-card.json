@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/schema/server-card.json",
   "name": "universal-mcp-toolkit",
   "version": "1.6.28",
-  "description": "27 production-ready MCP (Model Context Protocol) servers — unified CLI for discovery, configuration, and runtime. Use with Claude Desktop, Cursor, Cline, and any MCP client.",
+  "description": "28 production-ready MCP (Model Context Protocol) servers — unified CLI for discovery, configuration, and runtime. Use with Claude Desktop, Cursor, Cline, and any MCP client.",
   "type": "aggregator",
   "categories": [
     "AI",

@@ -345,8 +345,11 @@ Check build output, config state, and required environment variables before you 
 | `umt profile import <path>` | Import a profile from a JSON file |
 | `umt skills` | Unified catalog of local Agent Skills (workflow knowledge) + MCP servers (execution) |
 | `umt skills generate` | Emit a `SKILL.md` per server for Claude Code / Cursor / Goose auto-discovery |
-| `umt plugin pack --servers <ids...> --name <name>` | Generate an installable Agent Plugins 1.0 package (plugin.json + mcp.json + skills/) |
-| `umt plugin audit <dir>` | Security-scan a plugin package: path containment, secrets, component isolation, schema |
+| `umt plugin pack --servers <ids...> --name <name>` | Generate an installable Agent Plugins 1.0 package (plugin.json + mcp.json + skills/ + SEP-2640 skills.json) |
+| `umt plugin audit <dir>` | Security-scan a plugin package: path containment, secrets, component isolation, schema, SEP-2640 skills.json digest verification |
+| `umt vet <server-id-or-url>` | Live-vet a running MCP server: protocol negotiation, tool-poisoning scan, permission-risk tiering, persistent drift pin |
+| `umt add <server-id-or-url>` | Register a server with UMT (for `doctor --vet`), with a non-blocking vet advisory first |
+| `umt doctor --vet` | Also live-vet the scoped server (or every `umt add`-registered server) during the health check |
 | `umt workflow run <file> --trace` | Run a workflow and record a turn-scoped trace of every tool call |
 | `umt trace list` / `umt trace show <id>` | Inspect saved traces (summary, JSON, or OpenTelemetry export) |
 
@@ -493,7 +496,9 @@ umt plugin audit ./my-pack --json   # machine-readable findings
 `pack` emits `plugin.json` (spec `$schema` + name/version/description),
 `mcp.json` (stdio server configs over `npx` — never secret values; each
 required env var becomes a client-managed `${VAR_NAME}` placeholder),
-`skills/umt-<id>/SKILL.md` per server (reusing `umt skills generate`), plus
+`skills/umt-<id>/SKILL.md` per server (reusing `umt skills generate`),
+**`skills.json`** — the SEP-2640 `skills/list` manifest where every skill
+entry carries a `sha256:{64 hex}` digest of its `SKILL.md`, plus
 the `.mcp.json` / `.claude-plugin/plugin.json` client shims that UMT's own
 `plugin/` directory ships. Unknown server IDs and spec-invalid names fail
 loudly before anything is written.
@@ -502,11 +507,13 @@ loudly before anything is written.
 symlinks leaving the root), scans env values, headers, args, and skill
 bodies against deterministic secret shapes (the spec forbids credentials
 there), enforces component isolation (skills can't smuggle extra server
-entries or manifests, executable bits are flagged), and validates
-`plugin.json`/`mcp.json` against the spec's structural rules. Errors exit
-non-zero; warnings (unknown fields, deprecated `sse`, missing skill
-manifests) are reported but pass, matching the spec's failure-isolation
-rules.
+entries or manifests, executable bits are flagged), validates
+`plugin.json`/`mcp.json` against the spec's structural rules, and — when the
+package ships a SEP-2640 `skills.json` manifest — verifies each skill entry's
+`sha256:` digest against the packed `SKILL.md` so a tampered skill fails the
+audit. Errors exit non-zero; warnings (unknown fields, deprecated `sse`,
+missing skill manifests) are reported but pass, matching the spec's
+failure-isolation rules.
 
 ## Turn-scoped tracing
 

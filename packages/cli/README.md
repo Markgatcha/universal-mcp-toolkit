@@ -335,6 +335,11 @@ Check build output, config state, and required environment variables before you 
 | `umt tools list --slim` | Slim catalog mode: connect to servers and print tool names + one-line descriptions grouped by server, with token savings vs full schemas |
 | `umt tools describe <tool>` | On-demand full input-schema expansion for one tool (`--server` to disambiguate, `--json` for machine output) |
 | `umt compose` | Pipe one server's tool output into another server's tool call |
+| `umt vet <server-id-or-url>` | Live-vet a running MCP server: protocol negotiation, tool-poisoning scan, permission-risk tiering, persistent drift pin |
+| `umt add <server-id-or-url>` | Register a server with UMT (for `doctor --vet`), with a non-blocking vet advisory first |
+| `umt doctor --vet` | Also live-vet the scoped server (or every `umt add`-registered server) during the health check |
+| `umt plugin pack --servers <ids...> --name <name>` | Generate an installable Agent Plugins 1.0 package (plugin.json + mcp.json + skills/ + SEP-2640 skills.json) |
+| `umt plugin audit <dir>` | Security-scan a plugin package: path containment, secrets, component isolation, schema, SEP-2640 skills.json digest verification |
 
 ### Slim tool catalogs (token-efficient tool discovery)
 
@@ -428,7 +433,7 @@ UMT is discoverable through three complementary manifest paths so it shows up in
 
 - **Official MCP Registry** — `registry-server.json` at the repo root uses the reverse-DNS name `io.github.markgatcha.universal-mcp-toolkit` and lists the tool surface, transports, and environment variables. Submit it to the [official registry](https://github.com/modelcontextprotocol/registry) to appear in `mcp-cli search` results.
 - **Smithery auto-discovery** — `.well-known/mcp/server-card.json` is the well-known server card that Smithery (and any RFC-style crawler) fetches to build a live profile. Keep `version` and `description` in sync with `packages/cli/package.json`.
-- **Runtime `.well-known/mcp-server.json`** — the discovery document served by the running server; bumped to `1.6.26` with the updated registry description.
+- **Runtime `.well-known/mcp-server.json`** — the discovery document served by the running server; bumped to `1.6.28` with the updated registry description.
 
 ```bash
 # Verify the well-known card is served correctly

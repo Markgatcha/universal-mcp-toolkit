@@ -43,7 +43,7 @@
         "properties": {
           "serverId": {
             "type": "string",
-            "description": "The MCP server to run (e.g. 'github', 'slack', 'filesystem', 'postgresql', 'playwright-mcp'). See the full 27-server registry at https://github.com/Markgatcha/universal-mcp-toolkit"
+            "description": "The MCP server to run (e.g. 'github', 'slack', 'filesystem', 'postgresql', 'playwright-mcp'). See the full 28-server registry at https://github.com/Markgatcha/universal-mcp-toolkit"
           },
           "envVars": {
             "type": "object",
