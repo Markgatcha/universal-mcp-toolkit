@@ -665,14 +665,6 @@ MemOS acts as the **memory layer** for your MCP stack — every tool call, resul
 | Memory & Persistence | [MemOS](https://github.com/Markgatcha/memos) | Graph-based persistent memory across sessions |
 | LLM Inference | Ollama / any LLM | Local model execution |
 
----
-
-## ⭐ Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=Markgatcha/universal-mcp-toolkit&type=Date)](https://star-history.com/#Markgatcha/universal-mcp-toolkit&Date)
-
----
-
 ## 💬 Used By the Community
 
 Building something with `universal-mcp-toolkit`? We'd love to know.
