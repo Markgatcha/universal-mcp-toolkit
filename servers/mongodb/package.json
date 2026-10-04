@@ -44,7 +44,7 @@
   ],
   "dependencies": {
     "@universal-mcp-toolkit/core": "workspace:*",
-    "mongodb": "^7.6.0",
+    "mongodb": "^7.7.0",
     "zod": "4.6.5"
   },
   "publishConfig": {

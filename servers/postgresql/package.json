@@ -44,7 +44,7 @@
   ],
   "dependencies": {
     "@universal-mcp-toolkit/core": "workspace:*",
-    "pg": "^8.23.0",
+    "pg": "^8.23.1",
     "zod": "4.6.5"
   },
   "publishConfig": {
