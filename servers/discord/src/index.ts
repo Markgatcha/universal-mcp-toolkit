@@ -24,7 +24,7 @@ export const metadata = {
   id: "discord",
   title: "Discord MCP Server",
   description: "Guild discovery, channel lookup, message history, and messaging for Discord servers.",
-  version: "0.1.0",
+  version: "0.1.2",
   packageName: "@universal-mcp-toolkit/server-discord",
   homepage: "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   repositoryUrl: "https://github.com/Markgatcha/universal-mcp-toolkit.git",

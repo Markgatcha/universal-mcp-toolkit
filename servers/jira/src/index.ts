@@ -19,7 +19,7 @@ import type {
 import { z } from "zod";
 
 const PACKAGE_NAME = "@universal-mcp-toolkit/server-jira";
-const SERVER_VERSION = "0.1.0";
+const SERVER_VERSION = "0.1.2";
 const REQUIRED_ENV_VAR_NAMES = ["JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"] as const;
 const OPTIONAL_ENV_VAR_NAMES = ["JIRA_DEFAULT_PROJECT_KEY"] as const;
 const TOOL_NAMES = ["get_issue", "search_issues", "transition_issue"] as const;
@@ -1232,9 +1232,9 @@ export const metadata: ToolkitServerMetadata = {
   description: "Search Jira Cloud issues, inspect tickets, transition work, and fetch project context.",
   version: SERVER_VERSION,
   packageName: PACKAGE_NAME,
-  homepage: "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
-  repositoryUrl: "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
-  documentationUrl: "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit/tree/main/servers/jira",
+  homepage: "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  repositoryUrl: "https://github.com/Markgatcha/universal-mcp-toolkit",
+  documentationUrl: "https://github.com/Markgatcha/universal-mcp-toolkit/tree/main/servers/jira",
   envVarNames: REQUIRED_ENV_VAR_NAMES,
   transports: ["stdio", "sse"],
   toolNames: TOOL_NAMES,

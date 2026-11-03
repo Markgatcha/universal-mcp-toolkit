@@ -3,7 +3,7 @@
   "name": "redis",
   "title": "Redis MCP Server",
   "description": "Key inspection and cache diagnostics tools for Redis.",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "transports": [
     "stdio",
     "http+sse"
@@ -20,7 +20,7 @@
     "prompts": true
   },
   "packageName": "@universal-mcp-toolkit/server-redis",
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "tools": [
     "get-key",
     "set-key",

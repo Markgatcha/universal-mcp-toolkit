@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/bridge",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Bridge any MCP server to OpenAI, Anthropic, or Ollama function-calling format — use 27+ MCP servers with any LLM SDK.",
   "type": "module",
   "main": "dist/index.mjs",

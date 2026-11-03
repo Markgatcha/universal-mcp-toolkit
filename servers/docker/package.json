@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-docker",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Container and image inspection tools for Docker.",
   "license": "MIT",
@@ -11,7 +11,7 @@
     "type": "git",
     "url": "git+https://github.com/Markgatcha/universal-mcp-toolkit.git"
   },
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",

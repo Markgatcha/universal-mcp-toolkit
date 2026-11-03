@@ -285,6 +285,39 @@ function workspacePolicyProblems(packages) {
         `${manifest.name}: src/index.ts compares process.argv[1] directly; use isMainModule(import.meta.url) so .bin symlinks work`,
       );
     }
+
+    const advertisedVersion =
+      /const SERVER_VERSION = "([^"]+)"/.exec(source)?.[1] ?? /version:\s*"([^"]+)"/.exec(source)?.[1];
+    if (advertisedVersion !== manifest.version) {
+      problems.push(
+        `${manifest.name}: src/index.ts advertises version ${advertisedVersion ?? "unknown"}, package.json has ${manifest.version}; run "pnpm version-packages"`,
+      );
+    }
+
+    const advertisedPackage =
+      /packageName:\s*"([^"]+)"/.exec(source)?.[1] ?? /const PACKAGE_NAME = "([^"]+)"/.exec(source)?.[1];
+    if (advertisedPackage !== undefined && advertisedPackage !== manifest.name) {
+      problems.push(`${manifest.name}: src/index.ts advertises package ${advertisedPackage}`);
+    }
+
+    const wellKnownPath = path.join(directory, ".well-known", "mcp-server.json");
+    if (existsSync(wellKnownPath)) {
+      const card = JSON.parse(readFileSync(wellKnownPath, "utf8"));
+      if (card.version !== manifest.version) {
+        problems.push(
+          `${manifest.name}: .well-known/mcp-server.json has version ${card.version}, package.json has ${manifest.version}; run "pnpm version-packages"`,
+        );
+      }
+    }
+
+    // The repository moved from the `universal-mcp-toolkit` org to
+    // `Markgatcha`; stale URLs show up in MCP handshakes and discovery cards.
+    for (const file of ["src/index.ts", "package.json", ".well-known/mcp-server.json"]) {
+      const absolute = path.join(directory, file);
+      if (existsSync(absolute) && readFileSync(absolute, "utf8").includes("github.com/universal-mcp-toolkit/universal-mcp-toolkit")) {
+        problems.push(`${manifest.name}: ${file} points at the old github.com/universal-mcp-toolkit org`);
+      }
+    }
   }
 
   return problems;

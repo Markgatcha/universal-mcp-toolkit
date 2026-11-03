@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-redis",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Key inspection and cache diagnostics tools for Redis.",
   "license": "MIT",

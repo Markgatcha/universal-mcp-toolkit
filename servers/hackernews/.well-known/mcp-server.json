@@ -3,9 +3,9 @@
   "name": "hackernews",
   "title": "Hacker News MCP Server",
   "description": "Top stories, search, and thread tools for Hacker News.",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "packageName": "@universal-mcp-toolkit/server-hackernews",
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit",
   "transports": [
     "stdio",
     "sse"

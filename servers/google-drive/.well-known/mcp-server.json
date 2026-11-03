@@ -3,10 +3,10 @@
   "name": "google-drive",
   "title": "Google Drive MCP Server",
   "description": "File discovery, metadata inspection, export, and summarization tools for Google Drive.",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "packageName": "@universal-mcp-toolkit/server-google-drive",
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
-  "repositoryUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit",
   "transports": [
     "stdio",
     "sse"

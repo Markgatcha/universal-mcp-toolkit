@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-linear",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Issue search, triage, and workflow tools for Linear.",
   "license": "MIT",

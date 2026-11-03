@@ -3,7 +3,7 @@
   "name": "gmail",
   "title": "Gmail MCP Server",
   "description": "Read, search, send, and manage Gmail messages via the Gmail REST API.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packageName": "@universal-mcp-toolkit/server-gmail",
   "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit.git",

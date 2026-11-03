@@ -42,7 +42,7 @@
     "doctor": "pnpm --filter universal-mcp-toolkit exec umt doctor",
     "umt": "bunx umt",
     "changeset": "changeset",
-    "version-packages": "changeset version",
+    "version-packages": "changeset version && node scripts/sync-package-versions.mjs",
     "release": "pnpm build && pnpm test && pnpm verify:pack && pnpm check:plugin && changeset publish",
     "check:plugin": "node scripts/check-plugin-version.mjs",
     "verify:pack": "node scripts/verify-packages.mjs --all",

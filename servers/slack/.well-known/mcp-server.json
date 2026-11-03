@@ -3,11 +3,11 @@
   "name": "slack",
   "title": "Slack MCP Server",
   "description": "Slack workspace tools for channel discovery, history lookup, posting updates, and drafting messages.",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "packageName": "@universal-mcp-toolkit/server-slack",
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
-  "repositoryUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit.git",
-  "documentationUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit.git",
+  "documentationUrl": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "transports": [
     "stdio",
     "sse"

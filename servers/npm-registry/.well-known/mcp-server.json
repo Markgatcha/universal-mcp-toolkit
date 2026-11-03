@@ -3,9 +3,9 @@
   "name": "npm-registry",
   "title": "NPM Registry MCP Server",
   "description": "Search and inspect npm registry packages, versions, and dist-tags.",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "packageName": "@universal-mcp-toolkit/server-npm-registry",
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit",
   "transports": [
     "stdio",
     "sse"
