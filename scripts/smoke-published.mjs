@@ -22,20 +22,52 @@ const core = readJson("packages/core/package.json");
 const server = readJson("servers/hackernews/package.json");
 
 const targets = [
-  { label: core.name, install: `${core.name}@${core.version}`, check: checkCore },
-  { label: server.name, install: `${server.name}@${server.version}`, check: checkServer },
-  { label: cli.name, install: `${cli.name}@${cli.version}`, check: checkCli },
+  { label: core.name, install: `${core.name}@${core.version}`, version: core.version, check: checkCore },
+  { label: server.name, install: `${server.name}@${server.version}`, version: server.version, check: checkServer },
+  { label: cli.name, install: `${cli.name}@${cli.version}`, version: cli.version, check: checkCli },
 ];
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-/** npm needs a moment to expose a fresh publish on the read registry. */
-async function installWithRetry(directory, spec) {
+/** The npm CDN edges and the CLI's HTTP cache can lag behind a fresh publish. */
+async function ensurePublished(packageName, version) {
+  const url = `https://registry.npmjs.org/${packageName.replace("/", "%2F")}`;
+  for (let attempt = 1; attempt <= 18; attempt++) {
+    try {
+      const response = await fetch(url, { headers: { accept: "application/vnd.npm.install-v1+json" } });
+      if (response.ok) {
+        const packument = await response.json();
+        if (packument.versions?.[version]) return;
+      }
+    } catch {
+      // Retry below.
+    }
+    await wait(10_000);
+  }
+  throw new Error(`${packageName}@${version} did not appear on the registry after 3 minutes`);
+}
+
+async function installWithRetry(directory, spec, version) {
+  await ensurePublished(spec.slice(0, spec.lastIndexOf("@")), version);
+
   let lastError;
-  for (let attempt = 1; attempt <= 5; attempt++) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     const result = spawnSync(
       "npm",
-      ["install", "--prefix", directory, "--no-package-lock", "--no-audit", "--no-fund", spec],
+      [
+        "install",
+        "--prefix",
+        directory,
+        "--no-package-lock",
+        "--no-audit",
+        "--no-fund",
+        "--prefer-online",
+        // A fresh cache per attempt avoids reusing a stale packument that
+        // predates the publish.
+        "--cache",
+        path.join(directory, `.npm-cache-${attempt}`),
+        spec,
+      ],
       {
         encoding: "utf8",
         shell: isWindows,
@@ -49,7 +81,7 @@ async function installWithRetry(directory, spec) {
     lastError = result.error ?? new Error((result.stderr || result.stdout || "").trim());
     if (result.error?.code === "ENOENT") break;
     console.log(`install ${spec} attempt ${attempt} failed, retrying...`);
-    await wait(10_000);
+    await wait(15_000);
   }
   throw new Error(`could not install ${spec}: ${lastError instanceof Error ? lastError.message : lastError}`);
 }
@@ -122,7 +154,7 @@ let failed = false;
 for (const target of targets) {
   const directory = mkdtempSync(path.join(tmpdir(), "umt-published-"));
   try {
-    await installWithRetry(directory, target.install);
+    await installWithRetry(directory, target.install, target.version);
     target.check(directory);
     console.log(`[ok] ${target.install}`);
   } catch (error) {
