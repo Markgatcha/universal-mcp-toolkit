@@ -17,14 +17,10 @@
 "@universal-mcp-toolkit/server-linear": patch
 "@universal-mcp-toolkit/server-mongodb": patch
 "@universal-mcp-toolkit/server-notion": patch
-"@contextcore/mcp-notion": patch
 "@universal-mcp-toolkit/server-npm-registry": patch
-"@contextcore/mcp-openai": patch
-"@contextcore/mcp-playwright": patch
 "@universal-mcp-toolkit/server-postgresql": patch
 "@universal-mcp-toolkit/server-redis": patch
 "@universal-mcp-toolkit/server-slack": patch
-"@contextcore/mcp-slack": patch
 "@universal-mcp-toolkit/server-spotify": patch
 "@universal-mcp-toolkit/server-stripe": patch
 "@universal-mcp-toolkit/server-supabase": patch

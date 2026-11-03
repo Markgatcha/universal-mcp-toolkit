@@ -7,5 +7,10 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": [
+    "@contextcore/mcp-notion",
+    "@contextcore/mcp-openai",
+    "@contextcore/mcp-playwright",
+    "@contextcore/mcp-slack"
+  ]
 }

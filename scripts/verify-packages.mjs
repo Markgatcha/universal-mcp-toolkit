@@ -202,11 +202,111 @@ function verifyPackage(directory, { pack, launch }) {
   return { name: manifest.name, directory, problems, artifacts: required.size, bins: binTargets.size };
 }
 
+/** Validate pending changesets before changesets itself tries to version. */
+function changesetProblems(workspaceNames, ignored) {
+  const problems = [];
+  const directory = path.join(repoRoot, ".changeset");
+
+  for (const file of readdirSync(directory)) {
+    if (!file.endsWith(".md") || file === "README.md") continue;
+    const source = readFileSync(path.join(directory, file), "utf8");
+    const frontmatter = /^---\r?\n([\s\S]*?)---/.exec(source);
+    if (!frontmatter) {
+      problems.push(`.changeset/${file}: missing frontmatter`);
+      continue;
+    }
+
+    for (const line of frontmatter[1].split(/\r?\n/).filter((entry) => entry.trim().length > 0)) {
+      const entry = /^"?([^":]+)"?:\s*(major|minor|patch)$/.exec(line.trim());
+      if (!entry) {
+        problems.push(`.changeset/${file}: invalid release entry ${JSON.stringify(line)}`);
+        continue;
+      }
+
+      const [, packageName] = entry;
+      if (!workspaceNames.has(packageName)) {
+        problems.push(`.changeset/${file}: references ${packageName}, which is not a workspace package`);
+      }
+      if (ignored.has(packageName)) {
+        problems.push(`.changeset/${file}: references ignored package ${packageName}`);
+      }
+    }
+  }
+
+  return problems;
+}
+
+/** Release hygiene that does not belong to a single package. */
+function workspacePolicyProblems(packages) {
+  const problems = [];
+  const config = JSON.parse(readFileSync(path.join(repoRoot, ".changeset/config.json"), "utf8"));
+  const ignored = new Set(config.ignore ?? []);
+  const workspaceNames = new Set(packages.map(({ manifest }) => manifest.name));
+
+  for (const ignoredName of ignored) {
+    if (!workspaceNames.has(ignoredName)) {
+      problems.push(`.changeset/config.json ignores ${ignoredName}, which is not a workspace package`);
+    }
+  }
+
+  problems.push(...changesetProblems(workspaceNames, ignored));
+
+  for (const { directory, manifest } of packages) {
+    if (manifest.private || ignored.has(manifest.name)) continue;
+
+    const publishableScope =
+      manifest.name === "universal-mcp-toolkit" || manifest.name.startsWith("@universal-mcp-toolkit/");
+    if (!publishableScope) {
+      problems.push(
+        `${manifest.name} is outside the release scopes (@universal-mcp-toolkit/*, universal-mcp-toolkit); ` +
+          'add it to ".changeset/config.json" ignore unless the NPM_TOKEN can publish that scope',
+      );
+    }
+
+    for (const dependency of Object.keys(manifest.dependencies ?? {})) {
+      if (ignored.has(dependency)) {
+        problems.push(`${manifest.name} depends on ignored package ${dependency}, so changesets cannot publish it`);
+      }
+    }
+
+    if (!manifest.bin || !directory.split(path.sep).includes("servers")) continue;
+    const entry = path.join(directory, "src", "index.ts");
+    if (!existsSync(entry)) {
+      problems.push(`${manifest.name}: missing src/index.ts`);
+      continue;
+    }
+
+    const source = readFileSync(entry, "utf8");
+    if (!source.includes("isMainModule(import.meta.url)")) {
+      problems.push(`${manifest.name}: src/index.ts must guard startup with isMainModule(import.meta.url)`);
+    }
+    if (/process\.argv\[1\]/.test(source)) {
+      problems.push(
+        `${manifest.name}: src/index.ts compares process.argv[1] directly; use isMainModule(import.meta.url) so .bin symlinks work`,
+      );
+    }
+  }
+
+  return problems;
+}
+
 const targets = verifyAll ? discoverPackages() : [process.cwd()];
+const packages = targets.map((directory) => ({
+  directory,
+  manifest: JSON.parse(readFileSync(path.join(directory, "package.json"), "utf8")),
+}));
+
 const results = [];
-for (const directory of targets) {
+for (const { directory } of packages) {
   const result = verifyPackage(directory, { pack: checkTarball, launch: checkLaunch });
   if (result) results.push(result);
+}
+
+if (verifyAll) {
+  const policyProblems = workspacePolicyProblems(packages);
+  if (policyProblems.length > 0) {
+    results.push({ name: "workspace release policy", directory: repoRoot, problems: policyProblems, artifacts: 0, bins: 0 });
+  }
 }
 
 const failures = results.filter((result) => result.problems.length > 0);
@@ -225,5 +325,6 @@ const checks = [
   `${bins} bin target(s)`,
   checkTarball ? "tarball contents checked" : null,
   checkLaunch ? "bin launch checked" : null,
+  verifyAll ? "release policy checked" : null,
 ].filter(Boolean);
 console.log(`[ok] ${results.length} package(s) verified (${checks.join(", ")})`);

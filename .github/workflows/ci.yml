@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Weekly rolling-Node run even when nothing is pushed.
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: read
@@ -13,13 +16,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  TURBO_TELEMETRY_DISABLED: "1"
+  TURBO_CACHE_DIR: .turbo/cache
+  DO_NOT_TRACK: "1"
+
 jobs:
-  # Lockfile drift: fail fast if pnpm-lock.yaml is out of sync with
-  # package.json (the frozen install errors out clearly before the full
-  # build/typecheck/test matrix wastes time).
+  # Cheap gate: fail before any build starts when pnpm-lock.yaml drifted from
+  # the workspace package.json files.
   verify-lockfile:
     name: Verify lockfile
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - name: Enable corepack
@@ -30,18 +38,26 @@ jobs:
           node-version: "22"
           cache: pnpm
       - name: Verify pnpm-lock.yaml is in sync
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: pnpm install --frozen-lockfile --lockfile-only
 
-  ci:
+  build-test:
     name: Build, Typecheck & Test (${{ matrix.os }}, Node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
     needs: [verify-lockfile]
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        # Active Node LTS lines + stable OS coverage
-        node-version: [22, 24]
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          # Node 22 on every supported OS, plus Node 24 where it is cheapest.
+          - os: ubuntu-latest
+            node-version: 24
+          - os: macos-latest
+            node-version: 22
+          - os: windows-latest
+            node-version: 22
+          - os: ubuntu-latest
+            node-version: 22
     steps:
       - uses: actions/checkout@v7
 
@@ -54,26 +70,20 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Restore Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-node${{ matrix.node-version }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-node${{ matrix.node-version }}-${{ github.ref_name }}-
+            turbo-${{ runner.os }}-node${{ matrix.node-version }}-
 
-      - name: TypeScript version
-        run: pnpm exec tsc --version
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build
         run: pnpm build
-
-      - name: Verify package tarballs
-        # Every published package must ship dist/ and a shebang on each bin
-        # (issue #18: npx cannot exec a JS bin without one on macOS/Linux).
-        run: pnpm verify:pack
-
-      - name: Verify bins launch through a .bin symlink
-        # POSIX package managers symlink `bin` entries; a server that compares
-        # process.argv[1] to import.meta.url without resolving symlinks exits
-        # silently on startup.
-        if: runner.os == 'Linux'
-        run: pnpm verify:launch
 
       - name: Typecheck
         run: pnpm typecheck
@@ -81,16 +91,71 @@ jobs:
       - name: Test
         run: pnpm test
 
-  # Rolling Node smoke: exercises the LATEST stable Node on every run so
-  # that future breaking changes are caught continuously instead of only
-  # via the pinned LTS matrix. This job is allowed to break on its own
-  # (not in the release-gate chain) so it can't silently rot, but it still
-  # flags drift.
+  # Packaging is platform-independent apart from POSIX exec bits, so it runs
+  # once on Linux instead of in every matrix leg. This is also the only job
+  # that boots the built bins the way npx does.
+  packaging:
+    name: Packaging & release guards
+    runs-on: ubuntu-latest
+    needs: [verify-lockfile]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-node22-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-node22-${{ github.ref_name }}-
+            turbo-${{ runner.os }}-node22-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Build
+        run: pnpm build
+
+      - name: Verify package tarballs
+        # Every published package must ship dist/ and a shebang on each bin
+        # (issue #18: npx cannot exec a JS bin without one on macOS/Linux).
+        # Also enforces the release scopes and the shared entry-point guard.
+        run: pnpm verify:pack
+
+      - name: Verify bins launch through a .bin symlink
+        # POSIX package managers symlink `bin` entries; a server that compares
+        # process.argv[1] to import.meta.url without resolving symlinks exits
+        # silently on startup.
+        run: pnpm verify:launch
+
+      - name: Lint
+        run: pnpm lint:ox
+
+      - name: Token budget lint
+        run: pnpm lint:tokens
+
+      - name: Verify plugin manifests and mcp.json pins
+        run: pnpm check:plugin
+
+  # Latest stable Node, only on main/schedule: the PR matrix above already
+  # covers Node 22 and 24, so paying for a third full run per PR is waste.
   ci-rolling:
     name: CI (rolling Node)
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     needs: [verify-lockfile]
     continue-on-error: true
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - name: Enable corepack
@@ -100,35 +165,21 @@ jobs:
         with:
           node-version: current
           cache: pnpm
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-node-current-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-node-current-${{ github.ref_name }}-
+            turbo-${{ runner.os }}-node-current-
+
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --prefer-offline
       - name: Build
         run: pnpm build
       - name: Typecheck
         run: pnpm typecheck
       - name: Test
         run: pnpm test
-
-  # Token-budget lint: measures every server's real on-the-wire tools/list
-  # payload (the bytes an MCP client pays per agent turn) and fails when the
-  # catalog exceeds its token budgets. Runs once on ubuntu/Node 22 — the
-  # payload is platform-independent.
-  token-budget:
-    name: Token budget lint
-    runs-on: ubuntu-latest
-    needs: [verify-lockfile]
-    steps:
-      - uses: actions/checkout@v7
-      - name: Enable corepack
-        run: corepack enable
-      - name: Setup Node 22
-        uses: actions/setup-node@v7
-        with:
-          node-version: "22"
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Build
-        run: pnpm build
-      - name: Token budget lint
-        run: pnpm lint:tokens

@@ -39,14 +39,15 @@
     "typecheck": "node scripts/run-turbo.mjs typecheck",
     "test": "node scripts/run-turbo.mjs test",
     "clean": "node scripts/run-turbo.mjs clean && rimraf node_modules .turbo",
-    "doctor": "corepack pnpm --filter universal-mcp-toolkit exec umt doctor",
+    "doctor": "pnpm --filter universal-mcp-toolkit exec umt doctor",
     "umt": "bunx umt",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "corepack pnpm build && corepack pnpm test && corepack pnpm verify:pack && changeset publish",
+    "release": "pnpm build && pnpm test && pnpm verify:pack && pnpm check:plugin && changeset publish",
     "check:plugin": "node scripts/check-plugin-version.mjs",
     "verify:pack": "node scripts/verify-packages.mjs --all",
-    "verify:launch": "node scripts/verify-packages.mjs --all --launch --no-pack"
+    "verify:launch": "node scripts/verify-packages.mjs --all --launch --no-pack",
+    "verify:published": "node scripts/smoke-published.mjs"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.1",
