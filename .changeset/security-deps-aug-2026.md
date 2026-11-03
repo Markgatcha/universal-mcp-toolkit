@@ -1,5 +1,4 @@
 ---
-"universal-mcp-toolkit-monorepo": patch
 ---
 Fixed 5 security vulnerabilities by bumping transitive dependency overrides in `pnpm-workspace.yaml`:
 

@@ -1,5 +1,4 @@
 ---
-"universal-mcp-toolkit-monorepo": patch
 "universal-mcp-toolkit": patch
 "@universal-mcp-toolkit/core": patch
 "@universal-mcp-toolkit/bridge": patch
