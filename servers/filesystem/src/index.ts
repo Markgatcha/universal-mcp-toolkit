@@ -2,6 +2,7 @@ import {
   ConfigurationError,
   createServerCard,
   defineTool,
+  isMainModule,
   loadEnv,
   parseRuntimeOptions,
   runToolkitServer,
@@ -11,7 +12,6 @@ import {
 } from "@universal-mcp-toolkit/core";
 import { promises as fs } from "node:fs";
 import { dirname, isAbsolute, join, normalize, parse, relative, resolve as resolvePath } from "node:path";
-import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 const toolNames = ["list_files", "read_file", "write_file"] as const;
@@ -567,11 +567,6 @@ export class FileSystemServer extends ToolkitServer {
 export async function createServer(options: CreateFileSystemServerOptions = {}): Promise<FileSystemServer> {
   const service = options.service ?? (await DefaultFileSystemService.fromEnv(options.env));
   return new FileSystemServer(service);
-}
-
-function isMainModule(metaUrl: string): boolean {
-  const entry = process.argv[1];
-  return typeof entry === "string" && fileURLToPath(metaUrl) === resolvePath(entry);
 }
 
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<void> {

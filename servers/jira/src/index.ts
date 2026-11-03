@@ -1,8 +1,8 @@
 import { Buffer } from "node:buffer";
-import { pathToFileURL } from "node:url";
 
 import {
   ExternalServiceError,
+  isMainModule,
   ToolkitServer,
   ValidationError,
   createServerCard,
@@ -1451,7 +1451,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
 
 export default runtimeRegistration;
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainModule(import.meta.url)) {
   void main().catch((error) => {
     const message = error instanceof Error ? error.stack ?? error.message : String(error);
     process.stderr.write(`${message}\n`);

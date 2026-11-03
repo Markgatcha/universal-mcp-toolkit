@@ -1,10 +1,9 @@
-import { pathToFileURL } from "node:url";
-
 import {
   ConfigurationError,
   createServerCard,
   defineTool,
   ExternalServiceError,
+  isMainModule,
   loadEnv,
   normalizeError,
   parseRuntimeOptions,
@@ -2541,11 +2540,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   );
 }
 
-function isEntrypoint(): boolean {
-  return process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === import.meta.url;
-}
-
-if (isEntrypoint()) {
+if (isMainModule(import.meta.url)) {
   void main().catch((error: unknown) => {
     const normalized = normalizeError(error);
     console.error(`${normalized.code}: ${normalized.toClientMessage()}`);

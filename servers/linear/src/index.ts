@@ -1,8 +1,7 @@
-import { pathToFileURL } from "node:url";
-
 import {
   ConfigurationError,
   ExternalServiceError,
+  isMainModule,
   ValidationError,
   createServerCard,
   defineTool,
@@ -1239,7 +1238,7 @@ export async function main(): Promise<void> {
   await runToolkitServer(runtimeRegistration, runtimeOptions);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainModule(import.meta.url)) {
   void main().catch((error) => {
     const normalized = normalizeError(error);
     console.error(normalized.toClientMessage());

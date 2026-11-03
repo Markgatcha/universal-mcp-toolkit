@@ -23,6 +23,7 @@
     "dist"
   ],
   "scripts": {
+    "prepack": "node ../../scripts/verify-packages.mjs",
     "build": "tsdown src/index.ts --format esm --dts --clean",
     "build:fast": "tsdown src/index.ts --format esm --clean",
     "dev": "tsx watch src/index.ts",

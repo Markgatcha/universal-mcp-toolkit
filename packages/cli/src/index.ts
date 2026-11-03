@@ -1,14 +1,13 @@
-#!/usr/bin/env node
 import chalk from "chalk";
 import { Command } from "commander";
 import { access, readFile, writeFile, mkdir, readdir, stat, rename, rm } from "node:fs/promises";
-import { constants as fsConstants, createReadStream, createWriteStream } from "node:fs";
+import { constants as fsConstants, createReadStream, createWriteStream, realpathSync } from "node:fs";
 import { createInterface } from "readline";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 // ora is imported lazily (~70ms of module load, measured): most commands never
@@ -2830,7 +2829,27 @@ async function runProfileImport(profilePath: string): Promise<void> {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+/**
+ * Whether this file is the process entry point.
+ *
+ * npm links `bin` entries as symlinks on macOS and Linux, and Node reports the
+ * real path in `import.meta.url` while `process.argv[1]` keeps the symlink
+ * path. Compare real paths so `npx umt` runs the CLI instead of exiting.
+ */
+function isMainModule(): boolean {
+  const entry = process.argv[1];
+  if (typeof entry !== "string" || entry.length === 0) {
+    return false;
+  }
+
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(entry);
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "Unknown CLI failure";
     console.error(chalk.red(message));

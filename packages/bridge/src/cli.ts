@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * CLI entry point for the MCP-to-Function-Calling bridge.
  *

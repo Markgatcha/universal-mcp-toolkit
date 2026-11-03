@@ -2,6 +2,7 @@ import {
   createServerCard,
   defineTool,
   ExternalServiceError,
+  isMainModule,
   loadEnv,
   parseRuntimeOptions,
   RateLimiter,
@@ -9,8 +10,6 @@ import {
   ToolkitServer,
   type ToolkitServerMetadata,
 } from "@universal-mcp-toolkit/core";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 const toolNames = ["get_top_stories", "get_new_stories", "get_best_stories", "search_stories", "get_item_thread"] as const;
@@ -509,11 +508,6 @@ export async function createServer(
       ...(env.HACKERNEWS_SEARCH_BASE_URL ? { searchBaseUrl: env.HACKERNEWS_SEARCH_BASE_URL } : {}),
     }),
   );
-}
-
-function isMainModule(metaUrl: string): boolean {
-  const entry = process.argv[1];
-  return typeof entry === "string" && fileURLToPath(metaUrl) === resolve(entry);
 }
 
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<void> {

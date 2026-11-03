@@ -1,8 +1,7 @@
-import { pathToFileURL } from "node:url";
-
 import {
   ConfigurationError,
   ExternalServiceError,
+  isMainModule,
   ToolkitServer,
   ValidationError,
   createServerCard,
@@ -590,16 +589,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   );
 }
 
-function isMainModule(): boolean {
-  const entryPoint = process.argv[1];
-  if (!entryPoint) {
-    return false;
-  }
-
-  return import.meta.url === pathToFileURL(entryPoint).href;
-}
-
-if (isMainModule()) {
+if (isMainModule(import.meta.url)) {
   void main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "Unknown startup error.";
     console.error(`Failed to start MongoDB MCP server: ${message}`);

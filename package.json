@@ -43,8 +43,10 @@
     "umt": "bunx umt",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "corepack pnpm build && corepack pnpm test && changeset publish",
-    "check:plugin": "node scripts/check-plugin-version.mjs"
+    "release": "corepack pnpm build && corepack pnpm test && corepack pnpm verify:pack && changeset publish",
+    "check:plugin": "node scripts/check-plugin-version.mjs",
+    "verify:pack": "node scripts/verify-packages.mjs --all",
+    "verify:launch": "node scripts/verify-packages.mjs --all --launch --no-pack"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.1",

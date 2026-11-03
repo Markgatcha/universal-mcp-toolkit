@@ -19,6 +19,7 @@
     "dist"
   ],
   "scripts": {
+    "prepack": "node ../../scripts/verify-packages.mjs",
     "build": "tsdown src/index.ts src/cli.ts --format esm --dts --clean",
     "dev": "tsx watch src/index.ts",
     "lint": "tsc --noEmit",

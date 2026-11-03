@@ -25,6 +25,7 @@ export {
   type IntegrationTransport,
 } from "./integration-manifest.js";
 export { createLogger } from "./logger.js";
+export { isMainModule } from "./main-module.js";
 export { RateLimiter } from "./rate-limiter.js";
 export { parseRuntimeOptions, runToolkitServer } from "./runtime.js";
 export { ToolkitServer } from "./server.js";

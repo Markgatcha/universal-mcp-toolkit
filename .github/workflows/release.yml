@@ -30,6 +30,10 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build
         run: pnpm build
+      - name: Verify package tarballs
+        # Refuses to publish bins without a shebang, or packages whose dist/
+        # was never built (issue #18).
+        run: pnpm verify:pack
       - name: Publish (changesets)
         # Publishes any package whose version is ahead of the registry.
         run: pnpm exec changeset publish

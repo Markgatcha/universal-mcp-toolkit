@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
 import {
   ConfigurationError,
   ExternalServiceError,
+  isMainModule,
   ValidationError,
   createServerCard,
   defineTool,
@@ -426,7 +426,7 @@ export async function main(argv: string[]): Promise<void> {
   await runToolkitServer({ serverCard, createServer }, parseRuntimeOptions(argv));
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).catch((e) => {
     console.error(normalizeError(e).toClientMessage());
     process.exit(1);
