@@ -777,10 +777,10 @@ export const metadata: ToolkitServerMetadata = {
   id: "linear",
   title: "Linear MCP Server",
   description: "Search, inspect, create, and triage Linear issues with team resources and prompts.",
-  version: "0.1.0",
+  version: "0.1.2",
   packageName: "@universal-mcp-toolkit/server-linear",
-  homepage: "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
-  repositoryUrl: "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  homepage: "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  repositoryUrl: "https://github.com/Markgatcha/universal-mcp-toolkit",
   documentationUrl: "https://developers.linear.app/docs/graphql",
   envVarNames: [
     "LINEAR_API_KEY",

@@ -26,7 +26,7 @@ export const metadata = {
   id: "trello",
   title: "Trello MCP Server",
   description: "Board and list discovery, card CRUD, and archiving for Trello workspaces.",
-  version: "0.1.0",
+  version: "0.1.2",
   packageName: "@universal-mcp-toolkit/server-trello",
   homepage: "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   repositoryUrl: "https://github.com/Markgatcha/universal-mcp-toolkit.git",

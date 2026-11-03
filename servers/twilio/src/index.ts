@@ -24,7 +24,7 @@ export const metadata = {
   id: "twilio",
   title: "Twilio MCP Server",
   description: "Send SMS, list messages, place voice calls, and review call history via the Twilio REST API.",
-  version: "0.1.0",
+  version: "0.1.1",
   packageName: "@universal-mcp-toolkit/server-twilio",
   homepage: "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   repositoryUrl: "https://github.com/Markgatcha/universal-mcp-toolkit.git",

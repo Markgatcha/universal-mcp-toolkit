@@ -1,1 +1,5 @@
-{"name":"@contextcore/mcp-notion","version":"1.2.0","description":"Notion MCP Server for Model Context Protocol"}
+{
+  "name": "@contextcore/mcp-notion",
+  "version": "1.3.0",
+  "description": "Notion MCP Server for Model Context Protocol"
+}

@@ -20,7 +20,7 @@ export const metadata: ToolkitServerMetadata = {
   id: "hackernews",
   title: "Hacker News MCP Server",
   description: "Read-only Hacker News tools for ranked story lists, keyword search, and discussion threads.",
-  version: "0.2.0",
+  version: "0.2.1",
   packageName: "@universal-mcp-toolkit/server-hackernews",
   homepage: "https://github.com/Markgatcha/universal-mcp-toolkit",
   repositoryUrl: "https://github.com/Markgatcha/universal-mcp-toolkit",

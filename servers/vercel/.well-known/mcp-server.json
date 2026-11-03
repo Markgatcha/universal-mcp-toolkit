@@ -3,9 +3,9 @@
   "name": "vercel",
   "title": "Vercel MCP Server",
   "description": "Project, deployment, and account tools for Vercel.",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "packageName": "@universal-mcp-toolkit/server-vercel",
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit",
   "transports": [
     "stdio",
     "sse"

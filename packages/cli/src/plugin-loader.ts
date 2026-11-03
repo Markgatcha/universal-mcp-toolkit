@@ -14,9 +14,6 @@ import path from "node:path";
 
 import type { ServerRegistryEntry } from "./registry.js";
 
-/** Whether we're running on Windows (affects how npx is invoked). */
-const IS_WINDOWS = process.platform === "win32";
-
 /** How to resolve a server package at runtime. */
 export type PluginLoadMode = "npx" | "workspace" | "auto";
 
@@ -56,9 +53,7 @@ export async function loadPlugin(
     return cached;
   }
 
-  const npxArgs = entry.npxArgs
-    ? [...entry.npxArgs, entry.packageName]
-    : ["-y", entry.packageName];
+  const npxArgs = entry.npxArgs ? [...entry.npxArgs] : ["-y", entry.packageName];
 
   // Try to locate the package locally in node_modules.
   // This works for both workspace installs and global installs.
@@ -141,11 +136,11 @@ export function getSpawnConfig(entry: ServerRegistryEntry): {
   command: string;
   args: string[];
 } {
-  // On Windows, npx may need to be invoked as npx.cmd
-  const command = IS_WINDOWS ? "npx" : "npx";
-  const args = entry.npxArgs
-    ? [...entry.npxArgs, entry.packageName, "--transport", "stdio"]
-    : ["-y", entry.packageName, "--transport", "stdio"];
+  const command = "npx";
+  // Entries with explicit npxArgs already carry their package name and
+  // subcommand (for example `@mem-os/sdk mcp`); appending the package again
+  // makes npx run it twice.
+  const args = entry.npxArgs ? [...entry.npxArgs] : ["-y", entry.packageName, "--transport", "stdio"];
 
   return { command, args };
 }

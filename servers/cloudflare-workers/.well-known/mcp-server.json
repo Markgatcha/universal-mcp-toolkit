@@ -3,9 +3,9 @@
   "name": "cloudflare-workers",
   "title": "Cloudflare Workers MCP Server",
   "description": "Worker, route, and account tools for Cloudflare Workers.",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "packageName": "@universal-mcp-toolkit/server-cloudflare-workers",
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit",
   "transports": [
     "stdio",
     "sse"

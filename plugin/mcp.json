@@ -6,7 +6,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@universal-mcp-toolkit/server-hackernews@0.2.0",
+        "@universal-mcp-toolkit/server-hackernews@0.2.1",
         "--transport",
         "stdio"
       ]
@@ -16,7 +16,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@universal-mcp-toolkit/server-arxiv@0.1.1",
+        "@universal-mcp-toolkit/server-arxiv@0.1.2",
         "--transport",
         "stdio"
       ]
@@ -26,7 +26,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@universal-mcp-toolkit/server-npm-registry@0.2.0",
+        "@universal-mcp-toolkit/server-npm-registry@0.2.1",
         "--transport",
         "stdio"
       ]

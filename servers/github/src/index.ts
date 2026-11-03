@@ -880,7 +880,7 @@ export const metadata: ToolkitServerMetadata = {
   title: "GitHub MCP Server",
   description:
     "Repository search, pull request lookup, workflow run inspection, repository resources, and triage prompts for GitHub.",
-  version: "0.1.0",
+  version: "0.1.2",
   packageName: "@universal-mcp-toolkit/server-github",
   homepage: "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   repositoryUrl: "https://github.com/Markgatcha/universal-mcp-toolkit",

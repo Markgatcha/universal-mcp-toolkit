@@ -3,7 +3,7 @@
   "name": "mongodb",
   "title": "MongoDB MCP Server",
   "description": "Database, collection, and document tools for MongoDB.",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "transports": [
     "stdio",
     "http+sse"
@@ -20,7 +20,7 @@
     "prompts": true
   },
   "packageName": "@universal-mcp-toolkit/server-mongodb",
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "tools": [
     "list-collections",
     "find-documents",

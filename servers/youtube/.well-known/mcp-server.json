@@ -3,7 +3,7 @@
   "name": "youtube",
   "title": "YouTube MCP Server",
   "description": "Search videos, fetch video/channel details, and read comments via the YouTube Data API v3.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packageName": "@universal-mcp-toolkit/server-youtube",
   "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit.git",

@@ -1,42 +1,86 @@
 name: Release
 
-# Publishes all changed UMT packages to npm automatically whenever a GitHub
-# Release is published. Uses changesets to version + publish the workspace.
-# Requires a repository secret NPM_TOKEN (npm automation token with publish rights).
+# Publishes every package whose version is ahead of the npm registry using
+# changesets. Triggered by publishing a GitHub Release, or manually to retry a
+# failed publish without creating a new tag.
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TURBO_TELEMETRY_DISABLED: "1"
+  TURBO_CACHE_DIR: .turbo/cache
+  DO_NOT_TRACK: "1"
 
 jobs:
   publish-npm:
     name: Publish universal-mcp-toolkit to npm
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+
       - name: Enable corepack
         run: corepack enable
+
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
           cache: pnpm
-      - name: Verify pnpm-lock.yaml is in sync
-        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-node22-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-node22-${{ github.ref_name }}-
+            turbo-${{ runner.os }}-node22-
+
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # Single frozen install also verifies the lockfile.
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Configure git identity
+        # changeset publish creates and pushes release tags.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Build
         run: pnpm build
+
       - name: Verify package tarballs
-        # Refuses to publish bins without a shebang, or packages whose dist/
-        # was never built (issue #18).
+        # Refuses to publish bins without a shebang, a package whose dist/ was
+        # never built (issue #18), or a scope the npm token cannot publish.
         run: pnpm verify:pack
+
+      - name: Verify bins launch through a .bin symlink
+        run: pnpm verify:launch
+
+      - name: Verify plugin manifests and mcp.json pins
+        run: pnpm check:plugin
+
       - name: Publish (changesets)
         # Publishes any package whose version is ahead of the registry.
         run: pnpm exec changeset publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke test published packages
+        # Installs the new tarballs from npm and boots them through .bin,
+        # exactly like an MCP host does.
+        run: pnpm verify:published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

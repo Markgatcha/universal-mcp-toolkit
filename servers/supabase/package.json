@@ -1,6 +1,6 @@
 {
   "name": "@universal-mcp-toolkit/server-supabase",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Database, auth, storage, and function tools for Supabase.",
   "license": "MIT",

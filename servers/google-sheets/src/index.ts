@@ -26,7 +26,7 @@ export const metadata = {
   id: "google-sheets",
   title: "Google Sheets MCP Server",
   description: "List, read, and write Google Sheets data via the Sheets API v4 and Drive API v3.",
-  version: "0.1.0",
+  version: "0.1.1",
   packageName: "@universal-mcp-toolkit/server-google-sheets",
   homepage: "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
   repositoryUrl: "https://github.com/Markgatcha/universal-mcp-toolkit.git",

@@ -3,11 +3,11 @@
   "name": "jira",
   "title": "Jira MCP Server",
   "description": "Search Jira Cloud issues, inspect tickets, transition work, and fetch project context.",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "packageName": "@universal-mcp-toolkit/server-jira",
-  "homepage": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit#readme",
-  "repositoryUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit",
-  "documentationUrl": "https://github.com/universal-mcp-toolkit/universal-mcp-toolkit/tree/main/servers/jira",
+  "homepage": "https://github.com/Markgatcha/universal-mcp-toolkit#readme",
+  "repositoryUrl": "https://github.com/Markgatcha/universal-mcp-toolkit",
+  "documentationUrl": "https://github.com/Markgatcha/universal-mcp-toolkit/tree/main/servers/jira",
   "transports": [
     "stdio",
     "sse"
