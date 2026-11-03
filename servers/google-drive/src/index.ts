@@ -1,8 +1,7 @@
-import { pathToFileURL } from "node:url";
-
 import {
   ConfigurationError,
   HttpServiceClient,
+  isMainModule,
   OAuth2TokenProvider,
   ToolkitServer,
   createServerCard,
@@ -605,11 +604,6 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     },
     runtimeOptions,
   );
-}
-
-function isMainModule(moduleUrl: string): boolean {
-  const entryPoint = process.argv[1];
-  return typeof entryPoint === "string" && pathToFileURL(entryPoint).href === moduleUrl;
 }
 
 if (isMainModule(import.meta.url)) {

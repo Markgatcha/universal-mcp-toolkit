@@ -1,8 +1,7 @@
-import { pathToFileURL } from "node:url";
-
 import {
   ConfigurationError,
   ExternalServiceError,
+  isMainModule,
   ValidationError,
   createServerCard,
   defineTool,
@@ -1324,7 +1323,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   );
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+if (isMainModule(import.meta.url)) {
   void main().catch((error) => {
     const normalized = normalizeError(error);
     console.error(normalized.toClientMessage());

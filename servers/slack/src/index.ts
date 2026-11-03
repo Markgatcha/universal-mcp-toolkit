@@ -1,9 +1,8 @@
-import { resolve } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 
 import {
   ExternalServiceError,
+  isMainModule,
   ToolkitServer,
   ValidationError,
   createServerCard,
@@ -1039,10 +1038,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   );
 }
 
-const isDirectExecution =
-  process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-
-if (isDirectExecution) {
+if (isMainModule(import.meta.url)) {
   void main().catch((error) => {
     const normalized = normalizeError(error);
     process.stderr.write(`${normalized.toClientMessage()}\n`);

@@ -2,14 +2,13 @@ import {
   createServerCard,
   defineTool,
   ExternalServiceError,
+  isMainModule,
   loadEnv,
   parseRuntimeOptions,
   runToolkitServer,
   ToolkitServer,
   type ToolkitServerMetadata,
 } from "@universal-mcp-toolkit/core";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 const toolNames = ["list_workers", "get_worker", "list_routes"] as const;
@@ -398,11 +397,6 @@ export async function createServer(
       ...(env.CLOUDFLARE_API_BASE_URL ? { baseUrl: env.CLOUDFLARE_API_BASE_URL } : {}),
     }),
   );
-}
-
-function isMainModule(metaUrl: string): boolean {
-  const entry = process.argv[1];
-  return typeof entry === "string" && fileURLToPath(metaUrl) === resolve(entry);
 }
 
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<void> {

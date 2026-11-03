@@ -63,6 +63,18 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Verify package tarballs
+        # Every published package must ship dist/ and a shebang on each bin
+        # (issue #18: npx cannot exec a JS bin without one on macOS/Linux).
+        run: pnpm verify:pack
+
+      - name: Verify bins launch through a .bin symlink
+        # POSIX package managers symlink `bin` entries; a server that compares
+        # process.argv[1] to import.meta.url without resolving symlinks exits
+        # silently on startup.
+        if: runner.os == 'Linux'
+        run: pnpm verify:launch
+
       - name: Typecheck
         run: pnpm typecheck
 

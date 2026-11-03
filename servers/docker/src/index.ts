@@ -1,6 +1,7 @@
 import {
   createServerCard,
   defineTool,
+  isMainModule,
   loadEnv,
   parseRuntimeOptions,
   runToolkitServer,
@@ -8,8 +9,6 @@ import {
   type ToolkitServerMetadata,
 } from "@universal-mcp-toolkit/core";
 import Docker from "dockerode";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 const toolNames = ["list_containers", "inspect_container", "list_images"] as const;
@@ -388,11 +387,6 @@ export class DockerServer extends ToolkitServer {
 export async function createServer(options: CreateDockerServerOptions = {}): Promise<DockerServer> {
   const client = options.client ?? createDockerClient(resolveEnv(options.env));
   return new DockerServer(client);
-}
-
-function isMainModule(metaUrl: string): boolean {
-  const entry = process.argv[1];
-  return typeof entry === "string" && fileURLToPath(metaUrl) === resolve(entry);
 }
 
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<void> {
