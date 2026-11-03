@@ -46,7 +46,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
     "@universal-mcp-toolkit/core": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "publishConfig": {
     "access": "public"
