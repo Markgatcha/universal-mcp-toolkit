@@ -47,7 +47,7 @@
   "dependencies": {
     "@universal-mcp-toolkit/core": "workspace:*",
     "octokit": "^5.0.5",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "publishConfig": {
     "access": "public"
