@@ -37,7 +37,7 @@ What actually happened? Include any error messages or stack traces.
 | Field | Value |
 |-------|-------|
 | OS | <!-- e.g. Ubuntu 22.04, macOS 14, Windows 11 --> |
-| Node.js version | <!-- e.g. 20.11.0 --> |
+| Node.js version | <!-- e.g. 22.12.0 --> |
 | Package version | <!-- e.g. 1.0.0 --> |
 | MCP client | <!-- e.g. Claude Desktop, Cursor, Zed --> |
 | Install method | <!-- npm / pnpm / npx --> |
