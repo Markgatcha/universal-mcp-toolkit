@@ -45,8 +45,8 @@
   ],
   "dependencies": {
     "@universal-mcp-toolkit/core": "workspace:*",
-    "playwright": "^1.63.0",
-    "zod": "4.6.6"
+    "playwright": "^1.65.0",
+    "zod": "4.6.7"
   },
   "publishConfig": {
     "access": "public"
