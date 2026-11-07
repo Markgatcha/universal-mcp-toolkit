@@ -12,8 +12,10 @@ import {
   ToolkitServer,
   type ToolkitServerMetadata,
 } from "@universal-mcp-toolkit/core";
-import { Client, isFullDatabase, isFullPage } from "@notionhq/client";
+import notionClient from "@notionhq/client";
 import { z } from "zod";
+
+const { Client, isFullDatabase, isFullPage } = notionClient;
 
 const toolNames = [
   "notion_search",
