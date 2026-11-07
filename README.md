@@ -15,6 +15,8 @@ The canonical open-source monorepo for production-ready Model Context Protocol s
 
 If you have ever wanted one place to find great MCP servers for GitHub, Slack, Notion, databases, cloud platforms, research sources, and local files without stitching together a dozen half-finished repos, this is it.
 
+> **Docs:** [context-core.dev/docs/umt](https://context-core.dev/docs/umt/) — quickstart, server catalog, CLI, config, transports, and registry discovery.
+
 ## 🔗 Part of the AI Trio
 
 `universal-mcp-toolkit` is one of three sibling projects that compose into a complete agent memory + tooling stack:
