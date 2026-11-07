@@ -13,6 +13,7 @@ import {
   type ToolkitServerMetadata,
 } from "@universal-mcp-toolkit/core";
 import notionClient from "@notionhq/client";
+import type { Client as NotionClient } from "@notionhq/client";
 import { z } from "zod";
 
 const { Client, isFullDatabase, isFullPage } = notionClient;
@@ -159,9 +160,9 @@ function wrapNotionError(action: string, error: unknown): never {
 }
 
 export class NotionMcpServer extends ToolkitServer {
-  private client: Client;
+  private client: NotionClient;
 
-  constructor(apiKey: string, client?: Client) {
+  constructor(apiKey: string, client?: NotionClient) {
     super(metadata);
     this.client = client ?? new Client({ auth: apiKey });
 
