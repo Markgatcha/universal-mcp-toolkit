@@ -86,6 +86,26 @@ The MCP ecosystem is exploding, but the developer experience is still fragmented
 - Stdio plus HTTP+SSE support across the toolkit
 - Discovery-friendly `.well-known/mcp-server.json` server cards
 
+## Tool integrity
+
+MCP tool definitions are instructions the model trusts. `umt` can now pin them
+and detect drift:
+
+```bash
+umt pin      # snapshot tool definitions, schemas, annotations, and server instructions
+umt audit    # compare against the baseline and run static poisoning checks
+umt diff     # show exactly what changed
+```
+
+The lockfile hashes the complete definition, including `inputSchema`,
+`outputSchema`, and annotations, so a flipped `readOnlyHint` or a changed schema
+is caught even when the description looks identical. `audit` exits non-zero on
+critical or high findings, which makes it usable as a CI gate.
+
+Read [Tool integrity](docs/tool-integrity.md) for the lockfile schema, finding
+IDs, and limits. This is metadata-level protection; keep using least-privilege
+credentials and approval for destructive actions.
+
 ## What makes this worth starring
 
 - **Tool discovery** — `umt tools list` finds any MCP tool across 27+ servers by name or category

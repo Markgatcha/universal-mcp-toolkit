@@ -81,6 +81,7 @@ import type {
   MrtrInputRequests,
   MrtrInputResponses,
 } from "@universal-mcp-toolkit/bridge";
+import { runAudit, runDiff, runPin } from "./tool-integrity.js";
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
@@ -2026,6 +2027,41 @@ export async function main(argv: readonly string[] = process.argv): Promise<void
     .argument("[serverId]", "Optionally scope the conformance check to one server.")
     .action(async (serverId?: string) => {
       await runConformance(serverId);
+    });
+
+  program
+    .command("pin")
+    .description("Pin MCP tool definitions and server versions to umt.lock.json.")
+    .option("-s, --server <serverIds...>", "Scope to specific server IDs.")
+    .option("--lockfile <file>", "Lockfile path.", "umt.lock.json")
+    .option("--npx", "Use the published npm package instead of local build output.")
+    .option("--force", "Replace the lockfile instead of merging into it.")
+    .option("--json", "Print machine-readable JSON.")
+    .action(async (options: { server?: string[]; lockfile: string; npx?: boolean; force?: boolean; json?: boolean }) => {
+      await runPin(options, CLI_VERSION);
+    });
+
+  program
+    .command("audit")
+    .description("Audit MCP servers against umt.lock.json and static tool-poisoning checks.")
+    .option("-s, --server <serverIds...>", "Scope to specific server IDs.")
+    .option("--lockfile <file>", "Lockfile path.", "umt.lock.json")
+    .option("--npx", "Use the published npm package instead of local build output.")
+    .option("--json", "Print machine-readable JSON.")
+    .option("--strict", "Fail on any finding, including low severity.")
+    .action(async (options: { server?: string[]; lockfile: string; npx?: boolean; json?: boolean; strict?: boolean }) => {
+      await runAudit(options, CLI_VERSION);
+    });
+
+  program
+    .command("diff")
+    .description("Show tool-definition drift between umt.lock.json and the current servers.")
+    .option("-s, --server <serverIds...>", "Scope to specific server IDs.")
+    .option("--lockfile <file>", "Lockfile path.", "umt.lock.json")
+    .option("--npx", "Use the published npm package instead of local build output.")
+    .option("--json", "Print machine-readable JSON.")
+    .action(async (options: { server?: string[]; lockfile: string; npx?: boolean; json?: boolean }) => {
+      await runDiff(options, CLI_VERSION);
     });
 
   program
